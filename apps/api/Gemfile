@@ -53,6 +53,6 @@ group :development, :test do
 end
 
 group :development do
-  gem "annotate", "~> 3.2"
-  gem "bullet", "~> 7.2"
+  gem "annotaterb", "~> 4.13"
+  gem "bullet", "~> 8.0"
 end
