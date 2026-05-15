@@ -7,7 +7,7 @@ const integrations = [
     id: 'woocommerce',
     name: 'WooCommerce',
     description:
-      'Sync products, import customer reviews, and automate review collection for your WooCommerce store.',
+      'Sincronize produtos, importe avaliações de clientes e automatize a coleta de avaliações da sua loja WooCommerce.',
     status: 'connected' as const,
     href: 'integrations/woocommerce',
     logo: (
@@ -18,15 +18,15 @@ const integrations = [
       </svg>
     ),
     stats: [
-      { label: 'Products', value: '1,248' },
-      { label: 'Reviews synced', value: '3,421' },
+      { label: 'Produtos', value: '1.248' },
+      { label: 'Avaliações sincronizadas', value: '3.421' },
     ],
   },
   {
     id: 'shopify',
     name: 'Shopify',
     description:
-      'Connect your Shopify store to collect reviews automatically after purchase.',
+      'Conecte sua loja Shopify para coletar avaliações automaticamente após a compra.',
     status: 'coming_soon' as const,
     logo: (
       <svg viewBox="0 0 24 24" width="20" height="20" fill="#96bf48">
@@ -38,7 +38,7 @@ const integrations = [
     id: 'nuvemshop',
     name: 'Nuvemshop',
     description:
-      'Integrate with Nuvemshop (Tiendanube) to collect reviews from Latin American customers.',
+      'Integre com a Nuvemshop (Tiendanube) para coletar avaliações de clientes latino-americanos.',
     status: 'coming_soon' as const,
     logo: (
       <svg viewBox="0 0 24 24" width="20" height="20" fill="#005cff">
@@ -51,7 +51,7 @@ const integrations = [
     id: 'mercadolivre',
     name: 'Mercado Livre',
     description:
-      "Import and manage reviews from Brazil's largest marketplace automatically.",
+      'Importe e gerencie automaticamente avaliações do maior marketplace do Brasil.',
     status: 'coming_soon' as const,
     logo: (
       <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffe600">
@@ -64,7 +64,7 @@ const integrations = [
     id: 'zapier',
     name: 'Zapier',
     description:
-      'Connect UniverReviews to 5000+ apps via Zapier for custom automation workflows.',
+      'Conecte o UniverReviews a mais de 5.000 apps via Zapier para fluxos de automação personalizados.',
     status: 'coming_soon' as const,
     logo: (
       <svg viewBox="0 0 24 24" width="20" height="20" fill="#ff4a00">
@@ -76,7 +76,7 @@ const integrations = [
     id: 'webhooks',
     name: 'Webhooks',
     description:
-      'Send real-time events to your own endpoints when reviews are created or updated.',
+      'Envie eventos em tempo real para seus próprios endpoints quando avaliações forem criadas ou atualizadas.',
     status: 'not_connected' as const,
     href: 'integrations/webhooks',
     logo: (
@@ -93,15 +93,15 @@ export default function IntegrationsPage() {
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Plug className="w-5 h-5" />}
-        title="Integrations"
-        subtitle="Connect your store and automate review collection"
+        title="Integrações"
+        subtitle="Conecte sua loja e automatize a coleta de avaliações"
       />
 
       <div className="flex-1 overflow-y-auto p-5">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6">
             <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#5a5a64' }}>
-              Available integrations
+              Integrações disponíveis
             </h2>
           </div>
 
@@ -132,17 +132,17 @@ export default function IntegrationsPage() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
-                  Request an integration
+                  Solicitar uma integração
                 </h3>
                 <p className="text-xs mt-1 leading-relaxed" style={{ color: '#8b8b96' }}>
-                  Don&apos;t see your platform? We ship integrations fast. Reach out and
-                  we&apos;ll prioritize based on demand.
+                  Não encontrou sua plataforma? Lançamos integrações rápido. Entre em
+                  contato e vamos priorizar conforme a demanda.
                 </p>
                 <button
                   className="mt-3 text-xs font-medium transition-colors"
                   style={{ color: '#d4a850' }}
                 >
-                  Request integration →
+                  Solicitar integração →
                 </button>
               </div>
             </div>

@@ -3,18 +3,18 @@ import { PageHeader } from '@/components/godmode/PageHeader'
 
 export default function BillingPage() {
   const plans = [
-    { name: 'Free', price: '$0', reviews: '500', users: '1', features: ['Widget', 'Basic moderation'] },
-    { name: 'Starter', price: '$29', reviews: '5,000', users: '3', features: ['Widget', 'AI moderation', 'Campaigns'] },
-    { name: 'Pro', price: '$99', reviews: '50,000', users: '10', features: ['Everything in Starter', 'AI Lab', 'Custom branding', 'API access'] },
-    { name: 'Enterprise', price: 'Custom', reviews: 'Unlimited', users: 'Unlimited', features: ['Everything in Pro', 'SLA', 'Dedicated support', 'SSO'] },
+    { name: 'Free', price: 'R$0', reviews: '500', users: '1', features: ['Widget', 'Moderação básica'] },
+    { name: 'Starter', price: 'R$29', reviews: '5.000', users: '3', features: ['Widget', 'Moderação por IA', 'Campanhas'] },
+    { name: 'Pro', price: 'R$99', reviews: '50.000', users: '10', features: ['Tudo do Starter', 'Lab de IA', 'Marca personalizada', 'Acesso à API'] },
+    { name: 'Enterprise', price: 'Sob consulta', reviews: 'Ilimitado', users: 'Ilimitado', features: ['Tudo do Pro', 'SLA', 'Suporte dedicado', 'SSO'] },
   ]
 
   return (
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<CreditCard className="w-5 h-5" />}
-        title="Billing"
-        subtitle="Manage your subscription and usage"
+        title="Faturamento"
+        subtitle="Gerencie sua assinatura e uso"
       />
 
       <div className="flex-1 overflow-y-auto p-5">
@@ -27,23 +27,23 @@ export default function BillingPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: '#d4a850' }}>
-                  Current plan
+                  Plano atual
                 </p>
                 <h3 className="text-xl font-bold" style={{ color: '#f0f0f2' }}>Free</h3>
                 <p className="text-sm mt-1" style={{ color: '#8b8b96' }}>
-                  500 reviews/month · 1 user
+                  500 avaliações/mês · 1 usuário
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold" style={{ color: '#f0f0f2' }}>$0</p>
-                <p className="text-xs" style={{ color: '#5a5a64' }}>per month</p>
+                <p className="text-2xl font-bold" style={{ color: '#f0f0f2' }}>R$0</p>
+                <p className="text-xs" style={{ color: '#5a5a64' }}>por mês</p>
               </div>
             </div>
           </div>
 
           {/* Plans */}
           <h2 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
-            Upgrade your plan
+            Faça upgrade do seu plano
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {plans.map((plan, i) => (
@@ -60,7 +60,7 @@ export default function BillingPage() {
                     className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-medium px-3 py-1 rounded-full"
                     style={{ background: '#d4a850', color: '#0a0a0b' }}
                   >
-                    Popular
+                    Mais popular
                   </div>
                 )}
                 <h3 className="text-sm font-semibold mb-1" style={{ color: '#f0f0f2' }}>
@@ -68,9 +68,9 @@ export default function BillingPage() {
                 </h3>
                 <p className="text-xl font-bold mb-4" style={{ color: i === 2 ? '#d4a850' : '#f0f0f2' }}>
                   {plan.price}
-                  {plan.price !== 'Custom' && (
+                  {plan.price !== 'Sob consulta' && (
                     <span className="text-xs font-normal ml-1" style={{ color: '#5a5a64' }}>
-                      /mo
+                      /mês
                     </span>
                   )}
                 </p>
@@ -91,7 +91,7 @@ export default function BillingPage() {
                     border: i === 2 ? 'none' : '1px solid #2a2a2d',
                   }}
                 >
-                  {i === 0 ? 'Current plan' : `Upgrade to ${plan.name}`}
+                  {i === 0 ? 'Plano atual' : `Fazer upgrade para ${plan.name}`}
                 </button>
               </div>
             ))}

@@ -18,6 +18,7 @@ import {
   Shield,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/godmode/PageHeader'
@@ -53,18 +54,18 @@ export default function ReviewDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['review', id] })
       queryClient.invalidateQueries({ queryKey: ['reviews'] })
-      toast.success('Status updated')
+      toast.success('Status atualizado')
     },
-    onError: () => toast.error('Failed to update status'),
+    onError: () => toast.error('Falha ao atualizar status'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: () => api.reviews.delete(id, getToken()),
     onSuccess: () => {
-      toast.success('Review deleted')
+      toast.success('Avaliação excluída')
       router.push(`/${workspace}/reviews`)
     },
-    onError: () => toast.error('Failed to delete review'),
+    onError: () => toast.error('Falha ao excluir avaliação'),
   })
 
   const handleGenerateReply = async () => {
@@ -72,9 +73,9 @@ export default function ReviewDetailPage() {
     try {
       const result = await api.ai.autoReply(id, replyTone, getToken())
       setReplyText(result.reply)
-      toast.success('Reply generated')
+      toast.success('Resposta gerada')
     } catch {
-      toast.error('Failed to generate reply')
+      toast.error('Falha ao gerar resposta')
     } finally {
       setGeneratingReply(false)
     }
@@ -91,7 +92,7 @@ export default function ReviewDetailPage() {
   if (!review) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p style={{ color: '#5a5a64' }}>Review not found</p>
+        <p style={{ color: '#5a5a64' }}>Avaliação não encontrada</p>
       </div>
     )
   }
@@ -100,10 +101,10 @@ export default function ReviewDetailPage() {
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Star className="w-5 h-5" />}
-        title="Review Detail"
-        subtitle={`By ${review.author_name}`}
+        title="Detalhes da avaliação"
+        subtitle={`Por ${review.author_name}`}
         breadcrumbs={[
-          { label: 'Reviews', href: `/${workspace}/reviews` },
+          { label: 'Avaliações', href: `/${workspace}/reviews` },
           { label: review.author_name },
         ]}
         actions={
@@ -118,7 +119,7 @@ export default function ReviewDetailPage() {
               }}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              Back
+              Voltar
             </Link>
 
             {review.status !== 'approved' && (
@@ -133,7 +134,7 @@ export default function ReviewDetailPage() {
                 }}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Approve
+                Aprovar
               </button>
             )}
             {review.status !== 'rejected' && (
@@ -148,12 +149,12 @@ export default function ReviewDetailPage() {
                 }}
               >
                 <XCircle className="w-3.5 h-3.5" />
-                Reject
+                Rejeitar
               </button>
             )}
             <button
               onClick={() => {
-                if (confirm('Delete this review permanently?')) {
+                if (confirm('Excluir esta avaliação permanentemente?')) {
                   deleteMutation.mutate()
                 }
               }}
@@ -166,7 +167,7 @@ export default function ReviewDetailPage() {
               }}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Delete
+              Excluir
             </button>
           </div>
         }
@@ -206,7 +207,7 @@ export default function ReviewDetailPage() {
                         }}
                       >
                         <Shield className="w-3 h-3" />
-                        Verified
+                        Verificado
                       </span>
                     )}
                   </div>
@@ -220,7 +221,7 @@ export default function ReviewDetailPage() {
               {/* Meta */}
               <div className="flex flex-wrap gap-4 mb-5 pb-5" style={{ borderBottom: '1px solid #1a1a1d' }}>
                 {[
-                  { icon: Calendar, label: format(new Date(review.created_at), 'MMM d, yyyy') },
+                  { icon: Calendar, label: format(new Date(review.created_at), "d 'de' MMM, yyyy", { locale: ptBR }) },
                   { icon: Globe, label: review.source },
                   ...(review.product_name ? [{ icon: ShoppingBag, label: review.product_name }] : []),
                 ].map(({ icon: Icon, label }) => (
@@ -245,7 +246,7 @@ export default function ReviewDetailPage() {
               {review.media.length > 0 && (
                 <div className="mt-5">
                   <p className="text-xs font-medium mb-2" style={{ color: '#5a5a64' }}>
-                    Media ({review.media.length})
+                    Mídias ({review.media.length})
                   </p>
                   <div className="flex gap-2 flex-wrap">
                     {review.media.map((m) => (
@@ -282,7 +283,7 @@ export default function ReviewDetailPage() {
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4" style={{ color: '#d4a850' }} />
                   <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
-                    Reply
+                    Resposta
                   </h3>
                 </div>
 
@@ -297,9 +298,14 @@ export default function ReviewDetailPage() {
                       color: '#8b8b96',
                     }}
                   >
-                    {['professional', 'friendly', 'empathetic', 'formal'].map((t) => (
-                      <option key={t} value={t}>
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                    {[
+                      { value: 'professional', label: 'Profissional' },
+                      { value: 'friendly', label: 'Amigável' },
+                      { value: 'empathetic', label: 'Empático' },
+                      { value: 'formal', label: 'Formal' },
+                    ].map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
                       </option>
                     ))}
                   </select>
@@ -318,7 +324,7 @@ export default function ReviewDetailPage() {
                     ) : (
                       <Sparkles className="w-3.5 h-3.5" />
                     )}
-                    AI Generate
+                    Gerar com IA
                   </button>
                 </div>
               </div>
@@ -345,11 +351,11 @@ export default function ReviewDetailPage() {
                                 color: '#d4a850',
                               }}
                             >
-                              <Sparkles className="w-2.5 h-2.5" /> AI
+                              <Sparkles className="w-2.5 h-2.5" /> IA
                             </span>
                           )}
                           <span className="ml-auto text-xs" style={{ color: '#5a5a64' }}>
-                            {format(new Date(reply.created_at), 'MMM d')}
+                            {format(new Date(reply.created_at), "d 'de' MMM", { locale: ptBR })}
                           </span>
                         </div>
                         <p className="text-sm leading-relaxed" style={{ color: '#8b8b96' }}>
@@ -363,7 +369,7 @@ export default function ReviewDetailPage() {
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Write a reply…"
+                  placeholder="Escreva uma resposta…"
                   rows={4}
                   className="w-full px-4 py-3 rounded-lg text-sm resize-none outline-none transition-all"
                   style={{
@@ -381,14 +387,14 @@ export default function ReviewDetailPage() {
                 <div className="flex justify-end mt-3">
                   <button
                     disabled={!replyText.trim()}
-                    onClick={() => toast.success('Reply posted')}
+                    onClick={() => toast.success('Resposta publicada')}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-40"
                     style={{
                       background: 'linear-gradient(135deg, #d4a850, #c49040)',
                       color: '#0a0a0b',
                     }}
                   >
-                    Post reply
+                    Publicar resposta
                   </button>
                 </div>
               </div>
@@ -403,13 +409,13 @@ export default function ReviewDetailPage() {
               style={{ background: '#111113', border: '1px solid #1e1e21' }}
             >
               <h3 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
-                Audit trail
+                Histórico de auditoria
               </h3>
               <div className="space-y-3">
                 {[
-                  { event: 'Review created', time: review.created_at, actor: 'System' },
+                  { event: 'Avaliação criada', time: review.created_at, actor: 'Sistema' },
                   ...(review.published_at
-                    ? [{ event: 'Published', time: review.published_at, actor: 'System' }]
+                    ? [{ event: 'Publicada', time: review.published_at, actor: 'Sistema' }]
                     : []),
                 ].map((entry, i) => (
                   <div key={i} className="flex items-center gap-3 text-xs">
@@ -418,9 +424,9 @@ export default function ReviewDetailPage() {
                       style={{ background: '#d4a850' }}
                     />
                     <span style={{ color: '#8b8b96' }}>{entry.event}</span>
-                    <span style={{ color: '#5a5a64' }}>by {entry.actor}</span>
+                    <span style={{ color: '#5a5a64' }}>por {entry.actor}</span>
                     <span className="ml-auto tabular-nums" style={{ color: '#5a5a64' }}>
-                      {format(new Date(entry.time), 'MMM d, HH:mm')}
+                      {format(new Date(entry.time), "d 'de' MMM, HH:mm", { locale: ptBR })}
                     </span>
                   </div>
                 ))}
@@ -441,7 +447,7 @@ export default function ReviewDetailPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Sparkles className="w-4 h-4" style={{ color: '#d4a850' }} />
                   <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
-                    AI Analysis
+                    Análise por IA
                   </h3>
                 </div>
 
@@ -454,7 +460,7 @@ export default function ReviewDetailPage() {
 
                 <div className="space-y-3">
                   <div className="flex justify-between text-xs">
-                    <span style={{ color: '#5a5a64' }}>Sentiment</span>
+                    <span style={{ color: '#5a5a64' }}>Sentimento</span>
                     <span
                       className="capitalize font-medium"
                       style={{
@@ -472,7 +478,7 @@ export default function ReviewDetailPage() {
 
                   {review.ai_analysis.is_synthetic && (
                     <div className="flex justify-between text-xs">
-                      <span style={{ color: '#5a5a64' }}>Synthetic probability</span>
+                      <span style={{ color: '#5a5a64' }}>Probabilidade de ser sintético</span>
                       <span className="font-medium" style={{ color: '#ef4444' }}>
                         {Math.round(review.ai_analysis.synthetic_confidence * 100)}%
                       </span>
@@ -482,7 +488,7 @@ export default function ReviewDetailPage() {
                   {review.ai_analysis.moderation_flags.length > 0 && (
                     <div>
                       <p className="text-xs mb-1.5" style={{ color: '#5a5a64' }}>
-                        Flags
+                        Sinalizações
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {review.ai_analysis.moderation_flags.map((f) => (
@@ -505,7 +511,7 @@ export default function ReviewDetailPage() {
                   {review.ai_analysis.topics.length > 0 && (
                     <div>
                       <p className="text-xs mb-1.5" style={{ color: '#5a5a64' }}>
-                        Topics
+                        Tópicos
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {review.ai_analysis.topics.map((t) => (
@@ -537,19 +543,19 @@ export default function ReviewDetailPage() {
               style={{ background: '#111113', border: '1px solid #1e1e21' }}
             >
               <h3 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
-                Details
+                Detalhes
               </h3>
 
               <div className="space-y-3">
                 {[
-                  { label: 'Review ID', value: review.id.slice(0, 8) + '…' },
-                  { label: 'Source', value: review.source },
+                  { label: 'ID da avaliação', value: review.id.slice(0, 8) + '…' },
+                  { label: 'Origem', value: review.source },
                   {
-                    label: 'Created',
-                    value: format(new Date(review.created_at), 'MMM d, yyyy HH:mm'),
+                    label: 'Criada em',
+                    value: format(new Date(review.created_at), "d 'de' MMM, yyyy HH:mm", { locale: ptBR }),
                   },
-                  { label: 'Helpful votes', value: String(review.helpful_count) },
-                  { label: 'Media attachments', value: String(review.media.length) },
+                  { label: 'Votos úteis', value: String(review.helpful_count) },
+                  { label: 'Anexos de mídia', value: String(review.media.length) },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-xs">
                     <span style={{ color: '#5a5a64' }}>{label}</span>

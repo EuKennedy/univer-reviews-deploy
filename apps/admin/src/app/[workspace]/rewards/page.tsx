@@ -6,8 +6,8 @@ export default function RewardsPage() {
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Gift className="w-5 h-5" />}
-        title="Rewards"
-        subtitle="Incentivize customers to leave reviews"
+        title="Recompensas"
+        subtitle="Incentive clientes a deixar avaliações"
       />
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
@@ -21,10 +21,10 @@ export default function RewardsPage() {
             <Gift className="w-8 h-8" style={{ color: '#d4a850' }} />
           </div>
           <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
-            Rewards — Coming soon
+            Recompensas — Em breve
           </p>
           <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
-            Discount codes, cashback, and loyalty points for reviewers
+            Cupons de desconto, cashback e pontos de fidelidade para quem avalia
           </p>
         </div>
       </div>

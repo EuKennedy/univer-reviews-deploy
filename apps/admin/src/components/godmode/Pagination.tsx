@@ -28,7 +28,7 @@ export function Pagination({
       style={{ borderTop: '1px solid #1e1e21' }}
     >
       <span className="text-xs" style={{ color: '#5a5a64' }}>
-        Showing {start}–{end} of {totalCount} results
+        Exibindo {start}–{end} de {totalCount} resultados
       </span>
 
       <div className="flex items-center gap-1">

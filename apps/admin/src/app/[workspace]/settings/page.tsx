@@ -21,6 +21,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
@@ -29,11 +30,11 @@ import type { Workspace, ApiKey, UserRole } from '@/types'
 type Tab = 'general' | 'branding' | 'team' | 'api-keys' | 'domains'
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: 'general', label: 'General', icon: Settings },
-  { id: 'branding', label: 'Branding', icon: Palette },
-  { id: 'team', label: 'Team', icon: Users },
-  { id: 'api-keys', label: 'API Keys', icon: Key },
-  { id: 'domains', label: 'Domains', icon: Globe },
+  { id: 'general', label: 'Geral', icon: Settings },
+  { id: 'branding', label: 'Marca', icon: Palette },
+  { id: 'team', label: 'Time', icon: Users },
+  { id: 'api-keys', label: 'Chaves de API', icon: Key },
+  { id: 'domains', label: 'Domínios', icon: Globe },
 ]
 
 const inputClass = 'w-full px-4 py-2.5 rounded-lg text-sm outline-none transition-all'
@@ -66,18 +67,18 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
     mutationFn: (data: Partial<Workspace>) => api.workspace.update(data, getToken()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workspace'] })
-      toast.success('Settings saved')
+      toast.success('Configurações salvas')
     },
-    onError: () => toast.error('Failed to save'),
+    onError: () => toast.error('Falha ao salvar'),
   })
 
   return (
     <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="max-w-lg space-y-4">
       {[
-        { label: 'Workspace name', key: 'name', placeholder: 'My Store' },
-        { label: 'Slug', key: 'slug', placeholder: 'my-store' },
-        { label: 'Default locale', key: 'default_locale', placeholder: 'en-US' },
-        { label: 'Currency', key: 'currency', placeholder: 'USD' },
+        { label: 'Nome do workspace', key: 'name', placeholder: 'Minha Loja' },
+        { label: 'Slug', key: 'slug', placeholder: 'minha-loja' },
+        { label: 'Idioma padrão', key: 'default_locale', placeholder: 'pt-BR' },
+        { label: 'Moeda', key: 'currency', placeholder: 'BRL' },
       ].map(({ label, key, placeholder }) => (
         <div key={key}>
           <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
@@ -101,7 +102,7 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
         style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
       >
         {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-        Save changes
+        Salvar alterações
       </button>
     </form>
   )
@@ -118,9 +119,9 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
     mutationFn: (data: Partial<Workspace>) => api.workspace.update(data, getToken()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workspace'] })
-      toast.success('Branding saved')
+      toast.success('Marca salva')
     },
-    onError: () => toast.error('Failed to save'),
+    onError: () => toast.error('Falha ao salvar'),
   })
 
   const icons = [
@@ -135,7 +136,7 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
     <div className="max-w-lg space-y-6">
       <div>
         <label className="block text-xs font-medium mb-2" style={{ color: '#5a5a64' }}>
-          Brand color
+          Cor da marca
         </label>
         <div className="flex items-center gap-3">
           <input
@@ -163,7 +164,7 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
 
       <div>
         <label className="block text-xs font-medium mb-2" style={{ color: '#5a5a64' }}>
-          Rating icon
+          Ícone da nota
         </label>
         <div className="flex gap-2">
           {icons.map((icon) => (
@@ -184,16 +185,16 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
 
       <div>
         <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-          Brand voice
+          Tom de marca
         </label>
         <p className="text-xs mb-2" style={{ color: '#3a3a3e' }}>
-          Describe your brand&apos;s tone of voice for AI-generated replies.
+          Descreva o tom de voz da sua marca para respostas geradas por IA.
         </p>
         <textarea
           value={brandVoice}
           onChange={(e) => setBrandVoice(e.target.value)}
           rows={4}
-          placeholder="We are a friendly, professional brand that values honesty…"
+          placeholder="Somos uma marca amigável e profissional que valoriza a honestidade…"
           className={inputClass + ' resize-none'}
           style={inputStyle}
           onFocus={inputFocus}
@@ -217,7 +218,7 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
         style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
       >
         {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-        Save branding
+        Salvar marca
       </button>
     </div>
   )
@@ -232,16 +233,16 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
     mutationFn: ({ email, role }: { email: string; role: string }) =>
       api.workspace.inviteUser(email, role, getToken()),
     onSuccess: () => {
-      toast.success('Invitation sent')
+      toast.success('Convite enviado')
       setInviteEmail('')
     },
-    onError: () => toast.error('Failed to invite'),
+    onError: () => toast.error('Falha ao convidar'),
   })
 
   const removeMutation = useMutation({
     mutationFn: (userId: string) => api.workspace.removeUser(userId, getToken()),
-    onSuccess: () => toast.success('User removed'),
-    onError: () => toast.error('Failed to remove user'),
+    onSuccess: () => toast.success('Usuário removido'),
+    onError: () => toast.error('Falha ao remover usuário'),
   })
 
   const roleColors: Record<UserRole, string> = {
@@ -263,7 +264,7 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
           style={{ background: '#0d0d0f', borderBottom: '1px solid #1a1a1d' }}
         >
           <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#5a5a64' }}>
-            Members ({workspace.users?.length ?? 0})
+            Membros ({workspace.users?.length ?? 0})
           </h3>
         </div>
         <div className="divide-y" style={{ borderColor: '#1a1a1d' }}>
@@ -288,13 +289,13 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
                 </p>
               </div>
               <span
-                className="text-xs font-medium px-2 py-0.5 rounded-full capitalize"
+                className="text-xs font-medium px-2 py-0.5 rounded-full"
                 style={{
                   background: `${roleColors[user.role]}15`,
                   color: roleColors[user.role],
                 }}
               >
-                {user.role}
+                {({ owner: 'Proprietário', admin: 'Admin', moderator: 'Moderador', viewer: 'Visualizador' } as Record<UserRole, string>)[user.role]}
               </span>
               {user.role !== 'owner' && (
                 <button
@@ -318,13 +319,13 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
         style={{ background: '#111113', border: '1px solid #1e1e21' }}
       >
         <h3 className="text-sm font-semibold mb-3" style={{ color: '#f0f0f2' }}>
-          Invite team member
+          Convidar membro do time
         </h3>
         <div className="flex gap-2 mb-2">
           <input
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="colleague@company.com"
+            placeholder="colega@empresa.com"
             className={inputClass}
             style={{ ...inputStyle, flex: 1 }}
             onFocus={inputFocus}
@@ -336,8 +337,12 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
             className="px-3 py-2.5 rounded-lg text-sm outline-none"
             style={inputStyle}
           >
-            {(['admin', 'moderator', 'viewer'] as UserRole[]).map((r) => (
-              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+            {([
+              { value: 'admin' as UserRole, label: 'Admin' },
+              { value: 'moderator' as UserRole, label: 'Moderador' },
+              { value: 'viewer' as UserRole, label: 'Visualizador' },
+            ]).map((r) => (
+              <option key={r.value} value={r.value}>{r.label}</option>
             ))}
           </select>
         </div>
@@ -348,7 +353,7 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
           style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
         >
           <Plus className="w-3.5 h-3.5" />
-          Send invite
+          Enviar convite
         </button>
       </div>
     </div>
@@ -372,18 +377,18 @@ function ApiKeysTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-keys'] })
       setNewKeyName('')
-      toast.success('API key created')
+      toast.success('Chave de API criada')
     },
-    onError: () => toast.error('Failed to create API key'),
+    onError: () => toast.error('Falha ao criar chave de API'),
   })
 
   const revokeMutation = useMutation({
     mutationFn: (keyId: string) => api.workspace.revokeApiKey(keyId, getToken()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-keys'] })
-      toast.success('API key revoked')
+      toast.success('Chave de API revogada')
     },
-    onError: () => toast.error('Failed to revoke key'),
+    onError: () => toast.error('Falha ao revogar chave'),
   })
 
   return (
@@ -394,13 +399,13 @@ function ApiKeysTab() {
         style={{ background: '#111113', border: '1px solid #1e1e21' }}
       >
         <h3 className="text-sm font-semibold mb-3" style={{ color: '#f0f0f2' }}>
-          Create API key
+          Criar chave de API
         </h3>
         <div className="flex gap-2">
           <input
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Key name (e.g. Production)"
+            placeholder="Nome da chave (ex.: Produção)"
             className={inputClass}
             style={{ ...inputStyle, flex: 1 }}
             onFocus={inputFocus}
@@ -413,7 +418,7 @@ function ApiKeysTab() {
             style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
           >
             <Plus className="w-3.5 h-3.5" />
-            Create
+            Criar
           </button>
         </div>
       </div>
@@ -428,7 +433,7 @@ function ApiKeysTab() {
           style={{ background: '#0d0d0f', borderBottom: '1px solid #1a1a1d' }}
         >
           <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#5a5a64' }}>
-            Active keys
+            Chaves ativas
           </h3>
         </div>
 
@@ -440,7 +445,7 @@ function ApiKeysTab() {
           </div>
         ) : !apiKeys?.length ? (
           <div className="py-8 text-center">
-            <p className="text-sm" style={{ color: '#5a5a64' }}>No API keys yet</p>
+            <p className="text-sm" style={{ color: '#5a5a64' }}>Ainda não há chaves de API</p>
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: '#1a1a1d' }}>
@@ -460,7 +465,7 @@ function ApiKeysTab() {
                       {key.prefix}••••••••
                     </code>
                     <span className="text-xs" style={{ color: '#5a5a64' }}>
-                      Created {format(new Date(key.created_at), 'MMM d, yyyy')}
+                      Criada em {format(new Date(key.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
                     </span>
                   </div>
                 </div>
@@ -481,7 +486,7 @@ function ApiKeysTab() {
                 </button>
                 <button
                   onClick={() => {
-                    if (confirm('Revoke this API key?')) revokeMutation.mutate(key.id)
+                    if (confirm('Revogar esta chave de API?')) revokeMutation.mutate(key.id)
                   }}
                   className="p-1.5 rounded transition-colors"
                   style={{ color: '#5a5a64' }}
@@ -509,18 +514,18 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workspace'] })
       setNewDomain('')
-      toast.success('Domain added')
+      toast.success('Domínio adicionado')
     },
-    onError: () => toast.error('Failed to add domain'),
+    onError: () => toast.error('Falha ao adicionar domínio'),
   })
 
   const removeMutation = useMutation({
     mutationFn: (domain: string) => api.workspace.removeDomain(domain, getToken()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workspace'] })
-      toast.success('Domain removed')
+      toast.success('Domínio removido')
     },
-    onError: () => toast.error('Failed to remove domain'),
+    onError: () => toast.error('Falha ao remover domínio'),
   })
 
   return (
@@ -530,16 +535,16 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
         style={{ background: '#111113', border: '1px solid #1e1e21' }}
       >
         <h3 className="text-sm font-semibold mb-1" style={{ color: '#f0f0f2' }}>
-          Authorized domains
+          Domínios autorizados
         </h3>
         <p className="text-xs mb-4" style={{ color: '#5a5a64' }}>
-          Domains where the review widget is allowed to be embedded.
+          Domínios em que o widget de avaliações pode ser incorporado.
         </p>
         <div className="flex gap-2">
           <input
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
-            placeholder="https://yourstore.com"
+            placeholder="https://sualoja.com"
             className={inputClass}
             style={{ ...inputStyle, flex: 1 }}
             onFocus={inputFocus}
@@ -552,7 +557,7 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
             style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
           >
             <Plus className="w-3.5 h-3.5" />
-            Add
+            Adicionar
           </button>
         </div>
       </div>
@@ -576,7 +581,7 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
                 border: '1px solid rgba(34,197,94,0.2)',
               }}
             >
-              Active
+              Ativo
             </span>
             <button
               onClick={() => removeMutation.mutate(domain)}
@@ -593,7 +598,7 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
         {(!workspace.domains || workspace.domains.length === 0) && (
           <div className="py-8 text-center">
             <p className="text-sm" style={{ color: '#5a5a64' }}>
-              No domains added yet
+              Nenhum domínio adicionado ainda
             </p>
           </div>
         )}
@@ -633,8 +638,8 @@ export default function SettingsPage() {
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Settings className="w-5 h-5" />}
-        title="Settings"
-        subtitle="Manage your workspace configuration"
+        title="Configurações"
+        subtitle="Gerencie a configuração do seu workspace"
       />
 
       <div

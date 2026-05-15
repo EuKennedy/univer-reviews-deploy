@@ -1,4 +1,5 @@
 import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { CheckCircle2, ExternalLink } from 'lucide-react'
 import type { Review } from '@/types'
 import { StatusBadge } from './StatusBadge'
@@ -14,8 +15,8 @@ const sourceLabel: Record<string, string> = {
   widget: 'Widget',
   woocommerce: 'WooCommerce',
   api: 'API',
-  import: 'Import',
-  ai_generated: 'AI',
+  import: 'Importação',
+  ai_generated: 'IA',
 }
 
 export function ReviewCard({ review, onClick }: ReviewCardProps) {
@@ -69,7 +70,7 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
             <div className="flex items-center gap-2 mt-0.5">
               <RatingStars rating={review.rating} size="xs" />
               <span className="text-xs" style={{ color: '#5a5a64' }}>
-                {format(new Date(review.created_at), 'MMM d, yyyy')}
+                {format(new Date(review.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
               </span>
             </div>
           </div>
@@ -110,17 +111,17 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
         <div className="flex items-center gap-3">
           {review.media.length > 0 && (
             <span className="text-xs" style={{ color: '#5a5a64' }}>
-              {review.media.length} media
+              {review.media.length} {review.media.length === 1 ? 'mídia' : 'mídias'}
             </span>
           )}
           {review.replies.length > 0 && (
             <span className="text-xs" style={{ color: '#5a5a64' }}>
-              {review.replies.length} {review.replies.length === 1 ? 'reply' : 'replies'}
+              {review.replies.length} {review.replies.length === 1 ? 'resposta' : 'respostas'}
             </span>
           )}
           {review.helpful_count > 0 && (
             <span className="text-xs" style={{ color: '#5a5a64' }}>
-              {review.helpful_count} helpful
+              {review.helpful_count} {review.helpful_count === 1 ? 'útil' : 'úteis'}
             </span>
           )}
         </div>

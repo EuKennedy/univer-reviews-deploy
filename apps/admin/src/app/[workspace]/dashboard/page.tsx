@@ -24,6 +24,7 @@ import {
   Cell,
 } from 'recharts'
 import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { StatsBar } from '@/components/godmode/StatsBar'
@@ -48,7 +49,7 @@ function CustomTooltip({ active, payload, label }: {
     >
       <p style={{ color: '#8b8b96' }}>{label}</p>
       <p style={{ color: '#d4a850' }} className="font-semibold">
-        {payload[0].value} reviews
+        {payload[0].value} avaliações
       </p>
     </div>
   )
@@ -75,26 +76,26 @@ export default function DashboardPage() {
 
   const statItems = [
     {
-      label: 'Total Reviews',
+      label: 'Total de avaliações',
       value: formatNumber(stats?.total_reviews ?? 0),
       delta: stats?.total_reviews_delta,
       icon: <Star className="w-4 h-4" />,
     },
     {
-      label: 'Avg Rating',
+      label: 'Nota média',
       value: stats?.avg_rating?.toFixed(2) ?? '—',
       delta: stats?.avg_rating_delta,
       icon: <Star className="w-4 h-4" />,
       suffix: '/ 5',
     },
     {
-      label: 'Pending Moderation',
+      label: 'Aguardando moderação',
       value: formatNumber(stats?.pending_moderation ?? 0),
       delta: stats?.pending_moderation_delta,
       icon: <Clock className="w-4 h-4" />,
     },
     {
-      label: 'This Month',
+      label: 'Este mês',
       value: formatNumber(stats?.reviews_this_month ?? 0),
       delta: stats?.reviews_this_month_delta,
       icon: <Calendar className="w-4 h-4" />,
@@ -108,11 +109,11 @@ export default function DashboardPage() {
       <PageHeader
         icon={<LayoutDashboard className="w-5 h-5" />}
         title="Dashboard"
-        subtitle="Overview of your review platform"
+        subtitle="Visão geral da sua plataforma de avaliações"
         actions={
           <div className="flex items-center gap-2">
             <button
-              onClick={() => toast.info('Running moderation…')}
+              onClick={() => toast.info('Executando moderação…')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
               style={{
                 background: 'rgba(212,168,80,0.1)',
@@ -121,10 +122,10 @@ export default function DashboardPage() {
               }}
             >
               <Zap className="w-3.5 h-3.5" />
-              Moderate pending
+              Moderar pendentes
             </button>
             <button
-              onClick={() => toast.info('Running duplicate cleanup…')}
+              onClick={() => toast.info('Executando limpeza de duplicatas…')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
               style={{
                 background: '#0a0a0b',
@@ -133,7 +134,7 @@ export default function DashboardPage() {
               }}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Run cleanup
+              Executar limpeza
             </button>
           </div>
         }
@@ -150,10 +151,10 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-5">
             <div>
               <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
-                Reviews over time
+                Avaliações ao longo do tempo
               </h3>
               <p className="text-xs mt-0.5" style={{ color: '#5a5a64' }}>
-                Last 30 days
+                Últimos 30 dias
               </p>
             </div>
           </div>
@@ -169,7 +170,7 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1d" />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={(v) => format(new Date(v), 'MMM d')}
+                  tickFormatter={(v) => format(new Date(v), "d 'de' MMM", { locale: ptBR })}
                   tick={{ fill: '#5a5a64', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
@@ -199,7 +200,7 @@ export default function DashboardPage() {
           style={{ background: '#111113', border: '1px solid #1e1e21' }}
         >
           <h3 className="text-sm font-semibold mb-5" style={{ color: '#f0f0f2' }}>
-            Rating distribution
+            Distribuição de notas
           </h3>
 
           {isLoading ? (
@@ -293,14 +294,14 @@ export default function DashboardPage() {
             style={{ borderBottom: '1px solid #1a1a1d' }}
           >
             <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
-              Recent reviews
+              Avaliações recentes
             </h3>
             <Link
               href={`/${workspace}/reviews`}
               className="flex items-center gap-1 text-xs transition-colors"
               style={{ color: '#5a5a64' }}
             >
-              View all <ArrowRight className="w-3 h-3" />
+              Ver todas <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
@@ -367,34 +368,34 @@ export default function DashboardPage() {
           style={{ background: '#111113', border: '1px solid #1e1e21' }}
         >
           <h3 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
-            Quick actions
+            Ações rápidas
           </h3>
 
           <div className="space-y-2">
             {[
               {
-                label: 'Moderate all pending',
-                desc: 'Run AI moderation on pending reviews',
+                label: 'Moderar todas as pendentes',
+                desc: 'Executar moderação por IA em avaliações pendentes',
                 icon: '⚡',
-                action: () => toast.info('Moderating…'),
+                action: () => toast.info('Moderando…'),
               },
               {
-                label: 'Run dedup cleanup',
-                desc: 'Find and remove duplicate reviews',
+                label: 'Limpar duplicatas',
+                desc: 'Encontrar e remover avaliações duplicadas',
                 icon: '🧹',
-                action: () => toast.info('Running cleanup…'),
+                action: () => toast.info('Executando limpeza…'),
               },
               {
-                label: 'Export reviews',
-                desc: 'Download CSV of all reviews',
+                label: 'Exportar avaliações',
+                desc: 'Baixar CSV com todas as avaliações',
                 icon: '📥',
-                action: () => toast.info('Preparing export…'),
+                action: () => toast.info('Preparando exportação…'),
               },
               {
-                label: 'Sync WooCommerce',
-                desc: 'Pull latest products and reviews',
+                label: 'Sincronizar WooCommerce',
+                desc: 'Importar últimos produtos e avaliações',
                 icon: '🔄',
-                action: () => toast.info('Syncing…'),
+                action: () => toast.info('Sincronizando…'),
               },
             ].map((qa) => (
               <button

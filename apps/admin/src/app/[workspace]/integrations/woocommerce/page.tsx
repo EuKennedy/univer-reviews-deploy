@@ -16,12 +16,13 @@ import {
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import type { WooCommerceConfig } from '@/types'
 
-const STEPS = ['Store URL', 'API Keys', 'Test', 'Configure', 'Done']
+const STEPS = ['URL da loja', 'Chaves de API', 'Teste', 'Configurar', 'Pronto']
 
 function StepIndicator({
   steps,
@@ -105,22 +106,22 @@ export default function WooCommercePage() {
     mutationFn: (data: WooCommerceConfig) =>
       api.integrations.woocommerce.save(data, getToken()),
     onSuccess: () => {
-      toast.success('WooCommerce integration saved')
+      toast.success('Integração WooCommerce salva')
       setStep(4)
     },
-    onError: () => toast.error('Failed to save configuration'),
+    onError: () => toast.error('Falha ao salvar configuração'),
   })
 
   const syncMutation = useMutation({
     mutationFn: () => api.integrations.woocommerce.syncProducts(getToken()),
-    onSuccess: () => toast.success('Sync started'),
-    onError: () => toast.error('Sync failed'),
+    onSuccess: () => toast.success('Sincronização iniciada'),
+    onError: () => toast.error('Falha na sincronização'),
   })
 
   const disconnectMutation = useMutation({
     mutationFn: () => api.integrations.woocommerce.disconnect(getToken()),
     onSuccess: () => {
-      toast.success('Disconnected')
+      toast.success('Desconectado')
       window.location.reload()
     },
   })
@@ -135,7 +136,7 @@ export default function WooCommercePage() {
         setTimeout(() => setStep(3), 800)
       }
     } catch {
-      setTestResult({ success: false, message: 'Connection failed' })
+      setTestResult({ success: false, message: 'Falha na conexão' })
     } finally {
       setTesting(false)
     }
@@ -171,9 +172,9 @@ export default function WooCommercePage() {
         <PageHeader
           icon={<Plug className="w-5 h-5" />}
           title="WooCommerce"
-          subtitle="Integration active"
+          subtitle="Integração ativa"
           breadcrumbs={[
-            { label: 'Integrations', href: `/${workspace}/integrations` },
+            { label: 'Integrações', href: `/${workspace}/integrations` },
             { label: 'WooCommerce' },
           ]}
         />
@@ -194,7 +195,7 @@ export default function WooCommercePage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
-                    Connected
+                    Conectado
                   </h3>
                   <p className="text-xs" style={{ color: '#5a5a64' }}>
                     {config.store_url}
@@ -205,18 +206,18 @@ export default function WooCommercePage() {
               <div className="grid grid-cols-3 gap-4">
                 {[
                   {
-                    label: 'Products',
-                    value: config.product_count?.toLocaleString() ?? '—',
+                    label: 'Produtos',
+                    value: config.product_count?.toLocaleString('pt-BR') ?? '—',
                   },
                   {
-                    label: 'Reviews',
-                    value: config.review_count?.toLocaleString() ?? '—',
+                    label: 'Avaliações',
+                    value: config.review_count?.toLocaleString('pt-BR') ?? '—',
                   },
                   {
-                    label: 'Last sync',
+                    label: 'Última sincronização',
                     value: config.last_sync_at
-                      ? format(new Date(config.last_sync_at), 'MMM d, HH:mm')
-                      : 'Never',
+                      ? format(new Date(config.last_sync_at), "d 'de' MMM, HH:mm", { locale: ptBR })
+                      : 'Nunca',
                   },
                 ].map(({ label, value }) => (
                   <div key={label}>
@@ -237,7 +238,7 @@ export default function WooCommercePage() {
               style={{ background: '#111113', border: '1px solid #1e1e21' }}
             >
               <h3 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
-                Sync
+                Sincronização
               </h3>
               <div className="flex gap-3">
                 <button
@@ -255,7 +256,7 @@ export default function WooCommercePage() {
                   ) : (
                     <RefreshCw className="w-4 h-4" />
                   )}
-                  Sync products now
+                  Sincronizar produtos agora
                 </button>
                 <a
                   href={config.store_url}
@@ -269,7 +270,7 @@ export default function WooCommercePage() {
                   }}
                 >
                   <ExternalLink className="w-4 h-4" />
-                  Open store
+                  Abrir loja
                 </a>
               </div>
             </div>
@@ -285,18 +286,18 @@ export default function WooCommercePage() {
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
                 <h3 className="text-sm font-semibold" style={{ color: '#ef4444' }}>
-                  Danger zone
+                  Zona de perigo
                 </h3>
               </div>
               <p className="text-xs mb-4" style={{ color: '#8b8b96' }}>
-                Disconnecting will stop all syncs. Reviews already imported will
-                remain.
+                Desconectar irá interromper todas as sincronizações. As avaliações
+                já importadas serão mantidas.
               </p>
               <button
                 onClick={() => {
                   if (
                     confirm(
-                      'Disconnect WooCommerce integration? This cannot be undone.'
+                      'Desconectar a integração WooCommerce? Essa ação não pode ser desfeita.'
                     )
                   ) {
                     disconnectMutation.mutate()
@@ -311,7 +312,7 @@ export default function WooCommercePage() {
                 }}
               >
                 <Trash2 className="w-4 h-4" />
-                Disconnect
+                Desconectar
               </button>
             </div>
           </div>
@@ -324,10 +325,10 @@ export default function WooCommercePage() {
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Plug className="w-5 h-5" />}
-        title="WooCommerce Setup"
-        subtitle="Connect your WooCommerce store"
+        title="Configuração do WooCommerce"
+        subtitle="Conecte sua loja WooCommerce"
         breadcrumbs={[
-          { label: 'Integrations', href: `/${workspace}/integrations` },
+          { label: 'Integrações', href: `/${workspace}/integrations` },
           { label: 'WooCommerce' },
         ]}
       />
@@ -351,17 +352,17 @@ export default function WooCommercePage() {
                 style={{ background: '#111113', border: '1px solid #1e1e21' }}
               >
                 <h3 className="text-base font-semibold mb-1" style={{ color: '#f0f0f2' }}>
-                  Enter your store URL
+                  Informe a URL da sua loja
                 </h3>
                 <p className="text-sm mb-5" style={{ color: '#5a5a64' }}>
-                  This is the URL of your WooCommerce store.
+                  Esta é a URL da sua loja WooCommerce.
                 </p>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-                  Store URL
+                  URL da loja
                 </label>
                 <input
                   {...field('store_url')}
-                  placeholder="https://yourstore.com"
+                  placeholder="https://sualoja.com"
                   className={inputClass}
                   style={inputStyle}
                   onFocus={(e) => { e.target.style.border = '1px solid rgba(212,168,80,0.3)' }}
@@ -373,7 +374,7 @@ export default function WooCommercePage() {
                   className="mt-4 w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
                   style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
                 >
-                  Next →
+                  Avançar →
                 </button>
               </motion.div>
             )}
@@ -389,10 +390,10 @@ export default function WooCommercePage() {
                 style={{ background: '#111113', border: '1px solid #1e1e21' }}
               >
                 <h3 className="text-base font-semibold mb-1" style={{ color: '#f0f0f2' }}>
-                  WooCommerce API Keys
+                  Chaves de API do WooCommerce
                 </h3>
                 <p className="text-sm mb-2" style={{ color: '#5a5a64' }}>
-                  Go to WooCommerce → Settings → Advanced → REST API to generate keys.
+                  Vá em WooCommerce → Configurações → Avançado → API REST para gerar as chaves.
                 </p>
                 <a
                   href={`${form.store_url}/wp-admin/admin.php?page=wc-settings&tab=advanced&section=keys`}
@@ -401,7 +402,7 @@ export default function WooCommercePage() {
                   className="inline-flex items-center gap-1 text-xs mb-5"
                   style={{ color: '#d4a850' }}
                 >
-                  Open WooCommerce API settings <ExternalLink className="w-3 h-3" />
+                  Abrir configurações da API do WooCommerce <ExternalLink className="w-3 h-3" />
                 </a>
 
                 <div className="space-y-3">
@@ -440,7 +441,7 @@ export default function WooCommercePage() {
                     className="px-4 py-2.5 rounded-lg text-sm font-medium"
                     style={{ background: '#0a0a0b', border: '1px solid #1e1e21', color: '#8b8b96' }}
                   >
-                    ← Back
+                    ← Voltar
                   </button>
                   <button
                     onClick={() => setStep(2)}
@@ -448,7 +449,7 @@ export default function WooCommercePage() {
                     className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
                     style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
                   >
-                    Next →
+                    Avançar →
                   </button>
                 </div>
               </motion.div>
@@ -465,10 +466,10 @@ export default function WooCommercePage() {
                 style={{ background: '#111113', border: '1px solid #1e1e21' }}
               >
                 <h3 className="text-base font-semibold mb-1" style={{ color: '#f0f0f2' }}>
-                  Test connection
+                  Testar conexão
                 </h3>
                 <p className="text-sm mb-5" style={{ color: '#5a5a64' }}>
-                  Verify that the API credentials work correctly.
+                  Verifique se as credenciais da API funcionam corretamente.
                 </p>
 
                 {testResult && (
@@ -501,7 +502,7 @@ export default function WooCommercePage() {
                     className="px-4 py-2.5 rounded-lg text-sm font-medium"
                     style={{ background: '#0a0a0b', border: '1px solid #1e1e21', color: '#8b8b96' }}
                   >
-                    ← Back
+                    ← Voltar
                   </button>
                   <button
                     onClick={handleTest}
@@ -514,7 +515,7 @@ export default function WooCommercePage() {
                     ) : (
                       <CheckCircle2 className="w-4 h-4" />
                     )}
-                    Test connection
+                    Testar conexão
                   </button>
                 </div>
               </motion.div>
@@ -531,16 +532,16 @@ export default function WooCommercePage() {
                 style={{ background: '#111113', border: '1px solid #1e1e21' }}
               >
                 <h3 className="text-base font-semibold mb-1" style={{ color: '#f0f0f2' }}>
-                  Configure sync
+                  Configurar sincronização
                 </h3>
                 <p className="text-sm mb-5" style={{ color: '#5a5a64' }}>
-                  Choose what to sync and how often.
+                  Escolha o que sincronizar e com qual frequência.
                 </p>
 
                 <div className="space-y-4">
                   {[
-                    { key: 'sync_products', label: 'Sync products', desc: 'Import product catalog from WooCommerce' },
-                    { key: 'sync_reviews', label: 'Sync reviews', desc: 'Import existing WooCommerce reviews' },
+                    { key: 'sync_products', label: 'Sincronizar produtos', desc: 'Importar catálogo de produtos do WooCommerce' },
+                    { key: 'sync_reviews', label: 'Sincronizar avaliações', desc: 'Importar avaliações existentes do WooCommerce' },
                   ].map(({ key, label, desc }) => (
                     <label
                       key={key}
@@ -566,7 +567,7 @@ export default function WooCommercePage() {
 
                   <div>
                     <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-                      Auto-sync interval
+                      Intervalo de sincronização automática
                     </label>
                     <select
                       value={form.auto_sync_interval}
@@ -579,11 +580,11 @@ export default function WooCommercePage() {
                       className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
                       style={{ background: '#0d0d0f', border: '1px solid #1a1a1d', color: '#f0f0f2' }}
                     >
-                      <option value={900}>Every 15 minutes</option>
-                      <option value={1800}>Every 30 minutes</option>
-                      <option value={3600}>Every hour</option>
-                      <option value={21600}>Every 6 hours</option>
-                      <option value={86400}>Once a day</option>
+                      <option value={900}>A cada 15 minutos</option>
+                      <option value={1800}>A cada 30 minutos</option>
+                      <option value={3600}>A cada hora</option>
+                      <option value={21600}>A cada 6 horas</option>
+                      <option value={86400}>Uma vez por dia</option>
                     </select>
                   </div>
                 </div>
@@ -594,7 +595,7 @@ export default function WooCommercePage() {
                     className="px-4 py-2.5 rounded-lg text-sm font-medium"
                     style={{ background: '#0a0a0b', border: '1px solid #1e1e21', color: '#8b8b96' }}
                   >
-                    ← Back
+                    ← Voltar
                   </button>
                   <button
                     onClick={() => saveMutation.mutate(form as WooCommerceConfig)}
@@ -605,7 +606,7 @@ export default function WooCommercePage() {
                     {saveMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : null}
-                    Save & activate
+                    Salvar e ativar
                   </button>
                 </div>
               </motion.div>
@@ -627,11 +628,11 @@ export default function WooCommercePage() {
                   <CheckCircle2 className="w-8 h-8" style={{ color: '#22c55e' }} />
                 </div>
                 <h3 className="text-lg font-bold mb-2" style={{ color: '#f0f0f2' }}>
-                  WooCommerce connected!
+                  WooCommerce conectado!
                 </h3>
                 <p className="text-sm" style={{ color: '#8b8b96' }}>
-                  Your store is now syncing. Products and reviews will appear
-                  shortly.
+                  Sua loja está sincronizando. Produtos e avaliações aparecerão
+                  em instantes.
                 </p>
               </motion.div>
             )}

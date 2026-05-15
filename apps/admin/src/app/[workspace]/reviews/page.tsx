@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { createColumnHelper, type RowSelectionState, type ColumnDef } from '@tanstack/react-table'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -35,10 +36,10 @@ import Link from 'next/link'
 const columnHelper = createColumnHelper<Review>()
 
 const statusOptions = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'hidden', label: 'Hidden' },
+  { value: 'pending', label: 'Pendente' },
+  { value: 'approved', label: 'Aprovado' },
+  { value: 'rejected', label: 'Rejeitado' },
+  { value: 'hidden', label: 'Oculto' },
   { value: 'spam', label: 'Spam' },
 ]
 
@@ -46,15 +47,15 @@ const sourceOptions = [
   { value: 'widget', label: 'Widget' },
   { value: 'woocommerce', label: 'WooCommerce' },
   { value: 'api', label: 'API' },
-  { value: 'import', label: 'Import' },
+  { value: 'import', label: 'Importação' },
 ]
 
 const ratingOptions = [
-  { value: '5', label: '5 stars' },
-  { value: '4', label: '4 stars' },
-  { value: '3', label: '3 stars' },
-  { value: '2', label: '2 stars' },
-  { value: '1', label: '1 star' },
+  { value: '5', label: '5 estrelas' },
+  { value: '4', label: '4 estrelas' },
+  { value: '3', label: '3 estrelas' },
+  { value: '2', label: '2 estrelas' },
+  { value: '1', label: '1 estrela' },
 ]
 
 export default function ReviewsPage() {
@@ -95,18 +96,18 @@ export default function ReviewsPage() {
       api.reviews.updateStatus(id, status, getToken()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] })
-      toast.success('Status updated')
+      toast.success('Status atualizado')
     },
-    onError: () => toast.error('Failed to update status'),
+    onError: () => toast.error('Falha ao atualizar status'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.reviews.delete(id, getToken()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] })
-      toast.success('Review deleted')
+      toast.success('Avaliação excluída')
     },
-    onError: () => toast.error('Failed to delete review'),
+    onError: () => toast.error('Falha ao excluir avaliação'),
   })
 
   const bulkMutation = useMutation({
@@ -115,9 +116,9 @@ export default function ReviewsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reviews'] })
       setRowSelection({})
-      toast.success('Bulk action applied')
+      toast.success('Ação em massa aplicada')
     },
-    onError: () => toast.error('Bulk action failed'),
+    onError: () => toast.error('Falha na ação em massa'),
   })
 
   const selectedIds = Object.keys(rowSelection).filter((k) => rowSelection[k])
@@ -156,7 +157,7 @@ export default function ReviewsPage() {
       enableSorting: false,
     }),
     columnHelper.accessor('author_name', {
-      header: 'Author',
+      header: 'Autor',
       cell: (info) => {
         const review = info.row.original
         return (
@@ -173,7 +174,7 @@ export default function ReviewsPage() {
               </p>
               {review.verified_purchase && (
                 <p className="text-xs" style={{ color: '#22c55e' }}>
-                  Verified
+                  Verificado
                 </p>
               )}
             </div>
@@ -182,14 +183,14 @@ export default function ReviewsPage() {
       },
     }),
     columnHelper.accessor('rating', {
-      header: 'Rating',
+      header: 'Nota',
       cell: (info) => (
         <RatingStars rating={info.getValue()} size="xs" showValue />
       ),
       size: 120,
     }),
     columnHelper.accessor('product_name', {
-      header: 'Product',
+      header: 'Produto',
       cell: (info) => (
         <span className="text-xs" style={{ color: '#8b8b96' }}>
           {info.getValue() ?? '—'}
@@ -197,7 +198,7 @@ export default function ReviewsPage() {
       ),
     }),
     columnHelper.accessor('body', {
-      header: 'Review',
+      header: 'Avaliação',
       cell: (info) => (
         <p className="text-xs max-w-xs" style={{ color: '#8b8b96' }}>
           {truncate(info.getValue(), 80)}
@@ -211,7 +212,7 @@ export default function ReviewsPage() {
       size: 100,
     }),
     columnHelper.accessor('source', {
-      header: 'Source',
+      header: 'Origem',
       cell: (info) => (
         <span
           className="text-xs px-2 py-0.5 rounded-full"
@@ -227,10 +228,10 @@ export default function ReviewsPage() {
       size: 100,
     }),
     columnHelper.accessor('created_at', {
-      header: 'Date',
+      header: 'Data',
       cell: (info) => (
         <span className="text-xs tabular-nums" style={{ color: '#5a5a64' }}>
-          {format(new Date(info.getValue()), 'MMM d, yyyy')}
+          {format(new Date(info.getValue()), "d 'de' MMM, yyyy", { locale: ptBR })}
         </span>
       ),
       size: 100,
@@ -299,21 +300,21 @@ export default function ReviewsPage() {
 
   const statsItems = [
     {
-      label: 'Total Reviews',
+      label: 'Total de avaliações',
       value: formatNumber(statsData?.total_reviews ?? data?.meta.total_count ?? 0),
       delta: statsData?.total_reviews_delta,
     },
     {
-      label: 'Approved',
+      label: 'Aprovadas',
       value: '—',
     },
     {
-      label: 'Pending',
+      label: 'Pendentes',
       value: formatNumber(statsData?.pending_moderation ?? 0),
       delta: statsData?.pending_moderation_delta,
     },
     {
-      label: 'This Week',
+      label: 'Esta semana',
       value: '—',
     },
   ]
@@ -322,19 +323,19 @@ export default function ReviewsPage() {
     <div className="flex flex-col h-full relative">
       <PageHeader
         icon={<Star className="w-5 h-5" />}
-        title="Reviews"
+        title="Avaliações"
         subtitle={
           data
-            ? `${formatNumber(data.meta.total_count)} total reviews`
-            : 'Manage and moderate customer reviews'
+            ? `${formatNumber(data.meta.total_count)} avaliações no total`
+            : 'Gerencie e modere avaliações de clientes'
         }
         actions={
           <ActionButton
-            onClick={() => toast.info('Preparing export…')}
+            onClick={() => toast.info('Preparando exportação…')}
             variant="default"
           >
             <Download className="w-3.5 h-3.5" />
-            Export
+            Exportar
           </ActionButton>
         }
       />
@@ -355,7 +356,7 @@ export default function ReviewsPage() {
             }}
           >
             <span className="text-xs font-medium" style={{ color: '#d4a850' }}>
-              {selectedIds.length} selected
+              {selectedIds.length} selecionadas
             </span>
             <div className="h-3 w-px" style={{ background: '#2a2a2d' }} />
             <div className="flex items-center gap-1.5">
@@ -364,21 +365,21 @@ export default function ReviewsPage() {
                 disabled={bulkMutation.isPending}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#22c55e' }} />
-                Approve
+                Aprovar
               </ActionButton>
               <ActionButton
                 onClick={() => handleBulk('reject')}
                 disabled={bulkMutation.isPending}
               >
                 <XCircle className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
-                Reject
+                Rejeitar
               </ActionButton>
               <ActionButton
                 onClick={() => handleBulk('hide')}
                 disabled={bulkMutation.isPending}
               >
                 <EyeOff className="w-3.5 h-3.5" />
-                Hide
+                Ocultar
               </ActionButton>
               <ActionButton
                 onClick={() => handleBulk('delete')}
@@ -386,7 +387,7 @@ export default function ReviewsPage() {
                 disabled={bulkMutation.isPending}
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Delete
+                Excluir
               </ActionButton>
             </div>
             <button
@@ -406,31 +407,31 @@ export default function ReviewsPage() {
             <SearchInput
               value={search}
               onChange={(v) => { setSearch(v); setPage(1) }}
-              placeholder="Search reviews…"
+              placeholder="Buscar avaliações…"
             />
             <FilterSelect
               value={status}
               onChange={(v) => { setStatus(v); setPage(1) }}
               options={statusOptions}
-              placeholder="All statuses"
+              placeholder="Todos os status"
             />
             <FilterSelect
               value={rating}
               onChange={(v) => { setRating(v); setPage(1) }}
               options={ratingOptions}
-              placeholder="All ratings"
+              placeholder="Todas as notas"
             />
             <FilterSelect
               value={source}
               onChange={(v) => { setSource(v); setPage(1) }}
               options={sourceOptions}
-              placeholder="All sources"
+              placeholder="Todas as origens"
             />
           </>
         }
         right={
           <span className="text-xs" style={{ color: '#5a5a64' }}>
-            {data?.meta.total_count ?? 0} results
+            {data?.meta.total_count ?? 0} resultados
           </span>
         }
       />
@@ -496,7 +497,7 @@ export default function ReviewsPage() {
                     className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors"
                     style={{ color: '#8b8b96', border: '1px solid #1e1e21' }}
                   >
-                    Full page <ChevronRight className="w-3 h-3" />
+                    Página completa <ChevronRight className="w-3 h-3" />
                   </Link>
                   <button
                     onClick={() => setSlidePanel(null)}
@@ -524,7 +525,7 @@ export default function ReviewsPage() {
                     </p>
                     <p className="text-xs" style={{ color: '#5a5a64' }}>
                       {slidePanel.author_email ?? '—'} •{' '}
-                      {format(new Date(slidePanel.created_at), 'MMM d, yyyy')}
+                      {format(new Date(slidePanel.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
                     </p>
                   </div>
                 </div>
@@ -535,7 +536,7 @@ export default function ReviewsPage() {
                     className="px-3 py-2 rounded-lg text-xs"
                     style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
                   >
-                    <span style={{ color: '#5a5a64' }}>Product: </span>
+                    <span style={{ color: '#5a5a64' }}>Produto: </span>
                     <span style={{ color: '#f0f0f2' }}>{slidePanel.product_name}</span>
                   </div>
                 )}
@@ -565,12 +566,12 @@ export default function ReviewsPage() {
                       className="text-xs font-semibold mb-3 uppercase tracking-wider"
                       style={{ color: '#5a5a64' }}
                     >
-                      AI Analysis
+                      Análise por IA
                     </p>
                     <div className="flex items-center gap-4 mb-3">
                       <div>
                         <p className="text-xs" style={{ color: '#5a5a64' }}>
-                          Quality
+                          Qualidade
                         </p>
                         <p
                           className="text-lg font-bold"
@@ -591,7 +592,7 @@ export default function ReviewsPage() {
                       </div>
                       <div>
                         <p className="text-xs" style={{ color: '#5a5a64' }}>
-                          Sentiment
+                          Sentimento
                         </p>
                         <p className="text-sm font-medium capitalize" style={{ color: '#f0f0f2' }}>
                           {slidePanel.ai_analysis.sentiment}
@@ -600,7 +601,7 @@ export default function ReviewsPage() {
                       {slidePanel.ai_analysis.is_synthetic && (
                         <div>
                           <p className="text-xs" style={{ color: '#5a5a64' }}>
-                            Synthetic
+                            Sintético
                           </p>
                           <p className="text-sm font-medium" style={{ color: '#ef4444' }}>
                             {Math.round(slidePanel.ai_analysis.synthetic_confidence * 100)}%
@@ -635,7 +636,7 @@ export default function ReviewsPage() {
                       className="text-xs font-semibold mb-2 uppercase tracking-wider"
                       style={{ color: '#5a5a64' }}
                     >
-                      Replies
+                      Respostas
                     </p>
                     <div className="space-y-2">
                       {slidePanel.replies.map((reply) => (
@@ -654,7 +655,7 @@ export default function ReviewsPage() {
                                   color: '#d4a850',
                                 }}
                               >
-                                AI
+                                IA
                               </span>
                             )}
                           </div>
@@ -688,7 +689,7 @@ export default function ReviewsPage() {
                     }}
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Approve
+                    Aprovar
                   </button>
                 )}
                 {slidePanel.status !== 'rejected' && (
@@ -708,7 +709,7 @@ export default function ReviewsPage() {
                     }}
                   >
                     <XCircle className="w-4 h-4" />
-                    Reject
+                    Rejeitar
                   </button>
                 )}
                 <button
@@ -720,7 +721,7 @@ export default function ReviewsPage() {
                   }}
                 >
                   <MessageSquare className="w-4 h-4" />
-                  Reply
+                  Responder
                 </button>
               </div>
             </motion.div>

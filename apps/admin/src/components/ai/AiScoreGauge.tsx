@@ -10,7 +10,7 @@ interface AiScoreGaugeProps {
 
 export function AiScoreGauge({
   score,
-  label = 'Quality Score',
+  label = 'Nota de qualidade',
   size = 80,
 }: AiScoreGaugeProps) {
   const clamped = Math.max(0, Math.min(100, score))

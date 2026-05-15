@@ -48,7 +48,7 @@ export function useAuth() {
 
   const getToken = useCallback((): string => {
     const token = getCookie(TOKEN_COOKIE) as string | undefined
-    if (!token) throw new Error('Not authenticated')
+    if (!token) throw new Error('Não autenticado')
     return token
   }, [])
 

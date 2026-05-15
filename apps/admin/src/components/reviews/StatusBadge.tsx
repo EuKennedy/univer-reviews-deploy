@@ -5,25 +5,25 @@ const config: Record<
   { label: string; bg: string; color: string; dot: string }
 > = {
   pending: {
-    label: 'Pending',
+    label: 'Pendente',
     bg: 'rgba(245,158,11,0.1)',
     color: '#f59e0b',
     dot: '#f59e0b',
   },
   approved: {
-    label: 'Approved',
+    label: 'Aprovado',
     bg: 'rgba(34,197,94,0.1)',
     color: '#22c55e',
     dot: '#22c55e',
   },
   rejected: {
-    label: 'Rejected',
+    label: 'Rejeitado',
     bg: 'rgba(239,68,68,0.1)',
     color: '#ef4444',
     dot: '#ef4444',
   },
   hidden: {
-    label: 'Hidden',
+    label: 'Oculto',
     bg: 'rgba(107,114,128,0.1)',
     color: '#9ca3af',
     dot: '#6b7280',
