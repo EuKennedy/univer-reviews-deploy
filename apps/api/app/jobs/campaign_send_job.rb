@@ -56,7 +56,7 @@ class CampaignSendJob < ApplicationJob
   end
 
   def default_template
-    <<~HTML
+    <<~'HTML'
       <html>
         <body style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Olá, {{customer_name}}!</h2>
