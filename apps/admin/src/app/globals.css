@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0a0a0b;
+  --color-surface: #111113;
+  --color-surface-2: #16161a;
+  --color-border: #1e1e21;
+  --color-border-subtle: #17171a;
+  --color-accent-gold: #d4a850;
+  --color-accent-gold-dim: #a07830;
+  --color-accent-gold-glow: rgba(212, 168, 80, 0.15);
+  --color-text-primary: #f0f0f2;
+  --color-text-secondary: #8b8b96;
+  --color-text-muted: #5a5a64;
+
+  --color-status-approved: #22c55e;
+  --color-status-approved-bg: rgba(34, 197, 94, 0.1);
+  --color-status-pending: #f59e0b;
+  --color-status-pending-bg: rgba(245, 158, 11, 0.1);
+  --color-status-rejected: #ef4444;
+  --color-status-rejected-bg: rgba(239, 68, 68, 0.1);
+  --color-status-hidden: #6b7280;
+  --color-status-hidden-bg: rgba(107, 114, 128, 0.1);
+  --color-status-spam: #dc2626;
+  --color-status-spam-bg: rgba(220, 38, 38, 0.08);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #0a0a0b;
+  color: #f0f0f2;
+  font-family: var(--font-geist-sans, 'Inter', system-ui, sans-serif);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a2e;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3e;
+}
+
+/* Selection */
+::selection {
+  background: rgba(212, 168, 80, 0.25);
+  color: #f0f0f2;
+}
+
+/* Shimmer animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #1a1a1d 25%,
+    #222226 50%,
+    #1a1a1d 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* Gold gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #d4a850 0%, #f0c060 50%, #a07830 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Pulse dot */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid rgba(212, 168, 80, 0.6);
+  outline-offset: 2px;
+}
