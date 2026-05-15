@@ -4,8 +4,8 @@ threads min_threads_count, max_threads_count
 
 # Bind explicitly to 0.0.0.0 so Traefik (and any reverse proxy) can reach the
 # container. The default in cluster mode behind docker can fail to listen
-# on the right interface.
-port ENV.fetch("PORT") { 3000 }
+# on the right interface. Use only `bind` (not `port`) because puma applies
+# both and ends up trying to bind the same socket twice → EADDRINUSE.
 bind "tcp://0.0.0.0:#{ENV.fetch('PORT') { 3000 }}"
 
 environment ENV.fetch("RAILS_ENV") { "development" }
