@@ -25,7 +25,7 @@ module UniverseReviewsApi
     ]
 
     # JSON serialization with Oj
-    config.middleware.use ActionDispatch::RequestId
+    config.middleware.use ActionDispatch::RequestId, header: "X-Request-Id"
 
     # CORS
     config.middleware.insert_before 0, Rack::Cors do
