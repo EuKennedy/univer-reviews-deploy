@@ -35,18 +35,18 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: 'dashboard', icon: LayoutDashboard },
-  { label: 'Reviews', href: 'reviews', icon: Star },
-  { label: 'Duplicates', href: 'duplicates', icon: Copy },
-  { label: 'AI Lab', href: 'ai-lab', icon: FlaskConical },
-  { label: 'Products', href: 'products', icon: Package },
-  { label: 'Campaigns', href: 'campaigns', icon: Megaphone },
-  { label: 'Integrations', href: 'integrations', icon: Plug },
-  { label: 'Rewards', href: 'rewards', icon: Gift },
+  { label: 'Avaliações', href: 'reviews', icon: Star },
+  { label: 'Duplicatas', href: 'duplicates', icon: Copy },
+  { label: 'Lab de IA', href: 'ai-lab', icon: FlaskConical },
+  { label: 'Produtos', href: 'products', icon: Package },
+  { label: 'Campanhas', href: 'campaigns', icon: Megaphone },
+  { label: 'Integrações', href: 'integrations', icon: Plug },
+  { label: 'Recompensas', href: 'rewards', icon: Gift },
 ]
 
 const bottomNavItems: NavItem[] = [
-  { label: 'Settings', href: 'settings', icon: Settings },
-  { label: 'Billing', href: 'billing', icon: CreditCard },
+  { label: 'Configurações', href: 'settings', icon: Settings },
+  { label: 'Faturamento', href: 'billing', icon: CreditCard },
 ]
 
 interface ShellProps {
@@ -248,7 +248,7 @@ export function Shell({ children, workspace }: ShellProps) {
                 style={{ color: '#5a5a64' }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444' }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5a64' }}
-                title="Sign out"
+                title="Sair"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>

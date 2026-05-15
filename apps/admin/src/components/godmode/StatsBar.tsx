@@ -90,7 +90,7 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
                   }}
                 >
                   {stat.delta > 0 ? '+' : ''}
-                  {stat.delta.toFixed(1)}% vs last month
+                  {stat.delta.toFixed(1)}% vs. mês anterior
                 </span>
               </div>
             )}

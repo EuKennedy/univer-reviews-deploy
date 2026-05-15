@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     default: 'UniverReviews Admin',
     template: '%s — UniverReviews',
   },
-  description: 'Staff management dashboard for UniverReviews',
+  description: 'Painel de gestão da equipe UniverReviews',
   robots: { index: false, follow: false },
 }
 
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="pt-BR" className="dark">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         style={{ background: '#0a0a0b', color: '#f0f0f2' }}

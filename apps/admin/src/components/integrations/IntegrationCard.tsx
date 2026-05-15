@@ -12,21 +12,21 @@ export interface IntegrationCardProps {
 
 const statusConfig = {
   connected: {
-    label: 'Connected',
+    label: 'Conectado',
     bg: 'rgba(34,197,94,0.1)',
     color: '#22c55e',
     border: 'rgba(34,197,94,0.2)',
     icon: CheckCircle2,
   },
   not_connected: {
-    label: 'Not connected',
+    label: 'Não conectado',
     bg: 'rgba(107,114,128,0.1)',
     color: '#6b7280',
     border: 'rgba(107,114,128,0.15)',
     icon: null,
   },
   coming_soon: {
-    label: 'Coming soon',
+    label: 'Em breve',
     bg: 'rgba(212,168,80,0.08)',
     color: '#d4a850',
     border: 'rgba(212,168,80,0.15)',
@@ -119,7 +119,7 @@ export function IntegrationCard({
             className="text-xs font-medium transition-colors group-hover:text-[#d4a850]"
             style={{ color: '#5a5a64' }}
           >
-            {status === 'connected' ? 'Configure' : 'Connect'}
+            {status === 'connected' ? 'Configurar' : 'Conectar'}
           </span>
           <ArrowRight
             className="w-3.5 h-3.5 transition-all group-hover:translate-x-0.5 group-hover:text-[#d4a850]"

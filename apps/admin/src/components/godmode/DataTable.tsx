@@ -65,10 +65,10 @@ function EmptyState() {
           </svg>
           <div>
             <p className="text-sm font-medium" style={{ color: '#8b8b96' }}>
-              No results found
+              Nenhum resultado encontrado
             </p>
             <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
-              Try adjusting your filters or search query
+              Tente ajustar os filtros ou a busca
             </p>
           </div>
         </div>

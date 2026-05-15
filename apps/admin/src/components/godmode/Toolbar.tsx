@@ -35,7 +35,7 @@ interface SearchInputProps {
 export function SearchInput({
   value,
   onChange,
-  placeholder = 'Search…',
+  placeholder = 'Buscar…',
   className,
 }: SearchInputProps) {
   return (
@@ -87,7 +87,7 @@ export function FilterSelect({
   value,
   onChange,
   options,
-  placeholder = 'Filter…',
+  placeholder = 'Filtrar…',
   className,
 }: FilterSelectProps) {
   return (

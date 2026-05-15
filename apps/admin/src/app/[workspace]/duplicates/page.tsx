@@ -32,7 +32,7 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
     setRewriting(true)
     await new Promise((r) => setTimeout(r, 1500))
     setRewriting(false)
-    toast.success('Cluster rewritten with AI')
+    toast.success('Cluster reescrito com IA')
   }
 
   return (
@@ -76,12 +76,12 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
                 border: '1px solid rgba(212,168,80,0.15)',
               }}
             >
-              {Math.round(cluster.similarity_score * 100)}% similar
+              {Math.round(cluster.similarity_score * 100)}% similares
             </span>
           </div>
           <p className="text-xs mt-0.5" style={{ color: '#5a5a64' }}>
-            {cluster.count} reviews in cluster •{' '}
-            {cluster.product_name ? `Product: ${cluster.product_name}` : 'No product'}
+            {cluster.count} avaliações no cluster •{' '}
+            {cluster.product_name ? `Produto: ${cluster.product_name}` : 'Sem produto'}
           </p>
         </div>
 
@@ -104,7 +104,7 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
             ) : (
               <Sparkles className="w-3 h-3" />
             )}
-            Rewrite
+            Reescrever
           </button>
 
           {expanded ? (
@@ -153,7 +153,7 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
 
               {cluster.count > cluster.sample_reviews.length && (
                 <p className="text-xs text-center" style={{ color: '#5a5a64' }}>
-                  +{cluster.count - cluster.sample_reviews.length} more reviews
+                  +{cluster.count - cluster.sample_reviews.length} avaliações adicionais
                 </p>
               )}
             </div>
@@ -181,12 +181,12 @@ export default function DuplicatesPage() {
   const cleanupMutation = useMutation({
     mutationFn: (limit: number) => api.ai.cleanupDuplicates(limit, getToken()),
     onSuccess: (data) => {
-      toast.success(`Cleanup job started: ${data.job_id}`)
+      toast.success(`Limpeza iniciada: ${data.job_id}`)
       queryClient.invalidateQueries({ queryKey: ['duplicate-clusters'] })
       setCleaning(false)
     },
     onError: () => {
-      toast.error('Cleanup failed')
+      toast.error('Falha na limpeza')
       setCleaning(false)
     },
   })
@@ -206,19 +206,19 @@ export default function DuplicatesPage() {
 
   const statsItems = [
     {
-      label: 'Total Clusters',
+      label: 'Total de clusters',
       value: formatNumber(clusters?.length ?? 0),
     },
     {
-      label: 'Reviews Affected',
+      label: 'Avaliações afetadas',
       value: formatNumber(totalReviews),
     },
     {
-      label: 'Avg Cluster Size',
+      label: 'Tamanho médio do cluster',
       value: avgClusterSize,
     },
     {
-      label: 'Clean Reviews',
+      label: 'Avaliações limpas',
       value: '—',
     },
   ]
@@ -227,8 +227,8 @@ export default function DuplicatesPage() {
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Copy className="w-5 h-5" />}
-        title="Duplicates"
-        subtitle="AI-detected duplicate review clusters"
+        title="Duplicatas"
+        subtitle="Clusters de avaliações duplicadas detectadas por IA"
         actions={
           <button
             onClick={() => {
@@ -247,7 +247,7 @@ export default function DuplicatesPage() {
             ) : (
               <RefreshCw className="w-3.5 h-3.5" />
             )}
-            Cleanup all
+            Limpar tudo
           </button>
         }
       />
@@ -259,7 +259,7 @@ export default function DuplicatesPage() {
           <SearchInput
             value={search}
             onChange={setSearch}
-            placeholder="Search clusters…"
+            placeholder="Buscar clusters…"
           />
         }
         right={
@@ -289,12 +289,12 @@ export default function DuplicatesPage() {
             </div>
             <div className="text-center">
               <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
-                No duplicates found
+                Nenhuma duplicata encontrada
               </p>
               <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
                 {search
-                  ? 'Try a different search term'
-                  : 'Your review catalog looks clean'}
+                  ? 'Tente outro termo de busca'
+                  : 'Seu catálogo de avaliações está limpo'}
               </p>
             </div>
           </div>

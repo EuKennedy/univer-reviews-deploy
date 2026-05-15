@@ -9,13 +9,14 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { formatNumber } from '@/lib/utils'
 import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import type { Campaign, CampaignStatus } from '@/types'
 
 const statusConfig: Record<CampaignStatus, { label: string; color: string; bg: string }> = {
-  draft: { label: 'Draft', color: '#8b8b96', bg: 'rgba(139,139,150,0.1)' },
-  active: { label: 'Active', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
-  paused: { label: 'Paused', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-  completed: { label: 'Completed', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
+  draft: { label: 'Rascunho', color: '#8b8b96', bg: 'rgba(139,139,150,0.1)' },
+  active: { label: 'Ativa', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
+  paused: { label: 'Pausada', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  completed: { label: 'Concluída', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
 }
 
 const typeIcons = {
@@ -48,7 +49,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
               {campaign.name}
             </h3>
             <p className="text-xs capitalize" style={{ color: '#5a5a64' }}>
-              {campaign.type} campaign
+              Campanha de {campaign.type}
             </p>
           </div>
         </div>
@@ -62,10 +63,10 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
 
       <div className="grid grid-cols-4 gap-2 mt-4 pt-4" style={{ borderTop: '1px solid #1a1a1d' }}>
         {[
-          { label: 'Sent', value: formatNumber(campaign.sent_count) },
-          { label: 'Opens', value: `${campaign.sent_count > 0 ? Math.round((campaign.open_count / campaign.sent_count) * 100) : 0}%` },
-          { label: 'Clicks', value: `${campaign.sent_count > 0 ? Math.round((campaign.click_count / campaign.sent_count) * 100) : 0}%` },
-          { label: 'Reviews', value: formatNumber(campaign.review_count) },
+          { label: 'Enviadas', value: formatNumber(campaign.sent_count) },
+          { label: 'Aberturas', value: `${campaign.sent_count > 0 ? Math.round((campaign.open_count / campaign.sent_count) * 100) : 0}%` },
+          { label: 'Cliques', value: `${campaign.sent_count > 0 ? Math.round((campaign.click_count / campaign.sent_count) * 100) : 0}%` },
+          { label: 'Avaliações', value: formatNumber(campaign.review_count) },
         ].map(({ label, value }) => (
           <div key={label} className="text-center">
             <p className="text-base font-bold" style={{ color: '#f0f0f2' }}>
@@ -79,7 +80,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
       </div>
 
       <p className="mt-3 text-xs" style={{ color: '#5a5a64' }}>
-        Created {format(new Date(campaign.created_at), 'MMM d, yyyy')}
+        Criada em {format(new Date(campaign.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
       </p>
     </div>
   )
@@ -100,18 +101,18 @@ export default function CampaignsPage() {
   const totalReviews = (campaigns ?? []).reduce((s, c) => s + c.review_count, 0)
 
   const statsItems = [
-    { label: 'Total Campaigns', value: formatNumber(campaigns?.length ?? 0) },
-    { label: 'Active', value: formatNumber(active) },
-    { label: 'Total Sent', value: formatNumber(totalSent) },
-    { label: 'Reviews Generated', value: formatNumber(totalReviews) },
+    { label: 'Total de campanhas', value: formatNumber(campaigns?.length ?? 0) },
+    { label: 'Ativas', value: formatNumber(active) },
+    { label: 'Total enviado', value: formatNumber(totalSent) },
+    { label: 'Avaliações geradas', value: formatNumber(totalReviews) },
   ]
 
   return (
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Megaphone className="w-5 h-5" />}
-        title="Campaigns"
-        subtitle="Email and SMS review collection campaigns"
+        title="Campanhas"
+        subtitle="Campanhas de coleta de avaliações por e-mail e SMS"
         actions={
           <button
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
@@ -121,7 +122,7 @@ export default function CampaignsPage() {
             }}
           >
             <Plus className="w-3.5 h-3.5" />
-            New campaign
+            Nova campanha
           </button>
         }
       />
@@ -140,10 +141,10 @@ export default function CampaignsPage() {
             <Megaphone className="w-12 h-12" style={{ color: '#2a2a2e' }} />
             <div className="text-center">
               <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
-                No campaigns yet
+                Ainda não há campanhas
               </p>
               <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
-                Create your first campaign to start collecting reviews
+                Crie sua primeira campanha para começar a coletar avaliações
               </p>
             </div>
           </div>

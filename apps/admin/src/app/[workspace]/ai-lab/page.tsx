@@ -14,10 +14,10 @@ import type { AiModerateResult, ReviewVariant } from '@/types'
 type Tab = 'moderate' | 'generate' | 'reply' | 'dedup'
 
 const tabs: { id: Tab; label: string; icon: string }[] = [
-  { id: 'moderate', label: 'Moderate', icon: '🛡️' },
-  { id: 'generate', label: 'Generate', icon: '✨' },
-  { id: 'reply', label: 'Reply', icon: '💬' },
-  { id: 'dedup', label: 'Dedup', icon: '🔍' },
+  { id: 'moderate', label: 'Moderar', icon: '🛡️' },
+  { id: 'generate', label: 'Gerar', icon: '✨' },
+  { id: 'reply', label: 'Responder', icon: '💬' },
+  { id: 'dedup', label: 'Duplicatas', icon: '🔍' },
 ]
 
 function CopyButton({ text }: { text: string }) {
@@ -41,7 +41,7 @@ function CopyButton({ text }: { text: string }) {
       ) : (
         <Copy className="w-3 h-3" />
       )}
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? 'Copiado' : 'Copiar'}
     </button>
   )
 }
@@ -55,7 +55,7 @@ function ModerateTab() {
 
   const handleModerate = async () => {
     if (!reviewId.trim()) {
-      toast.error('Enter a review ID')
+      toast.error('Informe um ID de avaliação')
       return
     }
     setLoading(true)
@@ -64,7 +64,7 @@ function ModerateTab() {
       const res = await api.ai.moderate(reviewId, getToken())
       setResult(res)
     } catch {
-      toast.error('Moderation failed')
+      toast.error('Falha na moderação')
     } finally {
       setLoading(false)
     }
@@ -74,12 +74,12 @@ function ModerateTab() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       <div>
         <label className="block text-xs font-medium mb-2" style={{ color: '#5a5a64' }}>
-          Review ID
+          ID da avaliação
         </label>
         <input
           value={reviewId}
           onChange={(e) => setReviewId(e.target.value)}
-          placeholder="Enter review UUID…"
+          placeholder="Informe o UUID da avaliação…"
           className="w-full px-4 py-2.5 rounded-lg text-sm outline-none transition-all mb-3"
           style={{
             background: '#0d0d0f',
@@ -90,12 +90,12 @@ function ModerateTab() {
           onBlur={(e) => { e.target.style.border = '1px solid #1a1a1d' }}
         />
         <label className="block text-xs font-medium mb-2" style={{ color: '#5a5a64' }}>
-          Review text (preview)
+          Texto da avaliação (prévia)
         </label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Paste review text to preview…"
+          placeholder="Cole o texto da avaliação para prévia…"
           rows={6}
           className="w-full px-4 py-3 rounded-lg text-sm resize-none outline-none transition-all mb-3"
           style={{
@@ -120,7 +120,7 @@ function ModerateTab() {
           ) : (
             <Zap className="w-4 h-4" />
           )}
-          Run moderation
+          Executar moderação
         </button>
       </div>
 
@@ -134,7 +134,7 @@ function ModerateTab() {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
-                Result
+                Resultado
               </h3>
               <span
                 className="text-xs px-2.5 py-1 rounded-full font-medium capitalize"
@@ -164,27 +164,27 @@ function ModerateTab() {
 
             <div className="space-y-3 text-xs">
               <div className="flex justify-between">
-                <span style={{ color: '#5a5a64' }}>Sentiment</span>
+                <span style={{ color: '#5a5a64' }}>Sentimento</span>
                 <span className="capitalize font-medium" style={{ color: '#f0f0f2' }}>
                   {result.sentiment}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span style={{ color: '#5a5a64' }}>Synthetic</span>
+                <span style={{ color: '#5a5a64' }}>Sintético</span>
                 <span
                   className="font-medium"
                   style={{ color: result.is_synthetic ? '#ef4444' : '#22c55e' }}
                 >
                   {result.is_synthetic
-                    ? `Yes (${Math.round(result.synthetic_confidence * 100)}%)`
-                    : 'No'}
+                    ? `Sim (${Math.round(result.synthetic_confidence * 100)}%)`
+                    : 'Não'}
                 </span>
               </div>
             </div>
 
             {result.topics.length > 0 && (
               <div className="mt-4">
-                <p className="text-xs mb-2" style={{ color: '#5a5a64' }}>Topics</p>
+                <p className="text-xs mb-2" style={{ color: '#5a5a64' }}>Tópicos</p>
                 <div className="flex flex-wrap gap-1.5">
                   {result.topics.map((t) => (
                     <span
@@ -205,7 +205,7 @@ function ModerateTab() {
 
             {result.moderation_flags.length > 0 && (
               <div className="mt-3">
-                <p className="text-xs mb-2" style={{ color: '#5a5a64' }}>Flags</p>
+                <p className="text-xs mb-2" style={{ color: '#5a5a64' }}>Sinalizações</p>
                 <div className="flex flex-wrap gap-1.5">
                   {result.moderation_flags.map((f) => (
                     <span
@@ -241,7 +241,7 @@ function GenerateTab() {
 
   const handleGenerate = async () => {
     if (!productName.trim()) {
-      toast.error('Enter a product name')
+      toast.error('Informe o nome do produto')
       return
     }
     setLoading(true)
@@ -253,7 +253,7 @@ function GenerateTab() {
       )
       setVariants(res.variants)
     } catch {
-      toast.error('Generation failed')
+      toast.error('Falha na geração')
     } finally {
       setLoading(false)
     }
@@ -264,7 +264,7 @@ function GenerateTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-1">
           <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-            Product name
+            Nome do produto
           </label>
           <input
             value={productName}
@@ -279,7 +279,7 @@ function GenerateTab() {
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-                Rating
+                Nota
               </label>
               <select
                 value={rating}
@@ -294,7 +294,7 @@ function GenerateTab() {
             </div>
             <div>
               <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-                Count
+                Quantidade
               </label>
               <input
                 type="number"
@@ -309,7 +309,7 @@ function GenerateTab() {
           </div>
 
           <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-            Tone
+            Tom
           </label>
           <select
             value={tone}
@@ -317,8 +317,14 @@ function GenerateTab() {
             className="w-full px-3 py-2.5 rounded-lg text-sm outline-none mb-4"
             style={{ background: '#0d0d0f', border: '1px solid #1a1a1d', color: '#f0f0f2' }}
           >
-            {['authentic', 'enthusiastic', 'critical', 'casual', 'formal'].map((t) => (
-              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            {[
+              { value: 'authentic', label: 'Autêntico' },
+              { value: 'enthusiastic', label: 'Entusiasmado' },
+              { value: 'critical', label: 'Crítico' },
+              { value: 'casual', label: 'Casual' },
+              { value: 'formal', label: 'Formal' },
+            ].map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
 
@@ -329,7 +335,7 @@ function GenerateTab() {
             style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            Generate {count} variants
+            Gerar {count} variantes
           </button>
         </div>
 
@@ -378,7 +384,7 @@ function ReplyTab() {
 
   const handleGenerate = async () => {
     if (!reviewId.trim()) {
-      toast.error('Enter a review ID')
+      toast.error('Informe um ID de avaliação')
       return
     }
     setLoading(true)
@@ -387,7 +393,7 @@ function ReplyTab() {
       const res = await api.ai.autoReply(reviewId, tone, getToken())
       setReply(res.reply)
     } catch {
-      toast.error('Failed to generate reply')
+      toast.error('Falha ao gerar resposta')
     } finally {
       setLoading(false)
     }
@@ -398,12 +404,12 @@ function ReplyTab() {
       <div className="space-y-3">
         <div>
           <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-            Review ID
+            ID da avaliação
           </label>
           <input
             value={reviewId}
             onChange={(e) => setReviewId(e.target.value)}
-            placeholder="Enter review UUID…"
+            placeholder="Informe o UUID da avaliação…"
             className="w-full px-4 py-2.5 rounded-lg text-sm outline-none transition-all"
             style={{ background: '#0d0d0f', border: '1px solid #1a1a1d', color: '#f0f0f2' }}
             onFocus={(e) => { e.target.style.border = '1px solid rgba(212,168,80,0.3)' }}
@@ -412,21 +418,26 @@ function ReplyTab() {
         </div>
         <div>
           <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-            Tone
+            Tom
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {['professional', 'friendly', 'empathetic', 'formal'].map((t) => (
+            {[
+              { value: 'professional', label: 'Profissional' },
+              { value: 'friendly', label: 'Amigável' },
+              { value: 'empathetic', label: 'Empático' },
+              { value: 'formal', label: 'Formal' },
+            ].map((t) => (
               <button
-                key={t}
-                onClick={() => setTone(t)}
-                className="py-2 rounded-lg text-xs font-medium transition-all capitalize"
+                key={t.value}
+                onClick={() => setTone(t.value)}
+                className="py-2 rounded-lg text-xs font-medium transition-all"
                 style={{
-                  background: tone === t ? 'rgba(212,168,80,0.1)' : '#0d0d0f',
-                  border: `1px solid ${tone === t ? 'rgba(212,168,80,0.3)' : '#1a1a1d'}`,
-                  color: tone === t ? '#d4a850' : '#8b8b96',
+                  background: tone === t.value ? 'rgba(212,168,80,0.1)' : '#0d0d0f',
+                  border: `1px solid ${tone === t.value ? 'rgba(212,168,80,0.3)' : '#1a1a1d'}`,
+                  color: tone === t.value ? '#d4a850' : '#8b8b96',
                 }}
               >
-                {t}
+                {t.label}
               </button>
             ))}
           </div>
@@ -438,7 +449,7 @@ function ReplyTab() {
           style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          Generate reply
+          Gerar resposta
         </button>
       </div>
 
@@ -451,7 +462,7 @@ function ReplyTab() {
             style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
           >
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-medium" style={{ color: '#5a5a64' }}>Generated reply</p>
+              <p className="text-xs font-medium" style={{ color: '#5a5a64' }}>Resposta gerada</p>
               <CopyButton text={reply} />
             </div>
             <p className="text-sm leading-relaxed" style={{ color: '#c0c0c8' }}>{reply}</p>
@@ -472,17 +483,17 @@ function DedupTab() {
         <span className="text-2xl">🔍</span>
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>Dedup Analysis</p>
+        <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>Análise de duplicatas</p>
         <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
-          Use the{' '}
+          Use a{' '}
           <a
             href="../duplicates"
             style={{ color: '#d4a850' }}
             className="underline underline-offset-2"
           >
-            Duplicates page
+            página de Duplicatas
           </a>{' '}
-          for full cluster management
+          para gerenciar clusters completos
         </p>
       </div>
     </div>
@@ -506,15 +517,15 @@ export default function AiLabPage() {
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<FlaskConical className="w-5 h-5" />}
-        title="AI Lab"
-        subtitle="Playground for AI-powered review features"
+        title="Lab de IA"
+        subtitle="Playground para recursos de avaliações com IA"
         actions={
           <div
             className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg"
             style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
           >
             <Sparkles className="w-3.5 h-3.5" style={{ color: '#d4a850' }} />
-            <span style={{ color: '#5a5a64' }}>Session:</span>
+            <span style={{ color: '#5a5a64' }}>Sessão:</span>
             <span style={{ color: '#f0f0f2' }}>{tokenCount} tokens</span>
           </div>
         }

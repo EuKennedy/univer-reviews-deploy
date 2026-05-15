@@ -18,7 +18,7 @@ function VerifyContent() {
     const token = searchParams.get('token')
     if (!token) {
       setState('error')
-      setError('No token found in URL')
+      setError('Nenhum token encontrado na URL')
       return
     }
 
@@ -36,7 +36,7 @@ function VerifyContent() {
       })
       .catch((err) => {
         setState('error')
-        setError(err.message ?? 'Verification failed')
+        setError(err.message ?? 'Falha na verificação')
       })
   }, [router, searchParams])
 
@@ -49,7 +49,7 @@ function VerifyContent() {
             style={{ color: '#d4a850' }}
           />
           <p className="text-sm" style={{ color: '#8b8b96' }}>
-            Verifying your magic link…
+            Verificando seu magic link…
           </p>
         </>
       )}
@@ -61,7 +61,7 @@ function VerifyContent() {
             style={{ color: '#22c55e' }}
           />
           <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
-            Signed in! Redirecting…
+            Conectado! Redirecionando…
           </p>
         </>
       )}
@@ -73,7 +73,7 @@ function VerifyContent() {
             style={{ color: '#ef4444' }}
           />
           <p className="text-sm font-medium mb-2" style={{ color: '#f0f0f2' }}>
-            Verification failed
+            Falha na verificação
           </p>
           <p className="text-xs mb-5" style={{ color: '#5a5a64' }}>
             {error}
@@ -87,7 +87,7 @@ function VerifyContent() {
               color: '#d4a850',
             }}
           >
-            Back to login
+            Voltar para o login
           </button>
         </>
       )}

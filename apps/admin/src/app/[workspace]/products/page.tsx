@@ -20,7 +20,7 @@ const col = createColumnHelper<Product>()
 
 const columns = [
   col.accessor('name', {
-    header: 'Product',
+    header: 'Produto',
     cell: (info) => (
       <div className="flex items-center gap-2.5">
         {info.row.original.image_url ? (
@@ -46,7 +46,7 @@ const columns = [
     ),
   }),
   col.accessor('review_count', {
-    header: 'Reviews',
+    header: 'Avaliações',
     cell: (info) => (
       <span className="text-sm tabular-nums" style={{ color: '#f0f0f2' }}>
         {formatNumber(info.getValue())}
@@ -54,7 +54,7 @@ const columns = [
     ),
   }),
   col.accessor('avg_rating', {
-    header: 'Avg Rating',
+    header: 'Nota média',
     cell: (info) =>
       info.getValue() !== null ? (
         <RatingStars rating={info.getValue()!} size="xs" showValue />
@@ -63,7 +63,7 @@ const columns = [
       ),
   }),
   col.accessor('price', {
-    header: 'Price',
+    header: 'Preço',
     cell: (info) =>
       info.getValue() !== null ? (
         <span className="text-sm tabular-nums" style={{ color: '#8b8b96' }}>
@@ -75,7 +75,7 @@ const columns = [
       ),
   }),
   col.accessor('source', {
-    header: 'Source',
+    header: 'Origem',
     cell: (info) => (
       <span
         className="text-xs px-2 py-0.5 rounded-full"
@@ -111,18 +111,18 @@ export default function ProductsPage() {
   })
 
   const statsItems = [
-    { label: 'Total Products', value: formatNumber(data?.meta.total_count ?? 0) },
-    { label: 'With Reviews', value: '—' },
-    { label: 'Avg Rating', value: '—' },
-    { label: 'Avg Reviews', value: '—' },
+    { label: 'Total de produtos', value: formatNumber(data?.meta.total_count ?? 0) },
+    { label: 'Com avaliações', value: '—' },
+    { label: 'Nota média', value: '—' },
+    { label: 'Média de avaliações', value: '—' },
   ]
 
   return (
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Package className="w-5 h-5" />}
-        title="Products"
-        subtitle="Manage your product catalog and review health"
+        title="Produtos"
+        subtitle="Gerencie seu catálogo e a saúde das avaliações"
       />
 
       <StatsBar stats={statsItems} isLoading={isLoading} />
@@ -132,12 +132,12 @@ export default function ProductsPage() {
           <SearchInput
             value={search}
             onChange={(v) => { setSearch(v); setPage(1) }}
-            placeholder="Search products…"
+            placeholder="Buscar produtos…"
           />
         }
         right={
           <span className="text-xs" style={{ color: '#5a5a64' }}>
-            {data?.meta.total_count ?? 0} products
+            {data?.meta.total_count ?? 0} produtos
           </span>
         }
       />
