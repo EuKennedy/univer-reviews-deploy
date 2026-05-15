@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gold: #d4a850;
+    --gold-hover: #b8923e;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  ::selection {
+    background: rgba(212, 168, 80, 0.25);
+    color: #fff;
+  }
+
+  a {
+    text-decoration: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}
+
+@layer utilities {
+  .text-gold {
+    color: var(--gold);
+  }
+
+  .bg-gold {
+    background-color: var(--gold);
+  }
+
+  .hover\:bg-gold-hover:hover {
+    background-color: var(--gold-hover);
+  }
+
+  .border-gold {
+    border-color: var(--gold);
+  }
+
+  .bg-gold\/5 {
+    background-color: rgba(212, 168, 80, 0.05);
+  }
+
+  .bg-gold\/8 {
+    background-color: rgba(212, 168, 80, 0.08);
+  }
+
+  .bg-gold\/10 {
+    background-color: rgba(212, 168, 80, 0.10);
+  }
+
+  .bg-gold\/20 {
+    background-color: rgba(212, 168, 80, 0.20);
+  }
+
+  .bg-white\/2 {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .bg-white\/3 {
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  .border-gold\/15 {
+    border-color: rgba(212, 168, 80, 0.15);
+  }
+
+  .border-gold\/20 {
+    border-color: rgba(212, 168, 80, 0.20);
+  }
+
+  .border-gold\/40 {
+    border-color: rgba(212, 168, 80, 0.40);
+  }
+
+  .text-gold\/30 {
+    color: rgba(212, 168, 80, 0.30);
+  }
+}
