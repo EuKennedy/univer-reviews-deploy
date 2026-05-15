@@ -1,0 +1,24 @@
+{
+  "name": "univerreviews",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "clean": "turbo clean",
+    "dev:admin": "pnpm --filter admin dev",
+    "dev:widget": "pnpm --filter widget dev",
+    "build:widget": "pnpm --filter widget build",
+    "pack:wp": "cd plugins/wordpress && zip -r ../../dist/univer-reviews.zip . --exclude='*.git*'"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

@@ -1,0 +1,48 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+.next/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Ruby / Rails
+apps/api/.bundle/
+apps/api/vendor/bundle/
+apps/api/log/*.log
+apps/api/tmp/
+apps/api/public/system/
+apps/api/storage/
+apps/api/.byebug_history
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+*.zip
+
+# Secrets (never commit)
+apps/api/config/master.key
+apps/api/config/credentials/*.key
+
+# Next.js standalone build output
+apps/admin/.next/standalone/
+apps/admin/.next/static/
+
+# Widget build artifacts
+apps/widget/dist/
+
+# pnpm
+.pnpm-store/
