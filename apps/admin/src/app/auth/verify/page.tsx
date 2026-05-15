@@ -25,7 +25,7 @@ function VerifyContent() {
     api.auth
       .verify(token)
       .then((result) => {
-        setCookie('auth_token', result.token, {
+        setCookie('univer_token', result.token, {
           maxAge: 60 * 60 * 24 * 30,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
