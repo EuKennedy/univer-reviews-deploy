@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       # Auth
+      post "auth/login",      to: "auth#login"
       post "auth/magic-link", to: "auth#magic_link"
       get  "auth/verify",     to: "auth#verify"
       delete "auth/logout",   to: "auth#logout"

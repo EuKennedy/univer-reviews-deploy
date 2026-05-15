@@ -7,6 +7,38 @@ module Api
       JWT_ALGO   = "HS256"
       TOKEN_TTL  = 24.hours
 
+      # POST /api/v1/auth/login
+      # Body: { email:, password:, workspace_slug: (optional) }
+      def login
+        email          = params.require(:email).to_s.downcase.strip
+        password       = params.require(:password).to_s
+        workspace_slug = params[:workspace_slug]
+
+        user = find_user(email, workspace_slug)
+
+        unless user && user.authenticate(password)
+          render json: { error: "invalid_credentials", message: "E-mail ou senha incorretos." }, status: :unauthorized
+          return
+        end
+
+        user.update_column(:last_login_at, Time.current)
+
+        jwt = encode_jwt(user)
+
+        render json: {
+          token: jwt,
+          expires_at: TOKEN_TTL.from_now.iso8601,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            workspace_id: user.workspace_id,
+            workspace_slug: user.workspace.slug
+          }
+        }
+      end
+
       # POST /api/v1/auth/magic-link
       # Body: { email:, workspace_slug: }
       def magic_link
