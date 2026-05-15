@@ -491,7 +491,9 @@ export default function WooCommercePage() {
                       className="text-sm"
                       style={{ color: testResult.success ? '#22c55e' : '#ef4444' }}
                     >
-                      {testResult.message}
+                      {testResult.success
+                        ? (testResult.message || `Conectado${(testResult as { store_name?: string }).store_name ? ` a ${(testResult as { store_name?: string }).store_name}` : ''}`)
+                        : (testResult.message || (testResult as { error?: string }).error || 'Falha na conexão. Verifique URL e credenciais.')}
                     </p>
                   </div>
                 )}
