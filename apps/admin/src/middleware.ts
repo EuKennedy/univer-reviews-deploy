@@ -21,7 +21,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Check for auth token
-  const token = request.cookies.get('auth_token')?.value
+  const token = request.cookies.get('univer_token')?.value
 
   if (!token) {
     const loginUrl = new URL('/login', request.url)

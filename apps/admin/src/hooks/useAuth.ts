@@ -13,7 +13,7 @@ interface AuthState {
   isAuthenticated: boolean
 }
 
-const TOKEN_COOKIE = 'auth_token'
+const TOKEN_COOKIE = 'univer_token'
 
 export function useAuth() {
   const router = useRouter()
