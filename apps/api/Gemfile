@@ -17,10 +17,7 @@ gem "sidekiq-scheduler"
 # Storage (MinIO / S3-compatible)
 gem "aws-sdk-s3", "~> 1.160"
 
-# AI
-gem "anthropic", "~> 0.3"
-
-# HTTP client (for WooCommerce adapter, webhooks)
+# HTTP client (for Anthropic API, WooCommerce adapter, webhooks)
 gem "faraday", "~> 2.9"
 gem "faraday-retry"
 

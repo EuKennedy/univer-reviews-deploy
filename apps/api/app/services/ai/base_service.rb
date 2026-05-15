@@ -1,9 +1,11 @@
 module Ai
   class BaseService
-    SONNET = "claude-sonnet-4-6"
-    HAIKU  = "claude-haiku-4-5-20251001"
+    SONNET = "claude-sonnet-4-6".freeze
+    HAIKU  = "claude-haiku-4-5-20251001".freeze
 
-    # Cost per 1M tokens (USD)
+    API_URL = "https://api.anthropic.com/v1/messages".freeze
+    API_VERSION = "2023-06-01".freeze
+
     COST = {
       SONNET => { input: 3.0,  output: 15.0 },
       HAIKU  => { input: 0.80, output: 4.0  }
@@ -11,36 +13,55 @@ module Ai
 
     def initialize(workspace)
       @workspace = workspace
-      @client    = Anthropic::Client.new(api_key: ENV.fetch("ANTHROPIC_API_KEY"))
+      @api_key = ENV.fetch("ANTHROPIC_API_KEY")
     end
 
     private
 
+    def http_client
+      @http_client ||= Faraday.new(url: API_URL) do |f|
+        f.request :json
+        f.response :json
+        f.response :raise_error
+        f.request :retry, max: 2, interval: 0.5, backoff_factor: 2
+        f.options.timeout = 60
+        f.options.open_timeout = 10
+      end
+    end
+
     def call_claude(model:, system:, messages:, max_tokens: 1024, review_id: nil)
       started_at = Time.current
 
-      response = @client.messages(
-        model: model,
-        max_tokens: max_tokens,
-        system: system,
-        messages: messages
-      )
+      response = http_client.post do |req|
+        req.headers["x-api-key"] = @api_key
+        req.headers["anthropic-version"] = API_VERSION
+        req.headers["content-type"] = "application/json"
+        req.body = {
+          model: model,
+          max_tokens: max_tokens,
+          system: system,
+          messages: messages
+        }
+      end
 
+      body = response.body
       duration_ms = ((Time.current - started_at) * 1000).to_i
-      text = response.content.first.text
+      text = body.dig("content", 0, "text") || ""
+      usage = body["usage"] || {}
 
       log_job(
         model: model,
-        input_tokens:  response.usage.input_tokens,
-        output_tokens: response.usage.output_tokens,
+        input_tokens:  usage["input_tokens"].to_i,
+        output_tokens: usage["output_tokens"].to_i,
         duration_ms: duration_ms,
         review_id: review_id,
         result: { content: text }
       )
 
       text
-    rescue => e
-      log_job(model: model, status: "failed", error: e.message, duration_ms: 0)
+    rescue Faraday::Error => e
+      Rails.logger.error("Anthropic API error: #{e.message}")
+      log_job(model: model, status: "failed", error: e.message, duration_ms: 0, review_id: review_id)
       raise
     end
 
@@ -72,7 +93,6 @@ module Ai
     end
 
     def parse_json_response(text)
-      # Strip markdown code fences if present
       clean = text.gsub(/```(?:json)?\n?/, "").strip
       JSON.parse(clean, symbolize_names: true)
     rescue JSON::ParserError => e
