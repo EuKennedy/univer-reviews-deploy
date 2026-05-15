@@ -1,3 +1,11 @@
+# ─── Stage 1: build widget bundle ────────────────────────────────────────────
+FROM node:20-alpine AS widget-builder
+WORKDIR /widget
+COPY apps/widget/package.json apps/widget/tsconfig.json apps/widget/rollup.config.js ./
+COPY apps/widget/src ./src
+RUN npm install --no-audit --no-fund && npm run build
+
+# ─── Stage 2: rails runtime ──────────────────────────────────────────────────
 FROM ruby:3.3-slim
 
 RUN apt-get update -qq && apt-get install -y \
@@ -10,16 +18,20 @@ RUN apt-get update -qq && apt-get install -y \
 WORKDIR /app
 
 # Install gems first (layer caching)
-COPY Gemfile Gemfile.lock ./
+COPY apps/api/Gemfile apps/api/Gemfile.lock* ./
 RUN bundle config set --local without "development test" && \
     bundle install --jobs 4 --retry 3
 
-COPY . .
+# Copy rails source
+COPY apps/api/ ./
 
-# Precompile assets (no-op for API-only apps, safe to fail)
+# Copy built widget bundle into rails public dir for /widget.js serving
+COPY --from=widget-builder /widget/dist/widget.js ./public/widget.js
+
+# Precompile (no-op for API-only)
 RUN bundle exec rails assets:precompile 2>/dev/null || true
 
-# Set non-root user for security
+# Non-root user
 RUN groupadd -r app && useradd -r -g app app && \
     chown -R app:app /app
 USER app
