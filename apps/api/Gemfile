@@ -14,6 +14,7 @@ gem "jwt", "~> 2.8"
 # Background jobs
 gem "sidekiq", "~> 7.3"
 gem "sidekiq-scheduler", "~> 6.0"
+gem "redis", "~> 5.3"
 
 # Storage (MinIO / S3-compatible)
 gem "aws-sdk-s3", "~> 1.160"
