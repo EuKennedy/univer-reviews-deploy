@@ -92,9 +92,10 @@ services:
       FRONTEND_URL: https://dash.univerreviews.com
       API_URL: https://api.univerreviews.com
       RAILS_LOG_TO_STDOUT: "true"
+      FORCE_SSL: "false"
     expose:
       - "3000"
-    command: bundle exec puma -C config/puma.rb
+    command: bash -c "bundle exec rails db:prepare && bundle exec puma -C config/puma.rb"
 
   # ─── Sidekiq (Background Jobs) ──────────────────────────────────────────────
   sidekiq:
@@ -119,7 +120,8 @@ services:
       MINIO_BUCKET: univer-media
       RESEND_API_KEY: ${RESEND_API_KEY}
       RAILS_LOG_TO_STDOUT: "true"
-    command: bundle exec sidekiq -C config/sidekiq.yml
+      FORCE_SSL: "false"
+    command: bash -c "until bundle exec rails runner 'ActiveRecord::Base.connection.execute(\"SELECT 1 FROM schema_migrations LIMIT 1\")' 2>/dev/null; do echo 'waiting for migrations'; sleep 3; done; bundle exec sidekiq -C config/sidekiq.yml"
 
   # ─── Next.js Admin Dashboard ────────────────────────────────────────────────
   admin:
