@@ -1,0 +1,533 @@
+<?php
+/**
+ * Admin pages: Settings, Reviews list, Import
+ *
+ * @package UniverReviews
+ */
+
+declare(strict_types=1);
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+class Univer_Admin {
+
+    public function __construct() {
+        add_action( 'admin_menu', [ $this, 'register_menus' ] );
+        add_action( 'admin_init', [ $this, 'register_settings' ] );
+        add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+        add_action( 'admin_notices', [ $this, 'show_notices' ] );
+
+        // AJAX: trigger manual pull
+        add_action( 'wp_ajax_univer_manual_pull', [ $this, 'ajax_manual_pull' ] );
+
+        // AJAX: test API connection
+        add_action( 'wp_ajax_univer_test_connection', [ $this, 'ajax_test_connection' ] );
+    }
+
+    // ─── Menus ───────────────────────────────────────────────────────────────
+
+    public function register_menus(): void {
+        add_menu_page(
+            __( 'UniverReviews', 'univer-reviews' ),
+            __( 'UniverReviews', 'univer-reviews' ),
+            'manage_options',
+            'univer-reviews',
+            [ $this, 'page_dashboard' ],
+            $this->get_menu_icon(),
+            56
+        );
+
+        add_submenu_page(
+            'univer-reviews',
+            __( 'Dashboard', 'univer-reviews' ),
+            __( 'Dashboard', 'univer-reviews' ),
+            'manage_options',
+            'univer-reviews',
+            [ $this, 'page_dashboard' ]
+        );
+
+        add_submenu_page(
+            'univer-reviews',
+            __( 'Avaliações', 'univer-reviews' ),
+            __( 'Avaliações', 'univer-reviews' ),
+            'edit_posts',
+            'univer-reviews-list',
+            [ $this, 'page_reviews' ]
+        );
+
+        add_submenu_page(
+            'univer-reviews',
+            __( 'Importar', 'univer-reviews' ),
+            __( 'Importar', 'univer-reviews' ),
+            'manage_options',
+            'univer-reviews-import',
+            [ $this, 'page_import' ]
+        );
+
+        add_submenu_page(
+            'univer-reviews',
+            __( 'Configurações', 'univer-reviews' ),
+            __( 'Configurações', 'univer-reviews' ),
+            'manage_options',
+            'univer-reviews-settings',
+            [ $this, 'page_settings' ]
+        );
+    }
+
+    // ─── Settings Registration ────────────────────────────────────────────────
+
+    public function register_settings(): void {
+        $settings = [
+            'univer_api_key'           => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_workspace_id'      => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_api_url'           => [ 'sanitize_callback' => 'esc_url_raw', 'default' => UNIVER_API_URL ],
+            'univer_widget_layout'     => [ 'sanitize_callback' => [ $this, 'sanitize_layout' ] ],
+            'univer_widget_locale'     => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_widget_theme_color'=> [ 'sanitize_callback' => 'sanitize_hex_color' ],
+            'univer_sync_enabled'      => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_auto_pull'         => [ 'sanitize_callback' => 'sanitize_text_field' ],
+        ];
+
+        foreach ( $settings as $option => $args ) {
+            register_setting( 'univer_reviews_settings', $option, $args );
+        }
+    }
+
+    public function sanitize_layout( string $layout ): string {
+        $valid = [ 'default', 'compact', 'grid', 'carousel', 'side-summary' ];
+        return in_array( $layout, $valid, true ) ? $layout : 'default';
+    }
+
+    // ─── Assets ──────────────────────────────────────────────────────────────
+
+    public function enqueue_assets( string $hook ): void {
+        if ( strpos( $hook, 'univer-reviews' ) === false ) {
+            return;
+        }
+
+        wp_enqueue_style(
+            'univer-admin',
+            UNIVER_PLUGIN_URL . 'assets/admin.css',
+            [],
+            UNIVER_VERSION
+        );
+    }
+
+    // ─── Notices ─────────────────────────────────────────────────────────────
+
+    public function show_notices(): void {
+        $screen = get_current_screen();
+        if ( ! $screen || strpos( $screen->id, 'univer-reviews' ) === false ) {
+            return;
+        }
+
+        $api_key      = get_option( 'univer_api_key', '' );
+        $workspace_id = get_option( 'univer_workspace_id', '' );
+
+        if ( empty( $api_key ) || empty( $workspace_id ) ) {
+            printf(
+                '<div class="notice notice-warning is-dismissible"><p>%s <a href="%s">%s</a></p></div>',
+                esc_html__( 'UniverReviews não está configurado.', 'univer-reviews' ),
+                esc_url( admin_url( 'admin.php?page=univer-reviews-settings' ) ),
+                esc_html__( 'Configure agora →', 'univer-reviews' )
+            );
+        }
+    }
+
+    // ─── Dashboard Page ───────────────────────────────────────────────────────
+
+    public function page_dashboard(): void {
+        $api_key      = get_option( 'univer_api_key', '' );
+        $workspace_id = get_option( 'univer_workspace_id', '' );
+        $last_pull    = get_option( 'univer_last_pull_at', '' );
+        $last_push    = get_option( 'univer_last_push_at', '' );
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e( 'UniverReviews', 'univer-reviews' ); ?></h1>
+
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-top:20px">
+                <?php $this->stat_card( __( 'Status', 'univer-reviews' ), $api_key ? '🟢 ' . __( 'Conectado', 'univer-reviews' ) : '🔴 ' . __( 'Desconectado', 'univer-reviews' ) ); ?>
+                <?php $this->stat_card( __( 'Workspace ID', 'univer-reviews' ), $workspace_id ? esc_html( $workspace_id ) : '—' ); ?>
+                <?php $this->stat_card( __( 'Última sincronização', 'univer-reviews' ), $last_pull ? esc_html( human_time_diff( strtotime( $last_pull ), time() ) . ' atrás' ) : '—' ); ?>
+            </div>
+
+            <div style="margin-top:24px">
+                <button class="button button-primary" id="univer-manual-pull">
+                    <?php esc_html_e( 'Sincronizar agora', 'univer-reviews' ); ?>
+                </button>
+                <span id="univer-pull-status" style="margin-left:12px;color:#666"></span>
+            </div>
+
+            <script>
+            document.getElementById('univer-manual-pull')?.addEventListener('click', function() {
+                const btn = this;
+                const status = document.getElementById('univer-pull-status');
+                btn.disabled = true;
+                status.textContent = '<?php echo esc_js( __( 'Sincronizando…', 'univer-reviews' ) ); ?>';
+
+                fetch(ajaxurl, {
+                    method: 'POST',
+                    body: new URLSearchParams({
+                        action: 'univer_manual_pull',
+                        nonce: '<?php echo esc_js( wp_create_nonce( 'univer_manual_pull' ) ); ?>'
+                    })
+                }).then(r => r.json()).then(d => {
+                    status.textContent = d.success ? '<?php echo esc_js( __( 'Sincronizado com sucesso!', 'univer-reviews' ) ); ?>' : '<?php echo esc_js( __( 'Erro ao sincronizar.', 'univer-reviews' ) ); ?>';
+                    btn.disabled = false;
+                }).catch(() => {
+                    status.textContent = '<?php echo esc_js( __( 'Erro de conexão.', 'univer-reviews' ) ); ?>';
+                    btn.disabled = false;
+                });
+            });
+            </script>
+        </div>
+        <?php
+    }
+
+    private function stat_card( string $label, string $value ): void {
+        printf(
+            '<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:16px">
+                <div style="font-size:.75rem;color:#888;font-weight:600;text-transform:uppercase;margin-bottom:6px">%s</div>
+                <div style="font-size:1rem;font-weight:600">%s</div>
+            </div>',
+            esc_html( $label ),
+            $value // already escaped by caller
+        );
+    }
+
+    // ─── Reviews List Page ────────────────────────────────────────────────────
+
+    public function page_reviews(): void {
+        $paged   = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+        $per_page = 20;
+
+        $comments = get_comments( [
+            'type'    => 'review',
+            'number'  => $per_page,
+            'offset'  => ( $paged - 1 ) * $per_page,
+            'status'  => 'all',
+            'orderby' => 'comment_date',
+            'order'   => 'DESC',
+        ] );
+
+        $total = get_comments( [
+            'type'   => 'review',
+            'count'  => true,
+            'status' => 'all',
+        ] );
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e( 'Avaliações', 'univer-reviews' ); ?></h1>
+
+            <table class="wp-list-table widefat fixed striped" style="margin-top:16px">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e( 'Autor', 'univer-reviews' ); ?></th>
+                        <th><?php esc_html_e( 'Avaliação', 'univer-reviews' ); ?></th>
+                        <th><?php esc_html_e( 'Nota', 'univer-reviews' ); ?></th>
+                        <th><?php esc_html_e( 'Produto', 'univer-reviews' ); ?></th>
+                        <th><?php esc_html_e( 'Status', 'univer-reviews' ); ?></th>
+                        <th><?php esc_html_e( 'Data', 'univer-reviews' ); ?></th>
+                        <th><?php esc_html_e( 'UniverReviews', 'univer-reviews' ); ?></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ( empty( $comments ) ) : ?>
+                        <tr><td colspan="7"><?php esc_html_e( 'Nenhuma avaliação encontrada.', 'univer-reviews' ); ?></td></tr>
+                    <?php else : ?>
+                        <?php foreach ( $comments as $comment ) :
+                            $rating       = (int) get_comment_meta( $comment->comment_ID, 'rating', true );
+                            $univer_id    = get_comment_meta( $comment->comment_ID, '_univer_review_id', true );
+                            $product      = get_post( (int) $comment->comment_post_ID );
+                            $stars        = str_repeat( '★', $rating ) . str_repeat( '☆', 5 - $rating );
+                            $status_map   = [
+                                '1'     => '<span style="color:#2d8a4e">● Aprovada</span>',
+                                '0'     => '<span style="color:#e6a817">● Pendente</span>',
+                                'spam'  => '<span style="color:#e53e3e">● Spam</span>',
+                                'trash' => '<span style="color:#999">● Lixo</span>',
+                            ];
+                            $status_html  = $status_map[ $comment->comment_approved ] ?? '<span>—</span>';
+                        ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo esc_html( $comment->comment_author ); ?></strong><br>
+                                <small><?php echo esc_html( $comment->comment_author_email ); ?></small>
+                            </td>
+                            <td><?php echo esc_html( wp_trim_words( $comment->comment_content, 12, '…' ) ); ?></td>
+                            <td style="color:#d4a850"><?php echo esc_html( $stars ); ?></td>
+                            <td><?php echo $product ? esc_html( get_the_title( $product ) ) : '—'; ?></td>
+                            <td><?php echo $status_html; /* already escaped */ ?></td>
+                            <td><?php echo esc_html( wp_date( 'd/m/Y', strtotime( $comment->comment_date ) ) ); ?></td>
+                            <td>
+                                <?php if ( $univer_id ) : ?>
+                                    <small style="color:#2d8a4e">✓ <?php echo esc_html( substr( $univer_id, 0, 8 ) . '…' ); ?></small>
+                                <?php else : ?>
+                                    <small style="color:#999">—</small>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <?php
+            $total_pages = (int) ceil( (int) $total / $per_page );
+            if ( $total_pages > 1 ) :
+                echo '<div style="margin-top:16px">';
+                echo paginate_links( [
+                    'base'      => add_query_arg( 'paged', '%#%' ),
+                    'format'    => '',
+                    'current'   => $paged,
+                    'total'     => $total_pages,
+                ] );
+                echo '</div>';
+            endif;
+            ?>
+        </div>
+        <?php
+    }
+
+    // ─── Import Page ──────────────────────────────────────────────────────────
+
+    public function page_import(): void {
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e( 'Importar Avaliações', 'univer-reviews' ); ?></h1>
+            <p style="color:#666;margin-top:8px">
+                <?php esc_html_e( 'Importe avaliações de um arquivo CSV ou sincronize via API.', 'univer-reviews' ); ?>
+            </p>
+
+            <div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:24px;max-width:600px;margin-top:20px">
+                <h2 style="font-size:1rem;margin-bottom:16px"><?php esc_html_e( 'Importar via CSV', 'univer-reviews' ); ?></h2>
+
+                <form method="post" enctype="multipart/form-data">
+                    <?php wp_nonce_field( 'univer_import_csv', 'univer_import_nonce' ); ?>
+
+                    <table class="form-table" role="presentation">
+                        <tr>
+                            <th scope="row"><label for="univer-csv"><?php esc_html_e( 'Arquivo CSV', 'univer-reviews' ); ?></label></th>
+                            <td>
+                                <input type="file" id="univer-csv" name="univer_csv_file" accept=".csv" required>
+                                <p class="description">
+                                    <?php esc_html_e( 'Colunas obrigatórias: rating, body, author_name, author_email, product_id', 'univer-reviews' ); ?>
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <?php submit_button( __( 'Importar', 'univer-reviews' ) ); ?>
+                </form>
+
+                <hr style="margin:24px 0">
+
+                <h2 style="font-size:1rem;margin-bottom:8px"><?php esc_html_e( 'Sincronizar WooCommerce existente', 'univer-reviews' ); ?></h2>
+                <p class="description"><?php esc_html_e( 'Envia todas as avaliações WooCommerce existentes para o UniverReviews.', 'univer-reviews' ); ?></p>
+                <button class="button" id="univer-sync-woo" style="margin-top:12px">
+                    <?php esc_html_e( 'Sincronizar avaliações WooCommerce', 'univer-reviews' ); ?>
+                </button>
+            </div>
+        </div>
+        <?php
+    }
+
+    // ─── Settings Page ────────────────────────────────────────────────────────
+
+    public function page_settings(): void {
+        $api_key       = get_option( 'univer_api_key', '' );
+        $workspace_id  = get_option( 'univer_workspace_id', '' );
+        $api_url       = get_option( 'univer_api_url', UNIVER_API_URL );
+        $layout        = get_option( 'univer_widget_layout', 'default' );
+        $locale        = get_option( 'univer_widget_locale', 'pt-BR' );
+        $theme_color   = get_option( 'univer_widget_theme_color', '#d4a850' );
+        $sync_enabled  = get_option( 'univer_sync_enabled', '1' );
+        $auto_pull     = get_option( 'univer_auto_pull', '1' );
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e( 'Configurações — UniverReviews', 'univer-reviews' ); ?></h1>
+
+            <form method="post" action="options.php">
+                <?php settings_fields( 'univer_reviews_settings' ); ?>
+
+                <h2><?php esc_html_e( 'Credenciais da API', 'univer-reviews' ); ?></h2>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="univer_api_key"><?php esc_html_e( 'API Key', 'univer-reviews' ); ?></label></th>
+                        <td>
+                            <input type="password" id="univer_api_key" name="univer_api_key" value="<?php echo esc_attr( $api_key ); ?>" class="regular-text" autocomplete="off">
+                            <p class="description"><?php esc_html_e( 'Encontre sua API Key no painel UniverReviews → Configurações → API Keys.', 'univer-reviews' ); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="univer_workspace_id"><?php esc_html_e( 'Workspace ID', 'univer-reviews' ); ?></label></th>
+                        <td>
+                            <input type="text" id="univer_workspace_id" name="univer_workspace_id" value="<?php echo esc_attr( $workspace_id ); ?>" class="regular-text">
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="univer_api_url"><?php esc_html_e( 'URL da API', 'univer-reviews' ); ?></label></th>
+                        <td>
+                            <input type="url" id="univer_api_url" name="univer_api_url" value="<?php echo esc_attr( $api_url ); ?>" class="regular-text">
+                        </td>
+                    </tr>
+                </table>
+
+                <p>
+                    <button type="button" class="button" id="univer-test-connection">
+                        <?php esc_html_e( 'Testar conexão', 'univer-reviews' ); ?>
+                    </button>
+                    <span id="univer-connection-status" style="margin-left:10px;font-weight:600"></span>
+                </p>
+
+                <hr>
+                <h2><?php esc_html_e( 'Widget', 'univer-reviews' ); ?></h2>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="univer_widget_layout"><?php esc_html_e( 'Layout', 'univer-reviews' ); ?></label></th>
+                        <td>
+                            <select id="univer_widget_layout" name="univer_widget_layout">
+                                <?php foreach ( [ 'default', 'compact', 'grid', 'carousel', 'side-summary' ] as $l ) : ?>
+                                    <option value="<?php echo esc_attr( $l ); ?>" <?php selected( $layout, $l ); ?>>
+                                        <?php echo esc_html( ucfirst( $l ) ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="univer_widget_locale"><?php esc_html_e( 'Idioma', 'univer-reviews' ); ?></label></th>
+                        <td>
+                            <select id="univer_widget_locale" name="univer_widget_locale">
+                                <option value="pt-BR" <?php selected( $locale, 'pt-BR' ); ?>>Português (Brasil)</option>
+                                <option value="en-US" <?php selected( $locale, 'en-US' ); ?>>English (US)</option>
+                                <option value="es-AR" <?php selected( $locale, 'es-AR' ); ?>>Español (Argentina)</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="univer_widget_theme_color"><?php esc_html_e( 'Cor do tema', 'univer-reviews' ); ?></label></th>
+                        <td>
+                            <input type="color" id="univer_widget_theme_color" name="univer_widget_theme_color" value="<?php echo esc_attr( $theme_color ); ?>">
+                        </td>
+                    </tr>
+                </table>
+
+                <hr>
+                <h2><?php esc_html_e( 'Sincronização', 'univer-reviews' ); ?></h2>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Sincronização automática', 'univer-reviews' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="univer_sync_enabled" value="1" <?php checked( $sync_enabled, '1' ); ?>>
+                                <?php esc_html_e( 'Enviar novas avaliações para o UniverReviews automaticamente', 'univer-reviews' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Pull automático', 'univer-reviews' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="univer_auto_pull" value="1" <?php checked( $auto_pull, '1' ); ?>>
+                                <?php esc_html_e( 'Buscar avaliações aprovadas do UniverReviews a cada hora', 'univer-reviews' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                </table>
+
+                <?php submit_button(); ?>
+            </form>
+        </div>
+
+        <script>
+        document.getElementById('univer-test-connection')?.addEventListener('click', function() {
+            const status = document.getElementById('univer-connection-status');
+            status.textContent = '<?php echo esc_js( __( 'Testando…', 'univer-reviews' ) ); ?>';
+            status.style.color = '#666';
+
+            fetch(ajaxurl, {
+                method: 'POST',
+                body: new URLSearchParams({
+                    action: 'univer_test_connection',
+                    nonce: '<?php echo esc_js( wp_create_nonce( 'univer_test_connection' ) ); ?>',
+                    api_key: document.getElementById('univer_api_key').value,
+                    workspace_id: document.getElementById('univer_workspace_id').value,
+                })
+            }).then(r => r.json()).then(d => {
+                if (d.success) {
+                    status.textContent = '✓ <?php echo esc_js( __( 'Conexão bem-sucedida!', 'univer-reviews' ) ); ?>';
+                    status.style.color = '#2d8a4e';
+                } else {
+                    status.textContent = '✕ ' + (d.data?.message || '<?php echo esc_js( __( 'Falha na conexão', 'univer-reviews' ) ); ?>');
+                    status.style.color = '#e53e3e';
+                }
+            });
+        });
+        </script>
+        <?php
+    }
+
+    // ─── AJAX ─────────────────────────────────────────────────────────────────
+
+    public function ajax_manual_pull(): void {
+        check_ajax_referer( 'univer_manual_pull', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( [ 'message' => __( 'Permissão negada.', 'univer-reviews' ) ] );
+        }
+
+        do_action( 'univer_sync_reviews' );
+        wp_send_json_success( [ 'message' => __( 'Sincronizado.', 'univer-reviews' ) ] );
+    }
+
+    public function ajax_test_connection(): void {
+        check_ajax_referer( 'univer_test_connection', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( [ 'message' => __( 'Permissão negada.', 'univer-reviews' ) ] );
+        }
+
+        $api_key      = sanitize_text_field( $_POST['api_key'] ?? '' );
+        $workspace_id = sanitize_text_field( $_POST['workspace_id'] ?? '' );
+        $api_url      = get_option( 'univer_api_url', UNIVER_API_URL );
+
+        if ( empty( $api_key ) || empty( $workspace_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'Preencha API Key e Workspace ID.', 'univer-reviews' ) ] );
+        }
+
+        $response = wp_remote_get(
+            rtrim( $api_url, '/' ) . '/api/v1/wp/ping',
+            [
+                'timeout' => 10,
+                'headers' => [
+                    'Authorization'  => 'Bearer ' . $api_key,
+                    'X-Workspace-ID' => $workspace_id,
+                ],
+            ]
+        );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( [ 'message' => $response->get_error_message() ] );
+        }
+
+        $code = wp_remote_retrieve_response_code( $response );
+        if ( 200 === $code ) {
+            wp_send_json_success( [ 'message' => __( 'OK', 'univer-reviews' ) ] );
+        } else {
+            wp_send_json_error( [ 'message' => sprintf( __( 'HTTP %d', 'univer-reviews' ), $code ) ] );
+        }
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private function get_menu_icon(): string {
+        // Inline SVG star icon as data URI for the admin menu
+        return 'data:image/svg+xml;base64,' . base64_encode(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>'
+        );
+    }
+}
