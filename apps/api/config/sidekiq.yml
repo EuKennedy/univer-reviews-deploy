@@ -1,0 +1,16 @@
+:concurrency: <%= ENV.fetch("SIDEKIQ_CONCURRENCY") { 10 } %>
+:queues:
+  - [critical, 3]
+  - [ai, 2]
+  - [default, 1]
+  - [mailers, 1]
+  - [imports, 1]
+:schedule:
+  cleanup_expired_tokens:
+    cron: "0 3 * * *"
+    class: CleanupExpiredTokensJob
+    queue: default
+  sync_woocommerce_products:
+    cron: "0 6 * * *"
+    class: WooCommerceSyncAllJob
+    queue: imports

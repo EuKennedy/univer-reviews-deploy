@@ -1,0 +1,61 @@
+source "https://rubygems.org"
+ruby "~> 3.3"
+
+gem "rails", "~> 8.0"
+gem "pg", "~> 1.5"
+gem "puma", "~> 6.4"
+gem "rack-cors"
+gem "bcrypt", "~> 3.1"
+
+# Auth
+gem "jwt", "~> 2.8"
+
+# Background jobs
+gem "sidekiq", "~> 7.3"
+gem "sidekiq-scheduler"
+
+# Storage (MinIO / S3-compatible)
+gem "aws-sdk-s3", "~> 1.160"
+
+# AI
+gem "anthropic", "~> 0.3"
+
+# HTTP client (for WooCommerce adapter, webhooks)
+gem "faraday", "~> 2.9"
+gem "faraday-retry"
+
+# Email
+gem "resend", "~> 0.12"
+
+# Billing
+gem "stripe", "~> 12.0"
+
+# Serialization
+gem "oj", "~> 3.16"
+
+# Validation
+gem "dry-validation", "~> 1.10"
+
+# Vector embeddings
+gem "neighbor", "~> 0.4"
+
+# Pagination
+gem "pagy", "~> 8.4"
+
+# Monitoring
+gem "sentry-ruby"
+gem "sentry-rails"
+
+group :development, :test do
+  gem "rspec-rails"
+  gem "factory_bot_rails"
+  gem "faker"
+  gem "shoulda-matchers"
+  gem "database_cleaner-active_record"
+  gem "rubocop-rails-omakase", require: false
+end
+
+group :development do
+  gem "annotate"
+  gem "bullet"
+end
