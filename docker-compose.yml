@@ -98,7 +98,9 @@ services:
       FORCE_SSL: "false"
     expose:
       - "3000"
-    command: bash -c "bundle exec rails db:prepare && bundle exec puma -C config/puma.rb"
+    # db:prepare runs migrations including Better Auth schema bootstrap.
+    # Then auth:migrate backfills legacy WorkspaceUsers into Better Auth (idempotent).
+    command: bash -c "bundle exec rails db:prepare && bundle exec rails auth:migrate && bundle exec puma -C config/puma.rb"
 
   # ─── Sidekiq (Background Jobs) ──────────────────────────────────────────────
   sidekiq:
@@ -140,14 +142,22 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      NEXTAUTH_URL: https://dash.univerreviews.com
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-univerreviews}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-univerreviews_production}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: https://dash.univerreviews.com
+      BETTER_AUTH_TRUSTED_ORIGINS: https://dash.univerreviews.com,https://api.univerreviews.com
+      NEXT_PUBLIC_ADMIN_URL: https://dash.univerreviews.com
       NEXT_PUBLIC_API_URL: https://api.univerreviews.com
       NEXT_PUBLIC_WIDGET_URL: https://api.univerreviews.com/widget.js
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      AUTH_FROM_EMAIL: auth@univerreviews.com
     expose:
       - "3000"
     depends_on:
-      - api
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

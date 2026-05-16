@@ -1,59 +1,46 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { getCookie, deleteCookie } from 'cookies-next'
-import { api } from '@/lib/api'
-import type { WorkspaceUser } from '@/types'
+import { authClient, useSession } from '@/lib/auth-client'
 
-interface AuthState {
-  token: string | null
-  user: WorkspaceUser | null
-  isLoading: boolean
-  isAuthenticated: boolean
-}
-
-const TOKEN_COOKIE = 'univer_token'
-
+/**
+ * Better Auth wrapper hook. Replaces previous JWT-cookie based hook.
+ * Session is fetched from /api/auth/get-session (cached client-side by Better Auth).
+ *
+ * NOTE: getToken() is kept for backwards compatibility with the api.ts client.
+ * It returns the cookie value (Better Auth signed session_token) so the Rails
+ * backend can look up the session row directly. Most authenticated requests
+ * just need cookies sent automatically — getToken() is for explicit Bearer.
+ */
 export function useAuth() {
   const router = useRouter()
-  const [state, setState] = useState<AuthState>({
-    token: null,
-    user: null,
-    isLoading: true,
-    isAuthenticated: false,
-  })
-
-  useEffect(() => {
-    const token = getCookie(TOKEN_COOKIE) as string | undefined
-    if (!token) {
-      setState({ token: null, user: null, isLoading: false, isAuthenticated: false })
-      return
-    }
-    setState((prev) => ({ ...prev, token, isLoading: false, isAuthenticated: true }))
-  }, [])
+  const { data: session, isPending, error } = useSession()
 
   const logout = useCallback(async () => {
-    const token = getCookie(TOKEN_COOKIE) as string | undefined
-    if (token) {
-      try {
-        await api.auth.logout(token)
-      } catch {
-        // Ignore errors on logout
-      }
-    }
-    deleteCookie(TOKEN_COOKIE)
-    router.push('/login')
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => router.push('/login'),
+      },
+    })
   }, [router])
 
   const getToken = useCallback((): string => {
-    const token = getCookie(TOKEN_COOKIE) as string | undefined
-    if (!token) throw new Error('Não autenticado')
-    return token
+    if (typeof document === 'undefined') throw new Error('Not in browser')
+    const cookies = document.cookie.split(';').map((c) => c.trim())
+    const sessionCookie =
+      cookies.find((c) => c.startsWith('better-auth.session_token='))?.split('=')[1] ||
+      cookies.find((c) => c.startsWith('__Secure-better-auth.session_token='))?.split('=')[1]
+    if (!sessionCookie) throw new Error('Não autenticado')
+    return decodeURIComponent(sessionCookie)
   }, [])
 
   return {
-    ...state,
+    user: session?.user || null,
+    session: session?.session || null,
+    isLoading: isPending,
+    isAuthenticated: !!session?.user,
+    error,
     logout,
     getToken,
   }

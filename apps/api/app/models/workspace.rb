@@ -1,4 +1,9 @@
 class Workspace < ApplicationRecord
+  belongs_to :better_auth_organization,
+             class_name: "BetterAuth::Organization",
+             foreign_key: :better_auth_org_id,
+             optional: true
+
   has_many :workspace_users,    dependent: :destroy
   has_many :workspace_api_keys, dependent: :destroy
   has_many :workspace_domains,  dependent: :destroy

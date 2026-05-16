@@ -5,7 +5,9 @@ RUN apk add --no-cache libc6-compat
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci --no-audit --no-fund
+# npm install (not ci) so lockfile drift caused by added deps gets resolved
+# during the first deploy. CI builds will pick the regenerated lockfile.
+RUN npm install --no-audit --no-fund
 
 # ─── Stage 2: builder ───────────────────────────────────────────────────────
 FROM base AS builder

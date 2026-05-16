@@ -5,64 +5,66 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
-import { Mail, Sparkles, Lock, ArrowRight, Loader2 } from 'lucide-react'
+import { Mail, Sparkles, Lock, ArrowRight, Loader2, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
-import { setCookie } from 'cookies-next'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { authClient } from '@/lib/auth-client'
 
-const schema = z.object({
+const passwordSchema = z.object({
   email: z.string().email('Informe um e-mail válido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
 })
 
-type FormValues = z.infer<typeof schema>
+const magicLinkSchema = z.object({
+  email: z.string().email('Informe um e-mail válido'),
+})
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+type PasswordValues = z.infer<typeof passwordSchema>
+type MagicLinkValues = z.infer<typeof magicLinkSchema>
+
+type Mode = 'password' | 'magic-link'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams?.get('next') || '/'
+  const [mode, setMode] = useState<Mode>('password')
   const [loading, setLoading] = useState(false)
+  const [magicSent, setMagicSent] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) })
+  const passwordForm = useForm<PasswordValues>({ resolver: zodResolver(passwordSchema) })
+  const magicForm = useForm<MagicLinkValues>({ resolver: zodResolver(magicLinkSchema) })
 
-  const onSubmit = async (values: FormValues) => {
+  const onPasswordSubmit = async (values: PasswordValues) => {
     setLoading(true)
-    try {
-      const res = await fetch(`${API_URL}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: values.email, password: values.password }),
-      })
+    const { data, error } = await authClient.signIn.email({
+      email: values.email,
+      password: values.password,
+      callbackURL: next,
+    })
+    setLoading(false)
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        toast.error(err.message || 'E-mail ou senha incorretos.')
-        setLoading(false)
-        return
-      }
-
-      const data = await res.json()
-      setCookie('univer_token', data.token, {
-        maxAge: 60 * 60 * 24,
-        path: '/',
-        sameSite: 'lax',
-        secure: typeof window !== 'undefined' && window.location.protocol === 'https:',
-      })
-      setCookie('univer_workspace', data.user.workspace_slug, {
-        maxAge: 60 * 60 * 24,
-        path: '/',
-        sameSite: 'lax',
-      })
-
-      router.push(`/${data.user.workspace_slug}/dashboard`)
-    } catch {
-      toast.error('Erro de conexão. Tente novamente.')
-      setLoading(false)
+    if (error || !data) {
+      toast.error(error?.message || 'E-mail ou senha incorretos.')
+      return
     }
+    router.push(next)
+  }
+
+  const onMagicLinkSubmit = async (values: MagicLinkValues) => {
+    setLoading(true)
+    const { error } = await authClient.signIn.magicLink({
+      email: values.email,
+      callbackURL: next,
+    })
+    setLoading(false)
+
+    if (error) {
+      toast.error(error.message || 'Falha ao enviar link.')
+      return
+    }
+    setMagicSent(true)
+    toast.success('Link enviado. Cheque seu e-mail.')
   }
 
   return (
@@ -124,85 +126,63 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-xs font-medium mb-1.5" style={{ color: '#8b8b96' }}>
-                E-mail
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#5a5a64' }} />
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  autoFocus
-                  placeholder="voce@empresa.com"
-                  {...register('email')}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm transition-all duration-150 outline-none"
-                  style={{
-                    background: '#0a0a0b',
-                    border: errors.email ? '1px solid rgba(239,68,68,0.6)' : '1px solid #1e1e21',
-                    color: '#f0f0f2',
-                  }}
-                />
-              </div>
-              {errors.email && (
-                <p className="mt-1.5 text-xs" style={{ color: '#ef4444' }}>
-                  {errors.email.message}
-                </p>
-              )}
-            </div>
+          {/* Mode toggle */}
+          <div
+            className="flex p-1 rounded-lg mb-5"
+            style={{ background: '#0a0a0b', border: '1px solid #1e1e21' }}
+          >
+            {(['password', 'magic-link'] as Mode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => {
+                  setMode(m)
+                  setMagicSent(false)
+                }}
+                className="flex-1 py-1.5 text-xs font-medium rounded-md transition-all"
+                style={{
+                  background: mode === m ? '#1e1e21' : 'transparent',
+                  color: mode === m ? '#f0f0f2' : '#5a5a64',
+                }}
+              >
+                {m === 'password' ? 'Senha' : 'Link mágico'}
+              </button>
+            ))}
+          </div>
 
-            <div>
-              <label htmlFor="password" className="block text-xs font-medium mb-1.5" style={{ color: '#8b8b96' }}>
-                Senha
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#5a5a64' }} />
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  {...register('password')}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm transition-all duration-150 outline-none"
-                  style={{
-                    background: '#0a0a0b',
-                    border: errors.password ? '1px solid rgba(239,68,68,0.6)' : '1px solid #1e1e21',
-                    color: '#f0f0f2',
-                  }}
-                />
-              </div>
-              {errors.password && (
-                <p className="mt-1.5 text-xs" style={{ color: '#ef4444' }}>
-                  {errors.password.message}
-                </p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-150"
-              style={{
-                background: loading ? '#a07830' : 'linear-gradient(135deg, #d4a850, #c49040)',
-                color: '#0a0a0b',
-                boxShadow: loading ? 'none' : '0 1px 2px rgba(0,0,0,0.4)',
-              }}
+          {mode === 'password' ? (
+            <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+              <FieldEmail
+                register={passwordForm.register('email')}
+                error={passwordForm.formState.errors.email?.message}
+              />
+              <FieldPassword
+                register={passwordForm.register('password')}
+                error={passwordForm.formState.errors.password?.message}
+              />
+              <SubmitButton loading={loading} label="Entrar" icon={<ArrowRight className="w-4 h-4" />} />
+            </form>
+          ) : magicSent ? (
+            <div
+              className="rounded-lg p-5 text-center"
+              style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Entrando…
-                </>
-              ) : (
-                <>
-                  Entrar
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
+              <Wand2 className="w-6 h-6 mx-auto mb-2" style={{ color: '#22c55e' }} />
+              <p className="text-sm" style={{ color: '#f0f0f2' }}>
+                Link enviado!
+              </p>
+              <p className="text-xs mt-1" style={{ color: '#8b8b96' }}>
+                Abra seu e-mail e clique no link mágico para entrar.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={magicForm.handleSubmit(onMagicLinkSubmit)} className="space-y-4">
+              <FieldEmail
+                register={magicForm.register('email')}
+                error={magicForm.formState.errors.email?.message}
+              />
+              <SubmitButton loading={loading} label="Enviar link" icon={<Wand2 className="w-4 h-4" />} />
+            </form>
+          )}
 
           <p className="mt-6 text-xs text-center" style={{ color: '#5a5a64' }}>
             Acesso restrito a equipe autorizada
@@ -214,5 +194,117 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+// ─── Field components (extracted for readability) ───────────────────────────
+
+function FieldEmail({
+  register,
+  error,
+}: {
+  register: ReturnType<ReturnType<typeof useForm>['register']>
+  error?: string
+}) {
+  return (
+    <div>
+      <label htmlFor="email" className="block text-xs font-medium mb-1.5" style={{ color: '#8b8b96' }}>
+        E-mail
+      </label>
+      <div className="relative">
+        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#5a5a64' }} />
+        <input
+          id="email"
+          type="email"
+          autoComplete="email"
+          autoFocus
+          placeholder="voce@empresa.com"
+          {...register}
+          className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm transition-all duration-150 outline-none"
+          style={{
+            background: '#0a0a0b',
+            border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid #1e1e21',
+            color: '#f0f0f2',
+          }}
+        />
+      </div>
+      {error && (
+        <p className="mt-1.5 text-xs" style={{ color: '#ef4444' }}>
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function FieldPassword({
+  register,
+  error,
+}: {
+  register: ReturnType<ReturnType<typeof useForm>['register']>
+  error?: string
+}) {
+  return (
+    <div>
+      <label htmlFor="password" className="block text-xs font-medium mb-1.5" style={{ color: '#8b8b96' }}>
+        Senha
+      </label>
+      <div className="relative">
+        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#5a5a64' }} />
+        <input
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+          {...register}
+          className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm transition-all duration-150 outline-none"
+          style={{
+            background: '#0a0a0b',
+            border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid #1e1e21',
+            color: '#f0f0f2',
+          }}
+        />
+      </div>
+      {error && (
+        <p className="mt-1.5 text-xs" style={{ color: '#ef4444' }}>
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function SubmitButton({
+  loading,
+  label,
+  icon,
+}: {
+  loading: boolean
+  label: string
+  icon: React.ReactNode
+}) {
+  return (
+    <button
+      type="submit"
+      disabled={loading}
+      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-150"
+      style={{
+        background: loading ? '#a07830' : 'linear-gradient(135deg, #d4a850, #c49040)',
+        color: '#0a0a0b',
+        boxShadow: loading ? 'none' : '0 1px 2px rgba(0,0,0,0.4)',
+      }}
+    >
+      {loading ? (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Aguarde…
+        </>
+      ) : (
+        <>
+          {label}
+          {icon}
+        </>
+      )}
+    </button>
   )
 }

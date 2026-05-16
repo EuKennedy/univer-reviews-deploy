@@ -42,7 +42,11 @@ module UniverseReviewsApi
           "http://localhost:3000",
           /\Ahttps?:\/\/[\w.-]+\.univerreviews\.com\z/
         )
-        resource "/api/*", headers: :any, methods: %i[get post put patch delete options]
+        resource "/api/*",
+                 headers: :any,
+                 methods: %i[get post put patch delete options],
+                 credentials: true,
+                 expose: ["Set-Cookie"]
       end
     end
 

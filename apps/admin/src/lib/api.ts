@@ -61,6 +61,9 @@ class ApiClient {
       ...(fetchOptions.headers as Record<string, string>),
     }
 
+    // Pass session token explicitly as Bearer when caller has it (SSR / typed calls).
+    // Cookies are also sent via credentials: 'include' so the Rails backend can look
+    // up the Better Auth session cookie even without an explicit token.
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
@@ -68,6 +71,7 @@ class ApiClient {
     const res = await fetch(url, {
       ...fetchOptions,
       headers,
+      credentials: 'include',
       cache: 'no-store',
     })
 
