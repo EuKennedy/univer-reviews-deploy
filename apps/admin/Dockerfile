@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 # npm install (not ci) so lockfile drift caused by added deps gets resolved
 # during the first deploy. CI builds will pick the regenerated lockfile.
-RUN npm install --no-audit --no-fund
+RUN npm install --no-audit --no-fund --legacy-peer-deps
 
 # ─── Stage 2: builder ───────────────────────────────────────────────────────
 FROM base AS builder
