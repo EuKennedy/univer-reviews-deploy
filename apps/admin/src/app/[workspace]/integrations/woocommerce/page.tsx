@@ -130,13 +130,21 @@ export default function WooCommercePage() {
     setTesting(true)
     setTestResult(null)
     try {
-      const result = await api.integrations.woocommerce.test(getToken())
+      const result = await api.integrations.woocommerce.test(
+        {
+          store_url: form.store_url,
+          consumer_key: form.consumer_key,
+          consumer_secret: form.consumer_secret,
+        },
+        getToken()
+      )
       setTestResult(result)
       if (result.success) {
         setTimeout(() => setStep(3), 800)
       }
-    } catch {
-      setTestResult({ success: false, message: 'Falha na conexão' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Falha na conexão'
+      setTestResult({ success: false, message: msg })
     } finally {
       setTesting(false)
     }

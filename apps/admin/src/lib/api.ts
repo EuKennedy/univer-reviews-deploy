@@ -192,21 +192,30 @@ class ApiClient {
     woocommerce: {
       get: (token: string) =>
         this.request<WooCommerceConfig>('/integrations/woocommerce', {}, token),
-      save: (data: WooCommerceConfig, token: string) =>
+      save: (data: Partial<WooCommerceConfig>, token: string) =>
         this.request<WooCommerceConfig>(
           '/integrations/woocommerce',
           { method: 'POST', body: JSON.stringify(data) },
           token
         ),
-      test: (token: string) =>
-        this.request<{ success: boolean; message: string }>(
+      test: (
+        creds: { store_url?: string; consumer_key?: string; consumer_secret?: string },
+        token: string
+      ) =>
+        this.request<{ success: boolean; message: string; store_name?: string }>(
           '/integrations/woocommerce/test',
-          { method: 'POST' },
+          { method: 'POST', body: JSON.stringify(creds) },
           token
         ),
       syncProducts: (token: string) =>
-        this.request<{ job_id: string }>(
+        this.request<{ message: string }>(
           '/integrations/woocommerce/sync_products',
+          { method: 'POST' },
+          token
+        ),
+      syncReviews: (token: string) =>
+        this.request<{ import_id: string; message: string }>(
+          '/integrations/woocommerce/sync_reviews',
           { method: 'POST' },
           token
         ),

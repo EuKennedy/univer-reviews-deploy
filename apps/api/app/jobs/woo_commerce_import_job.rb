@@ -65,8 +65,8 @@ class WooCommerceImportJob < ApplicationJob
     review.assign_attributes(
       product:             product,
       rating:              woo_review["rating"].to_i,
-      title:               woo_review["reviewer"] || "Review",
-      body:                woo_review["review"]&.gsub(/<\/?[^>]*>/, ""),
+      title:               nil,
+      body:                woo_review["review"]&.gsub(/<\/?[^>]*>/, "")&.strip,
       author_name:         woo_review["reviewer"],
       author_email:        woo_review["reviewer_email"]&.downcase,
       is_verified_purchase: woo_review["verified"],
@@ -75,6 +75,6 @@ class WooCommerceImportJob < ApplicationJob
     )
 
     review.save!
-    AiModerateJob.perform_later(review.id)
+    AiModerateJob.perform_later(review.id) if ENV["ANTHROPIC_API_KEY"].present? && ENV["ANTHROPIC_API_KEY"] != "SET_ME_LATER"
   end
 end

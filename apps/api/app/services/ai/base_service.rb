@@ -11,9 +11,14 @@ module Ai
       HAIKU  => { input: 0.80, output: 4.0  }
     }.freeze
 
+    class MissingApiKeyError < StandardError; end
+
     def initialize(workspace)
       @workspace = workspace
-      @api_key = ENV.fetch("ANTHROPIC_API_KEY")
+      @api_key = ENV["ANTHROPIC_API_KEY"]
+      if @api_key.blank? || @api_key == "SET_ME_LATER"
+        raise MissingApiKeyError, "ANTHROPIC_API_KEY not configured"
+      end
     end
 
     private
