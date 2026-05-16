@@ -15,7 +15,9 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { admin, magicLink, organization, bearer } from 'better-auth/plugins'
 import { nextCookies } from 'better-auth/next-js'
 
-import { db } from './db'
+import { eq } from 'drizzle-orm'
+
+import { db, sql } from './db'
 import * as authSchema from './db/schema'
 import {
   invitationTemplate,
@@ -57,6 +59,28 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       maxAge: 60 * 5, // 5min in-memory cache for getSession() in middleware
+    },
+  },
+
+  // ─── Social providers ──────────────────────────────────────────────────────
+  socialProviders: {
+    google: {
+      enabled: !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET,
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      // Always show the consent screen so users can switch Google accounts
+      prompt: 'select_account',
+    },
+  },
+
+  // ─── Account linking ───────────────────────────────────────────────────────
+  account: {
+    accountLinking: {
+      enabled: true,
+      // Allow linking Google → existing credential account by matching email.
+      // This lets pre-provisioned users (backfilled from Rails) sign in with
+      // Google without manual linking.
+      trustedProviders: ['google'],
     },
   },
 
@@ -125,14 +149,46 @@ export const auth = betterAuth({
     nextCookies(), // must be last
   ],
 
-  // ─── Hooks: sync Better Auth user → Rails WorkspaceUser ────────────────────
+  // ─── Hooks: enforce access control + sync Rails WorkspaceUser ─────────────
   databaseHooks: {
     user: {
+      // Gate: only allow user creation if the email is already provisioned in
+      // Rails (workspace_users) OR has a pending invitation. Prevents random
+      // Google sign-ins from creating orphan accounts.
       create: {
+        before: async (incoming) => {
+          const email = incoming.email.toLowerCase()
+
+          const existing = await sql<
+            { id: string; workspace_id: string }[]
+          >`SELECT id, workspace_id FROM public.workspace_users WHERE LOWER(email) = ${email} LIMIT 1`
+
+          const invited = await db
+            .select({ id: authSchema.invitation.id })
+            .from(authSchema.invitation)
+            .where(eq(authSchema.invitation.email, email))
+            .limit(1)
+
+          if (existing.length === 0 && invited.length === 0) {
+            throw new Error(
+              'Acesso não autorizado. Solicite um convite ao administrador.'
+            )
+          }
+
+          return { data: incoming }
+        },
         after: async (createdUser) => {
-          // The Rails app picks this up via a periodic sync job OR via the
-          // WorkspaceUser model joining on better_auth_user_id. We do not
-          // call Rails from here to avoid cross-stack coupling.
+          // Link to existing Rails WorkspaceUser by email match.
+          const email = createdUser.email.toLowerCase()
+          try {
+            await sql`
+              UPDATE public.workspace_users
+              SET better_auth_user_id = ${createdUser.id}
+              WHERE LOWER(email) = ${email} AND better_auth_user_id IS NULL
+            `
+          } catch (e) {
+            console.warn('[auth] WorkspaceUser link skipped:', e)
+          }
           console.info(`[auth] user created: ${createdUser.id} (${createdUser.email})`)
         },
       },

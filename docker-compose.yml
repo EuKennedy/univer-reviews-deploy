@@ -150,7 +150,9 @@ services:
       NEXT_PUBLIC_API_URL: https://api.univerreviews.com
       NEXT_PUBLIC_WIDGET_URL: https://api.univerreviews.com/widget.js
       RESEND_API_KEY: ${RESEND_API_KEY}
-      AUTH_FROM_EMAIL: auth@univerreviews.com
+      AUTH_FROM_EMAIL: ${AUTH_FROM_EMAIL:-auth@univerreviews.com}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     expose:
       - "3000"
     depends_on:
