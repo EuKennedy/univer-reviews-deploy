@@ -7,7 +7,12 @@ class AiDedupJob < ApplicationJob
 
     set_workspace_rls(review.workspace_id)
 
-    service = Ai::DedupService.new(review.workspace)
+    begin
+      service = Ai::DedupService.new(review.workspace)
+    rescue Ai::BaseService::MissingApiKeyError => e
+      Rails.logger.warn("AiDedupJob skipped: #{e.message}")
+      return
+    end
 
     # Ensure review has an embedding
     service.embed(review) unless review.embedding.present?

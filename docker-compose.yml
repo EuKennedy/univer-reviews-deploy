@@ -82,6 +82,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-univerreviews}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-univerreviews_production}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      JWT_SECRET: ${JWT_SECRET}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-univerreviews}
@@ -91,6 +92,7 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       FRONTEND_URL: https://dash.univerreviews.com
+      ADMIN_URL: https://dash.univerreviews.com
       API_URL: https://api.univerreviews.com
       RAILS_LOG_TO_STDOUT: "true"
       FORCE_SSL: "false"
@@ -114,12 +116,15 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-univerreviews}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-univerreviews_production}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      JWT_SECRET: ${JWT_SECRET}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-univerreviews}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: univer-media
       RESEND_API_KEY: ${RESEND_API_KEY}
+      ADMIN_URL: https://dash.univerreviews.com
+      FRONTEND_URL: https://dash.univerreviews.com
       RAILS_LOG_TO_STDOUT: "true"
       FORCE_SSL: "false"
     command: bash -c "until bundle exec rails runner 'ActiveRecord::Base.connection.execute(\"SELECT 1 FROM schema_migrations LIMIT 1\")' 2>/dev/null; do echo 'waiting for migrations'; sleep 3; done; bundle exec sidekiq -C config/sidekiq.yml"

@@ -7,7 +7,13 @@ class AiEmbedJob < ApplicationJob
 
     set_workspace_rls(review.workspace_id)
 
-    service = Ai::DedupService.new(review.workspace)
+    begin
+      service = Ai::DedupService.new(review.workspace)
+    rescue Ai::BaseService::MissingApiKeyError => e
+      Rails.logger.warn("AiEmbedJob skipped: #{e.message}")
+      return
+    end
+
     service.embed(review)
 
     # After embedding, check for duplicates

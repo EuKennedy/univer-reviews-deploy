@@ -25,22 +25,51 @@ class ApplicationController < ActionController::API
 
   private
 
+  JWT_SECRET = ENV.fetch("JWT_SECRET", "change_me_in_production_min_64_chars_long_secret_key_here_!!!")
+  JWT_ALGO   = "HS256"
+
   def set_current_workspace
     return if skip_authentication?
 
-    api_key = extract_api_key
-    raise UnauthorizedError unless api_key
+    token = extract_bearer_token
+    api_key_header = request.headers["X-Univer-Api-Key"]
 
-    key_hash = Digest::SHA256.hexdigest(api_key)
-    @api_key_record = WorkspaceApiKey.active.find_by(key_hash: key_hash)
-    raise UnauthorizedError unless @api_key_record
+    # Prefer JWT (admin dashboard). Bearer-token form is ambiguous; try JWT first.
+    if token.present? && jwt_like?(token)
+      authenticate_jwt!(token)
+    elsif api_key_header.present?
+      authenticate_api_key!(api_key_header)
+    elsif token.present?
+      # Bearer token that does not parse as JWT — treat as raw API key.
+      authenticate_api_key!(token)
+    else
+      raise UnauthorizedError, "Missing credentials"
+    end
 
-    @current_workspace = @api_key_record.workspace
-    raise UnauthorizedError if @current_workspace.suspended?
-
-    @api_key_record.touch(:last_used_at)
+    raise UnauthorizedError if @current_workspace.nil? || @current_workspace.suspended?
 
     set_rls_workspace(@current_workspace.id)
+  end
+
+  def authenticate_jwt!(token)
+    payload, _header = JWT.decode(token, JWT_SECRET, true, algorithm: JWT_ALGO)
+    user_id      = payload["sub"]
+    workspace_id = payload["workspace_id"]
+
+    @current_user      = WorkspaceUser.find_by(id: user_id, workspace_id: workspace_id)
+    @current_workspace = @current_user&.workspace
+    raise UnauthorizedError, "Invalid session" unless @current_user
+  rescue JWT::DecodeError, JWT::ExpiredSignature => e
+    raise UnauthorizedError, "Invalid or expired token: #{e.message}"
+  end
+
+  def authenticate_api_key!(api_key)
+    key_hash = Digest::SHA256.hexdigest(api_key)
+    @api_key_record = WorkspaceApiKey.active.find_by(key_hash: key_hash)
+    raise UnauthorizedError, "Invalid API key" unless @api_key_record
+
+    @current_workspace = @api_key_record.workspace
+    @api_key_record.touch(:last_used_at)
   end
 
   def set_rls_workspace(workspace_id)
@@ -55,17 +84,22 @@ class ApplicationController < ActionController::API
     @current_workspace
   end
 
+  def current_user
+    @current_user
+  end
+
   def current_api_key
     @api_key_record
   end
 
-  def extract_api_key
+  def extract_bearer_token
     auth_header = request.headers["Authorization"]
-    if auth_header&.start_with?("Bearer ")
-      auth_header.split(" ").last
-    else
-      request.headers["X-Univer-Api-Key"]
-    end
+    return nil unless auth_header&.start_with?("Bearer ")
+    auth_header.split(" ", 2).last
+  end
+
+  def jwt_like?(token)
+    token.is_a?(String) && token.count(".") == 2
   end
 
   def skip_authentication?
@@ -73,7 +107,9 @@ class ApplicationController < ActionController::API
   end
 
   def require_write!
-    raise ForbiddenError, "API key lacks write scope" unless current_api_key&.write?
+    return if current_user&.can_write?
+    return if current_api_key&.write?
+    raise ForbiddenError, "Insufficient permissions for write action"
   end
 
   # Pagy helper: returns [pagy, records]

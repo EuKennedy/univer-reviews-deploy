@@ -9,8 +9,14 @@ class AiModerateJob < ApplicationJob
 
     set_workspace_rls(review.workspace_id)
 
-    service = Ai::ModerateService.new(review.workspace)
-    result  = service.call(review)
+    begin
+      service = Ai::ModerateService.new(review.workspace)
+    rescue Ai::BaseService::MissingApiKeyError => e
+      Rails.logger.warn("AiModerateJob skipped: #{e.message}")
+      return
+    end
+
+    result = service.call(review)
 
     # Auto-approve if quality is high enough and not synthetic
     if should_auto_approve?(result)

@@ -8,7 +8,12 @@ class AiCleanupDuplicatesJob < ApplicationJob
 
     set_workspace_rls(workspace_id)
 
-    generate_service = Ai::GenerateService.new(workspace)
+    begin
+      generate_service = Ai::GenerateService.new(workspace)
+    rescue Ai::BaseService::MissingApiKeyError => e
+      Rails.logger.warn("AiCleanupDuplicatesJob skipped: #{e.message}")
+      return
+    end
 
     clusters = if cluster_ids.any?
                  cluster_ids
