@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::API
   include Pagy::Backend
+  include ActionController::Cookies
 
   before_action :set_current_workspace
 
@@ -25,23 +26,27 @@ class ApplicationController < ActionController::API
 
   private
 
-  JWT_SECRET = ENV.fetch("JWT_SECRET", "change_me_in_production_min_64_chars_long_secret_key_here_!!!")
-  JWT_ALGO   = "HS256"
+  SESSION_COOKIE = "better-auth.session_token".freeze
 
   def set_current_workspace
     return if skip_authentication?
 
-    token = extract_bearer_token
-    api_key_header = request.headers["X-Univer-Api-Key"]
+    bearer = extract_bearer_token
+    session_token = extract_session_token
 
-    # Prefer JWT (admin dashboard). Bearer-token form is ambiguous; try JWT first.
-    if token.present? && jwt_like?(token)
-      authenticate_jwt!(token)
-    elsif api_key_header.present?
-      authenticate_api_key!(api_key_header)
-    elsif token.present?
-      # Bearer token that does not parse as JWT — treat as raw API key.
-      authenticate_api_key!(token)
+    if session_token.present?
+      authenticate_better_auth_session!(session_token)
+    elsif bearer.present?
+      # Bearer header with token — could be Better Auth bearer plugin OR a raw API key.
+      # Better Auth tokens are signed JWT-ish (3 dots) OR opaque; try session first.
+      ba_user = lookup_better_auth_session(bearer)
+      if ba_user
+        assign_from_better_auth(ba_user[:user], ba_user[:session])
+      else
+        authenticate_api_key!(bearer)
+      end
+    elsif request.headers["X-Univer-Api-Key"].present?
+      authenticate_api_key!(request.headers["X-Univer-Api-Key"])
     else
       raise UnauthorizedError, "Missing credentials"
     end
@@ -51,16 +56,45 @@ class ApplicationController < ActionController::API
     set_rls_workspace(@current_workspace.id)
   end
 
-  def authenticate_jwt!(token)
-    payload, _header = JWT.decode(token, JWT_SECRET, true, algorithm: JWT_ALGO)
-    user_id      = payload["sub"]
-    workspace_id = payload["workspace_id"]
+  def authenticate_better_auth_session!(token)
+    found = lookup_better_auth_session(token)
+    raise UnauthorizedError, "Invalid or expired session" unless found
+    assign_from_better_auth(found[:user], found[:session])
+  end
 
-    @current_user      = WorkspaceUser.find_by(id: user_id, workspace_id: workspace_id)
-    @current_workspace = @current_user&.workspace
-    raise UnauthorizedError, "Invalid session" unless @current_user
-  rescue JWT::DecodeError, JWT::ExpiredSignature => e
-    raise UnauthorizedError, "Invalid or expired token: #{e.message}"
+  def lookup_better_auth_session(token)
+    # Cookie value is signed: `<token>.<signature>`. Better Auth stores the raw token
+    # in `auth.session.token`. Strip the signature suffix (everything after the first dot)
+    # only if the prefix matches a real session row.
+    candidates = [token]
+    candidates << token.split(".", 2).first if token.include?(".")
+
+    session = BetterAuth::Session.where(token: candidates.uniq).first
+    return nil unless session
+    return nil if session.expired?
+
+    user = session.user
+    return nil unless user
+
+    { user: user, session: session }
+  end
+
+  def assign_from_better_auth(ba_user, ba_session)
+    @current_ba_user    = ba_user
+    @current_ba_session = ba_session
+
+    # Resolve workspace from session's active_organization_id mapping → workspaces.better_auth_org_id.
+    workspace =
+      if ba_session.respond_to?(:active_organization_id) && ba_session.active_organization_id.present?
+        Workspace.find_by(better_auth_org_id: ba_session.active_organization_id)
+      end
+
+    # Fall back: pick the user's first linked workspace_user.
+    @current_user      = WorkspaceUser.find_by(better_auth_user_id: ba_user.id, workspace_id: workspace&.id) ||
+                         WorkspaceUser.find_by(better_auth_user_id: ba_user.id)
+    @current_workspace = @current_user&.workspace || workspace
+
+    raise UnauthorizedError, "User not provisioned to any workspace" unless @current_workspace
   end
 
   def authenticate_api_key!(api_key)
@@ -70,6 +104,10 @@ class ApplicationController < ActionController::API
 
     @current_workspace = @api_key_record.workspace
     @api_key_record.touch(:last_used_at)
+  end
+
+  def extract_session_token
+    cookies[SESSION_COOKIE] || cookies["__Secure-#{SESSION_COOKIE}"]
   end
 
   def set_rls_workspace(workspace_id)
@@ -88,6 +126,10 @@ class ApplicationController < ActionController::API
     @current_user
   end
 
+  def current_better_auth_user
+    @current_ba_user
+  end
+
   def current_api_key
     @api_key_record
   end
@@ -96,10 +138,6 @@ class ApplicationController < ActionController::API
     auth_header = request.headers["Authorization"]
     return nil unless auth_header&.start_with?("Bearer ")
     auth_header.split(" ", 2).last
-  end
-
-  def jwt_like?(token)
-    token.is_a?(String) && token.count(".") == 2
   end
 
   def skip_authentication?

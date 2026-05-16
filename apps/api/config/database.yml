@@ -3,6 +3,9 @@ default: &default
   encoding: unicode
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   url: <%= ENV['DATABASE_URL'] %>
+  # Include auth schema so Better Auth tables (auth.user, auth.session, ...) are
+  # visible to ActiveRecord without explicit schema qualification.
+  schema_search_path: public,auth
   variables:
     statement_timeout: 30000
 

@@ -4,6 +4,10 @@ class WorkspaceUser < ApplicationRecord
   attribute :password_confirmation, :string
 
   belongs_to :workspace
+  belongs_to :better_auth_user,
+             class_name: "BetterAuth::User",
+             foreign_key: :better_auth_user_id,
+             optional: true
   has_many :magic_link_tokens, dependent: :destroy
 
   ROLES = %w[owner admin editor moderator viewer].freeze
