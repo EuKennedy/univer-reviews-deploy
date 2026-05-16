@@ -141,7 +141,7 @@ class ApplicationController < ActionController::API
   end
 
   def skip_authentication?
-    false
+    action_name.in?(%w[root health])
   end
 
   def require_write!
