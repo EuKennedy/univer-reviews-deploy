@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
-import { Mail, Sparkles, Lock, ArrowRight, Loader2, Wand2 } from 'lucide-react'
+import { Mail, Sparkles, Lock, ArrowRight, Loader2, Wand2, Chrome } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
@@ -30,10 +30,24 @@ export default function LoginPage() {
   const next = searchParams?.get('next') || '/'
   const [mode, setMode] = useState<Mode>('password')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [magicSent, setMagicSent] = useState(false)
 
   const passwordForm = useForm<PasswordValues>({ resolver: zodResolver(passwordSchema) })
   const magicForm = useForm<MagicLinkValues>({ resolver: zodResolver(magicLinkSchema) })
+
+  // Surface OAuth errors that come back as ?error=... in the URL
+  useEffect(() => {
+    const err = searchParams?.get('error')
+    if (err) {
+      const map: Record<string, string> = {
+        access_denied: 'Acesso não autorizado. Solicite um convite ao administrador.',
+        signup_disabled: 'Cadastro desativado. Use uma conta autorizada.',
+        invalid_provider: 'Provedor de login indisponível no momento.',
+      }
+      toast.error(map[err] || decodeURIComponent(err))
+    }
+  }, [searchParams])
 
   const onPasswordSubmit = async (values: PasswordValues) => {
     setLoading(true)
@@ -49,6 +63,19 @@ export default function LoginPage() {
       return
     }
     router.push(next)
+  }
+
+  const onGoogleSignIn = async () => {
+    setGoogleLoading(true)
+    const { error } = await authClient.signIn.social({
+      provider: 'google',
+      callbackURL: next,
+    })
+    if (error) {
+      toast.error(error.message || 'Falha ao iniciar login com Google')
+      setGoogleLoading(false)
+    }
+    // On success the browser is redirected — no need to setGoogleLoading(false)
   }
 
   const onMagicLinkSubmit = async (values: MagicLinkValues) => {
@@ -124,6 +151,35 @@ export default function LoginPage() {
             <p className="text-sm" style={{ color: '#8b8b96' }}>
               Acesse seu painel admin
             </p>
+          </div>
+
+          {/* Google sign-in (primary social auth) */}
+          <button
+            type="button"
+            onClick={onGoogleSignIn}
+            disabled={googleLoading || loading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-150 mb-4"
+            style={{
+              background: '#ffffff',
+              color: '#1a1a1d',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
+            }}
+          >
+            {googleLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Chrome className="w-4 h-4" />
+            )}
+            Continuar com Google
+          </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px" style={{ background: '#1e1e21' }} />
+            <span className="text-xs" style={{ color: '#5a5a64' }}>
+              ou
+            </span>
+            <div className="flex-1 h-px" style={{ background: '#1e1e21' }} />
           </div>
 
           {/* Mode toggle */}

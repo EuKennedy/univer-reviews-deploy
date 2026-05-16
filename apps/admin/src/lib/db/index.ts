@@ -21,4 +21,8 @@ const client =
 if (process.env.NODE_ENV !== 'production') globalForPg.pg = client
 
 export const db = drizzle(client, { schema, logger: process.env.NODE_ENV === 'development' })
+
+// Raw postgres client for parameterized SQL against tables Drizzle does not own
+// (e.g. Rails-managed public.workspace_users).
+export const sql = client
 export { schema }
