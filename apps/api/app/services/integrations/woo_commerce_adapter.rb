@@ -78,10 +78,12 @@ module Integrations
       page = 1
       loop do
         batch = products(page: page, per_page: 100)
-        break if batch.empty?
+        Rails.logger.info("[WC-ADAPTER] /products page=#{page} per_page=100 → got #{Array(batch).length}")
+        break if Array(batch).empty?
         block.call(batch)
-        break if batch.length < 100
+        break if Array(batch).length < 100
         page += 1
+        break if page > 100 # safety: cap at 10k products per sync
       end
     end
 

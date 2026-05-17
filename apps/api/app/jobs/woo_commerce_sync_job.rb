@@ -20,11 +20,15 @@ class WooCommerceSyncJob < ApplicationJob
     synced = 0
     failed = 0
     total  = 0
+    pages  = 0
 
-    # One transaction per batch keeps RLS active for every upsert in the batch
-    # without holding a single huge transaction open while we wait on HTTP I/O.
+    Rails.logger.info("[WC-SYNC] START workspace=#{workspace_id} store=#{domain.woo_store_url}")
+
     adapter.all_products do |batch|
+      pages += 1
       total += batch.length
+      Rails.logger.info("[WC-SYNC] page=#{pages} batch_size=#{batch.length} first_id=#{batch.first&.dig("id")} last_id=#{batch.last&.dig("id")}")
+
       with_workspace_rls(workspace_id) do
         batch.each do |woo_product|
           begin
@@ -32,15 +36,23 @@ class WooCommerceSyncJob < ApplicationJob
             synced += 1
           rescue ActiveRecord::RecordInvalid => e
             failed += 1
-            Rails.logger.warn("WooCommerceSyncJob upsert failed for product #{woo_product["id"]}: #{e.message}")
+            Rails.logger.warn("[WC-SYNC] upsert FAILED id=#{woo_product["id"]} name=#{woo_product["name"].inspect} error=#{e.message}")
+          rescue => e
+            failed += 1
+            Rails.logger.error("[WC-SYNC] upsert EXCEPTION id=#{woo_product["id"]} class=#{e.class} error=#{e.message}")
           end
         end
       end
     end
 
-    Rails.logger.info("WooCommerceSyncJob done — workspace=#{workspace_id} synced=#{synced} failed=#{failed} total=#{total}")
+    Rails.logger.info("[WC-SYNC] DONE workspace=#{workspace_id} pages=#{pages} synced=#{synced} failed=#{failed} total_fetched=#{total}")
   rescue Integrations::WooCommerceAdapter::AuthenticationError => e
-    Rails.logger.error("WooCommerceSyncJob auth failed for workspace #{workspace_id}: #{e.message}")
+    Rails.logger.error("[WC-SYNC] AUTH FAILED workspace=#{workspace_id} error=#{e.message}")
+  rescue Integrations::WooCommerceAdapter::ConnectionError => e
+    Rails.logger.error("[WC-SYNC] CONNECTION FAILED workspace=#{workspace_id} error=#{e.message}")
+  rescue => e
+    Rails.logger.error("[WC-SYNC] FATAL workspace=#{workspace_id} class=#{e.class} error=#{e.message}\n#{e.backtrace.first(5).join("\n")}")
+    raise
   end
 
   private
