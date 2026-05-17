@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,7 +24,28 @@ type MagicLinkValues = z.infer<typeof magicLinkSchema>
 
 type Mode = 'password' | 'magic-link'
 
+// Next.js 15 requires useSearchParams to be inside a Suspense boundary at the
+// page level — otherwise prerender fails with `missing-suspense-with-csr-bailout`.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginContent />
+    </Suspense>
+  )
+}
+
+function LoginFallback() {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: '#0a0a0b' }}
+    >
+      <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#d4a850' }} />
+    </div>
+  )
+}
+
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams?.get('next') || '/'
