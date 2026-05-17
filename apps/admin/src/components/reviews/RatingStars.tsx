@@ -79,7 +79,7 @@ export function RatingStars({
           )}
           style={{ color: '#d4a850' }}
         >
-          {rating.toFixed(1)}
+          {Number(rating).toFixed(1)}
         </span>
       )}
     </div>

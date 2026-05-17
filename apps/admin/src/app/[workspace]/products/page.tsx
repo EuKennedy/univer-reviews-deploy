@@ -55,24 +55,29 @@ const columns = [
   }),
   col.accessor('avg_rating', {
     header: 'Nota média',
-    cell: (info) =>
-      info.getValue() !== null ? (
-        <RatingStars rating={info.getValue()!} size="xs" showValue />
-      ) : (
-        <span style={{ color: '#5a5a64' }}>—</span>
-      ),
+    cell: (info) => {
+      const raw = info.getValue()
+      const num = raw == null ? null : Number(raw)
+      if (num === null || Number.isNaN(num)) {
+        return <span style={{ color: '#5a5a64' }}>—</span>
+      }
+      return <RatingStars rating={num} size="xs" showValue />
+    },
   }),
   col.accessor('price', {
     header: 'Preço',
-    cell: (info) =>
-      info.getValue() !== null ? (
+    cell: (info) => {
+      const raw = info.getValue()
+      const num = raw == null ? null : Number(raw)
+      if (num === null || Number.isNaN(num)) {
+        return <span style={{ color: '#5a5a64' }}>—</span>
+      }
+      return (
         <span className="text-sm tabular-nums" style={{ color: '#8b8b96' }}>
-          {info.row.original.currency}{' '}
-          {info.getValue()!.toFixed(2)}
+          {info.row.original.currency} {num.toFixed(2)}
         </span>
-      ) : (
-        <span style={{ color: '#5a5a64' }}>—</span>
-      ),
+      )
+    },
   }),
   col.accessor('source', {
     header: 'Origem',
