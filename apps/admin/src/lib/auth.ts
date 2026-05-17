@@ -60,6 +60,22 @@ export const auth = betterAuth({
     },
   },
 
+  // ─── Cross-subdomain cookies ───────────────────────────────────────────────
+  // Sessions are issued by dash.univerreviews.com but consumed by api.univerreviews.com
+  // (Rails reads the session row directly). Without this, the browser does not
+  // send the cookie to the API subdomain and every authenticated call returns 401.
+  advanced: {
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: process.env.COOKIE_DOMAIN || '.univerreviews.com',
+    },
+    defaultCookieAttributes: {
+      sameSite: 'lax',
+      secure: true,
+      httpOnly: true,
+    },
+  },
+
   // ─── Social providers ──────────────────────────────────────────────────────
   socialProviders: {
     google: {
