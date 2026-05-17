@@ -25,10 +25,15 @@ class Review < ApplicationRecord
   scope :recent,       -> { order(created_at: :desc) }
   scope :featured,     -> { where(is_featured: true) }
   scope :with_media,   -> { joins(:review_media).distinct }
+  scope :with_photo,   -> { joins(:review_media).where(review_media: { type: "image" }).distinct }
+  scope :with_video,   -> { joins(:review_media).where(review_media: { type: "video" }).distinct }
+  scope :verified,     -> { where(is_verified_purchase: true) }
   scope :by_rating,    ->(r) { where(rating: r) }
   scope :by_source,    ->(s) { where(source: s) }
+  scope :by_country,   ->(c) { where(author_country: c) }
   scope :date_range,   ->(from, to) { where(created_at: from..to) }
   scope :search_body,  ->(q) { where("body ILIKE ?", "%#{q}%") }
+  scope :most_helpful, -> { order(helpful_count: :desc, created_at: :desc) }
 
   def approved?  = status == "approved"
   def pending?   = status == "pending"
@@ -62,6 +67,14 @@ class Review < ApplicationRecord
 
   def has_video?
     review_media.where(type: "video").any?
+  end
+
+  def mark_helpful!
+    increment!(:helpful_count)
+  end
+
+  def mark_unhelpful!
+    increment!(:unhelpful_count)
   end
 
   private

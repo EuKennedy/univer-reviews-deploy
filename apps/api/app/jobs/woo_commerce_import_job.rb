@@ -5,14 +5,12 @@ class WooCommerceImportJob < ApplicationJob
     workspace = Workspace.find_by(id: workspace_id)
     return unless workspace
 
-    set_workspace_rls(workspace_id)
-
     import = import_id ? workspace.imports.find_by(id: import_id) : nil
-    import&.start!
+    with_workspace_rls(workspace_id) { import&.start! }
 
     domain = workspace.woocommerce_domain
     unless domain&.woo_store_url.present?
-      import&.fail!("No WooCommerce configuration found")
+      with_workspace_rls(workspace_id) { import&.fail!("No WooCommerce configuration found") }
       return
     end
 
@@ -28,17 +26,20 @@ class WooCommerceImportJob < ApplicationJob
 
     adapter.all_reviews do |batch|
       total += batch.length
-
-      batch.each do |woo_review|
-        import_review(workspace, woo_review)
-        ok_count += 1
-      rescue => e
-        error_count += 1
-        import&.append_log("warn", "Review #{woo_review["id"]}: #{e.message}")
+      with_workspace_rls(workspace_id) do
+        batch.each do |woo_review|
+          begin
+            import_review(workspace, woo_review)
+            ok_count += 1
+          rescue => e
+            error_count += 1
+            import&.append_log("warn", "Review #{woo_review["id"]}: #{e.message}")
+          end
+        end
       end
     end
 
-    import&.finish!(ok: ok_count, errors: error_count)
+    with_workspace_rls(workspace_id) { import&.finish!(ok: ok_count, errors: error_count) }
     Rails.logger.info("WooCommerceImportJob: imported #{ok_count}/#{total} reviews for workspace #{workspace_id}")
   rescue => e
     import&.fail!(e.message)

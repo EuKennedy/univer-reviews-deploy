@@ -117,12 +117,14 @@ Rails.application.routes.draw do
 
       # Public (no auth) - storefront/widget
       namespace :public do
-        get  "reviews/:product_id",    to: "reviews#index"
-        get  "summary/:product_id",    to: "reviews#summary"
-        post "submit",                 to: "reviews#submit"
-        get  "questions/:product_id",  to: "questions#index"
-        post "questions/:product_id",  to: "questions#create"
-        get  "videos/:product_id",     to: "videos#index"
+        get  "reviews/:product_id",     to: "reviews#index"
+        get  "summary/:product_id",     to: "reviews#summary"
+        post "submit",                  to: "reviews#submit"
+        post "reviews/:id/helpful",     to: "reviews#helpful"
+        post "reviews/:id/unhelpful",   to: "reviews#unhelpful"
+        get  "questions/:product_id",   to: "questions#index"
+        post "questions/:product_id",   to: "questions#create"
+        get  "videos/:product_id",      to: "videos#index"
       end
 
       # Webhooks
