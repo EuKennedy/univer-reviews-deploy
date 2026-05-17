@@ -15,8 +15,6 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { admin, magicLink, organization, bearer } from 'better-auth/plugins'
 import { nextCookies } from 'better-auth/next-js'
 
-import { eq } from 'drizzle-orm'
-
 import { db, sql } from './db'
 import * as authSchema from './db/schema'
 import {
@@ -151,47 +149,51 @@ export const auth = betterAuth({
     nextCookies(), // must be last
   ],
 
-  // ─── Hooks: enforce access control + sync Rails WorkspaceUser ─────────────
+  // ─── Hooks: sync Better Auth user → Rails WorkspaceUser ───────────────────
   databaseHooks: {
     user: {
-      // Gate: only allow user creation if the email is already provisioned in
-      // Rails (workspace_users) OR has a pending invitation. Prevents random
-      // Google sign-ins from creating orphan accounts.
       create: {
-        before: async (incoming) => {
-          const email = incoming.email.toLowerCase()
-
-          const existing = await sql<
-            { id: string; workspace_id: string }[]
-          >`SELECT id, workspace_id FROM public.workspace_users WHERE LOWER(email) = ${email} LIMIT 1`
-
-          const invited = await db
-            .select({ id: authSchema.invitation.id })
-            .from(authSchema.invitation)
-            .where(eq(authSchema.invitation.email, email))
-            .limit(1)
-
-          if (existing.length === 0 && invited.length === 0) {
-            throw new Error(
-              'Acesso não autorizado. Solicite um convite ao administrador.'
-            )
-          }
-
-          return { data: incoming }
-        },
         after: async (createdUser) => {
-          // Link to existing Rails WorkspaceUser by email match.
           const email = createdUser.email.toLowerCase()
+          const name = createdUser.name || email.split('@')[0]
+
           try {
-            await sql`
+            // 1. If a Rails WorkspaceUser already exists for this email, link it.
+            const linked = await sql<{ id: string; workspace_id: string }[]>`
               UPDATE public.workspace_users
               SET better_auth_user_id = ${createdUser.id}
               WHERE LOWER(email) = ${email} AND better_auth_user_id IS NULL
+              RETURNING id, workspace_id
             `
+
+            if (linked.length > 0) {
+              console.info(`[auth] linked WorkspaceUser ${linked[0].id} → ${createdUser.id}`)
+              return
+            }
+
+            // 2. No existing WorkspaceUser. Auto-provision into the first workspace
+            //    as a 'viewer'. Single-tenant deployments: this is the right behavior.
+            //    Multi-tenant: ALLOW_AUTOPROVISION_WORKSPACE_ID env can pin a specific WS.
+            const targetWorkspaceId =
+              process.env.AUTOPROVISION_WORKSPACE_ID ||
+              (await sql<{ id: string }[]>`SELECT id FROM public.workspaces ORDER BY created_at ASC LIMIT 1`)[0]?.id
+
+            if (!targetWorkspaceId) {
+              console.warn(`[auth] no workspace to auto-provision user ${email}`)
+              return
+            }
+
+            const role = process.env.AUTOPROVISION_ROLE || 'viewer'
+
+            await sql`
+              INSERT INTO public.workspace_users (workspace_id, email, name, role, better_auth_user_id, created_at, updated_at)
+              VALUES (${targetWorkspaceId}, ${email}, ${name}, ${role}, ${createdUser.id}, NOW(), NOW())
+              ON CONFLICT DO NOTHING
+            `
+            console.info(`[auth] auto-provisioned ${email} into workspace ${targetWorkspaceId} as ${role}`)
           } catch (e) {
-            console.warn('[auth] WorkspaceUser link skipped:', e)
+            console.error('[auth] WorkspaceUser sync failed:', e)
           }
-          console.info(`[auth] user created: ${createdUser.id} (${createdUser.email})`)
         },
       },
     },
