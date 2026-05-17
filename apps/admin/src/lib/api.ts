@@ -197,7 +197,17 @@ class ApiClient {
       get: (token: string) =>
         this.request<WooCommerceConfig>('/integrations/woocommerce', {}, token),
       save: (data: Partial<WooCommerceConfig>, token: string) =>
-        this.request<WooCommerceConfig>(
+        this.request<
+          WooCommerceConfig & {
+            probe?: {
+              success: boolean
+              error?: string
+              store_name?: string
+              wc_version?: string
+              wp_version?: string
+            }
+          }
+        >(
           '/integrations/woocommerce',
           { method: 'POST', body: JSON.stringify(data) },
           token

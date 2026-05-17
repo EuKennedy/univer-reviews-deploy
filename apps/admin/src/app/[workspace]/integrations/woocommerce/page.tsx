@@ -107,10 +107,11 @@ export default function WooCommercePage() {
   const saveMutation = useMutation({
     mutationFn: (data: WooCommerceConfig) =>
       api.integrations.woocommerce.save(data, getToken()),
-    onSuccess: (result: { probe?: { success: boolean; error?: string } }) => {
-      if (result?.probe && !result.probe.success) {
+    onSuccess: (result) => {
+      const probe = result?.probe
+      if (probe && !probe.success) {
         toast.error(
-          `Salvo, mas conexão falhou: ${result.probe.error || 'verifique credenciais'}`
+          `Salvo, mas conexão falhou: ${probe.error || 'verifique credenciais'}`
         )
         return
       }
