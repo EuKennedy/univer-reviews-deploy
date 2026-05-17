@@ -107,8 +107,14 @@ export default function WooCommercePage() {
   const saveMutation = useMutation({
     mutationFn: (data: WooCommerceConfig) =>
       api.integrations.woocommerce.save(data, getToken()),
-    onSuccess: () => {
-      toast.success('Integração WooCommerce salva')
+    onSuccess: (result: { probe?: { success: boolean; error?: string } }) => {
+      if (result?.probe && !result.probe.success) {
+        toast.error(
+          `Salvo, mas conexão falhou: ${result.probe.error || 'verifique credenciais'}`
+        )
+        return
+      }
+      toast.success('Integração ativada — sincronização iniciada')
       setStep(4)
     },
     onError: (err: unknown) => {
@@ -383,7 +389,19 @@ export default function WooCommercePage() {
                   onBlur={(e) => { e.target.style.border = '1px solid #1a1a1d' }}
                 />
                 <button
-                  onClick={() => setStep(1)}
+                  onClick={() => {
+                    const raw = form.store_url?.trim() ?? ''
+                    const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+                    const stripped = normalized.replace(/\/+$/, '')
+                    try {
+                      new URL(stripped)
+                    } catch {
+                      toast.error('URL inválida. Use o formato https://sualoja.com')
+                      return
+                    }
+                    setForm((f) => ({ ...f, store_url: stripped }))
+                    setStep(1)
+                  }}
                   disabled={!form.store_url?.trim()}
                   className="mt-4 w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
                   style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}

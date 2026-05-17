@@ -37,7 +37,24 @@ module Api
               action: was_new ? "woocommerce.connected" : "woocommerce.updated",
               request: request
             )
-            render json: config_payload(domain), status: was_new ? :created : :ok
+
+            # Probe credentials immediately so the UI never claims "connected" against
+            # broken credentials. Verify the domain and trigger an initial sync only
+            # if the live probe succeeds.
+            probe = ::Integrations::WooCommerceAdapter.new(
+              store_url:       domain.woo_store_url,
+              consumer_key:    domain.woo_consumer_key,
+              consumer_secret: domain.woo_consumer_secret
+            ).test_connection
+
+            if probe[:success]
+              domain.verify!
+              WooCommerceSyncJob.perform_later(current_workspace.id)
+              import = current_workspace.imports.create!(source: "woocommerce")
+              WooCommerceImportJob.perform_later(current_workspace.id, import.id)
+            end
+
+            render json: config_payload(domain).merge(probe: probe), status: was_new ? :created : :ok
           else
             render json: { error: "unprocessable_entity", issues: domain.errors.full_messages },
                    status: :unprocessable_entity

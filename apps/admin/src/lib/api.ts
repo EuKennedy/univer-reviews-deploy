@@ -277,8 +277,38 @@ class ApiClient {
   }
 }
 
-export const api = new ApiClient(
-  typeof window !== 'undefined'
-    ? process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-    : process.env.NEXT_PUBLIC_API_URL || 'http://api:3000'
-)
+/**
+ * Resolve the API base URL.
+ *
+ * Order of precedence:
+ * 1. NEXT_PUBLIC_API_URL env var (build-time, both server and client)
+ * 2. Browser: derive from current hostname (dash.foo.com → api.foo.com)
+ * 3. Server (SSR): docker-compose internal hostname
+ * 4. Last-resort dev fallback
+ *
+ * The hostname-derived fallback is what makes prod work even when the deploy
+ * config forgets to set NEXT_PUBLIC_API_URL — silent localhost fallbacks
+ * cause every client request to fail with mixed-content / unreachable errors.
+ */
+function resolveApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local')) {
+      return 'http://localhost:3001'
+    }
+    // dash.univerreviews.com → api.univerreviews.com
+    if (host.startsWith('dash.')) {
+      return `${window.location.protocol}//${host.replace(/^dash\./, 'api.')}`
+    }
+    // foo.example.com → api.example.com (root + 1 subdomain)
+    const parts = host.split('.')
+    const root = parts.slice(-2).join('.')
+    return `${window.location.protocol}//api.${root}`
+  }
+
+  return 'http://api:3000'
+}
+
+export const api = new ApiClient(resolveApiBaseUrl())

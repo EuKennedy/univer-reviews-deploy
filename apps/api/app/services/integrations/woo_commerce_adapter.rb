@@ -10,16 +10,46 @@ module Integrations
       @consumer_secret = consumer_secret
     end
 
+    # Probe the store with the lightest authenticated endpoint that works with a
+    # plain Read-scoped key. /system_status requires admin permission and 401s
+    # for most production keys; /products?per_page=1 succeeds with any Read key
+    # and confirms both auth and that the Products API is reachable.
     def test_connection
-      response = get("/wp-json/wc/v3/system_status")
+      get("/wp-json/wc/v3/products", per_page: 1)
+
+      meta = fetch_store_meta
       {
         success: true,
-        store_name: response.dig("settings", "store_title") || response.dig("settings", "store_address"),
-        wc_version: response.dig("environment", "wc_version"),
-        wp_version: response.dig("environment", "wp_version")
+        store_name: meta[:store_name],
+        wc_version: meta[:wc_version],
+        wp_version: meta[:wp_version]
       }
-    rescue => e
-      { success: false, error: e.message }
+    rescue AuthenticationError => e
+      { success: false, error: "Credenciais inválidas. Verifique Consumer Key e Secret no painel WooCommerce." }
+    rescue ConnectionError => e
+      { success: false, error: "Não foi possível conectar a #{@store_url}. Verifique a URL e se a loja está online." }
+    rescue Error => e
+      msg = e.message.to_s
+      hint = if msg.include?("404")
+               "Endpoint /wp-json/wc/v3/products não encontrado. A REST API do WooCommerce está habilitada?"
+             elsif msg.include?("403")
+               "Chave sem permissão de leitura. Recrie a chave com escopo Read/Write."
+             else
+               msg
+             end
+      { success: false, error: hint }
+    end
+
+    # Best-effort metadata fetch; never raises.
+    def fetch_store_meta
+      info = get("/wp-json/")
+      {
+        store_name: info["name"],
+        wc_version: info.dig("namespaces")&.find { |n| n.start_with?("wc/") }&.split("/")&.last,
+        wp_version: info["url"] ? "ok" : nil
+      }
+    rescue
+      { store_name: nil, wc_version: nil, wp_version: nil }
     end
 
     def products(page: 1, per_page: 100)
