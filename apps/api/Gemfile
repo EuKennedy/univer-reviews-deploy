@@ -15,6 +15,11 @@ gem "jwt", "~> 2.8"
 gem "sidekiq", "~> 7.3"
 gem "sidekiq-scheduler", "~> 6.0"
 gem "redis", "~> 5.3"
+# Pin connection_pool to 2.x — Sidekiq 7.3 calls TimedStack#pop(timeout) but
+# connection_pool 3.0 removed positional args, breaking `initial_wait`:
+#   ArgumentError: wrong number of arguments (given 1, expected 0)
+# Sidekiq 7.4+ adopts the 3.0 API; until we bump Sidekiq, hold connection_pool back.
+gem "connection_pool", "~> 2.4"
 
 # Storage (MinIO / S3-compatible)
 gem "aws-sdk-s3", "~> 1.160"
