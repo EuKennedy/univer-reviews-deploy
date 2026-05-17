@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation'
 import { authClient, useSession } from '@/lib/auth-client'
 
 /**
- * Better Auth wrapper hook. Replaces previous JWT-cookie based hook.
- * Session is fetched from /api/auth/get-session (cached client-side by Better Auth).
+ * Better Auth wrapper hook. Session is fetched from /api/auth/get-session.
  *
- * NOTE: getToken() is kept for backwards compatibility with the api.ts client.
- * It returns the cookie value (Better Auth signed session_token) so the Rails
- * backend can look up the session row directly. Most authenticated requests
- * just need cookies sent automatically — getToken() is for explicit Bearer.
+ * Authentication on API calls relies on the httpOnly session cookie being sent
+ * cross-subdomain (dash → api) via `credentials: 'include'`. The cookie is set
+ * with `httpOnly: true` for XSS protection — JavaScript cannot read it. Rails
+ * looks the session row up directly server-side.
+ *
+ * getToken() returns '' so the api client skips the redundant Bearer header.
+ * Kept for signature compatibility with existing call sites.
  */
 export function useAuth() {
   const router = useRouter()
@@ -25,15 +27,7 @@ export function useAuth() {
     })
   }, [router])
 
-  const getToken = useCallback((): string => {
-    if (typeof document === 'undefined') throw new Error('Not in browser')
-    const cookies = document.cookie.split(';').map((c) => c.trim())
-    const sessionCookie =
-      cookies.find((c) => c.startsWith('better-auth.session_token='))?.split('=')[1] ||
-      cookies.find((c) => c.startsWith('__Secure-better-auth.session_token='))?.split('=')[1]
-    if (!sessionCookie) throw new Error('Não autenticado')
-    return decodeURIComponent(sessionCookie)
-  }, [])
+  const getToken = useCallback((): string => '', [])
 
   return {
     user: session?.user || null,
