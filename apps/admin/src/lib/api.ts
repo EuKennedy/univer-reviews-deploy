@@ -270,6 +270,12 @@ class ApiClient {
   products = {
     list: (params: Record<string, string | number | boolean | undefined>, token: string) =>
       this.request<PaginatedResponse<Product>>('/products', { params }, token),
+    sync: (token: string) =>
+      this.request<{ message: string }>(
+        '/products/sync',
+        { method: 'POST' },
+        token
+      ),
   }
 
   // ─── Campaigns ──────────────────────────────────────────────────────────────

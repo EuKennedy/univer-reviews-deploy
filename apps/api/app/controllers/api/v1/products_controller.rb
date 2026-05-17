@@ -87,18 +87,21 @@ module Api
 
       def serialize_product(p, full: false)
         data = {
-          id: p.id, title: p.title, handle: p.handle,
+          id: p.id,
+          # `name` is the canonical client-facing key; `title` aliased for back-compat
+          name: p.title, title: p.title,
+          handle: p.handle,
           platform: p.platform, platform_product_id: p.platform_product_id,
           image_url: p.image_url, price: p.price, currency: p.currency,
           active: p.active, last_synced_at: p.last_synced_at&.iso8601,
-          created_at: p.created_at&.iso8601
+          created_at: p.created_at&.iso8601,
+          # Counters cheap to compute even on lists for now; counter_cache later.
+          review_count: p.reviews_count, reviews_count: p.reviews_count,
+          avg_rating:   p.avg_rating,
+          source:       p.platform
         }
 
-        if full
-          data[:avg_rating]    = p.avg_rating
-          data[:reviews_count] = p.reviews_count
-          data[:metadata]      = p.metadata
-        end
+        data[:metadata] = p.metadata if full
 
         data
       end

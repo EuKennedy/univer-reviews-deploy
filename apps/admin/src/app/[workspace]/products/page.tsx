@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
-import { Package, ExternalLink } from 'lucide-react'
+import { Package, ExternalLink, RefreshCw, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { StatsBar } from '@/components/godmode/StatsBar'
 import { Toolbar, SearchInput } from '@/components/godmode/Toolbar'
@@ -105,7 +106,8 @@ const columns = [
 export default function ProductsPage() {
   const params = useParams()
   const workspace = params?.workspace as string
-  const { getToken } = useAuth()
+  const { getToken, isAuthenticated } = useAuth()
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
 
@@ -113,6 +115,24 @@ export default function ProductsPage() {
     queryKey: ['products', workspace, page, search],
     queryFn: () =>
       api.products.list({ page, per_page: 20, q: search || undefined }, getToken()),
+    enabled: isAuthenticated,
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: () => api.products.sync(getToken()),
+    onSuccess: () => {
+      toast.success('Sincronização enfileirada — recarregue em alguns segundos')
+      // Poll for updates over the next 30s
+      const start = Date.now()
+      const interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ['products', workspace] })
+        if (Date.now() - start > 30_000) clearInterval(interval)
+      }, 5_000)
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha na sincronização'
+      toast.error(msg)
+    },
   })
 
   const statsItems = [
@@ -128,6 +148,25 @@ export default function ProductsPage() {
         icon={<Package className="w-5 h-5" />}
         title="Produtos"
         subtitle="Gerencie seu catálogo e a saúde das avaliações"
+        actions={
+          <button
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{
+              background: 'rgba(212,168,80,0.1)',
+              border: '1px solid rgba(212,168,80,0.2)',
+              color: '#d4a850',
+            }}
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+            Sincronizar do WooCommerce
+          </button>
+        }
       />
 
       <StatsBar stats={statsItems} isLoading={isLoading} />
