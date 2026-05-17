@@ -142,7 +142,9 @@ export const auth = betterAuth({
 
     admin({
       defaultRole: 'user',
-      adminRoles: ['admin', 'owner'],
+      // adminRoles defaults to ['admin']. Workspace ownership is tracked in the
+      // Rails `workspace_users.role` column (owner/admin/editor/etc), not in the
+      // Better Auth user table — Rails handles per-workspace authorization.
     }),
 
     bearer(), // allow `Authorization: Bearer <token>` for programmatic clients
