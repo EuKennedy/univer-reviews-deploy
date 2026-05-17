@@ -65,8 +65,7 @@ const staticIntegrations = [
     name: 'Webhooks',
     description:
       'Envie eventos em tempo real para seus próprios endpoints quando avaliações forem criadas ou atualizadas.',
-    status: 'not_connected' as const,
-    href: 'integrations/webhooks',
+    status: 'coming_soon' as const,
     logo: (
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#8b8b96" strokeWidth="1.5">
         <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
