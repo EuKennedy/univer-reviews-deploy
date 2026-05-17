@@ -1,27 +1,15 @@
+'use client'
+
 import { Plug } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { IntegrationCard } from '@/components/integrations/IntegrationCard'
+import { api } from '@/lib/api'
+import { useAuth } from '@/hooks/useAuth'
 
-const integrations = [
-  {
-    id: 'woocommerce',
-    name: 'WooCommerce',
-    description:
-      'Sincronize produtos, importe avaliações de clientes e automatize a coleta de avaliações da sua loja WooCommerce.',
-    status: 'connected' as const,
-    href: 'integrations/woocommerce',
-    logo: (
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="#7f54b3">
-        <path d="M3.1 8.7c-.3-.4-.3-1 .1-1.4C4 6.5 5 6 6.2 6h11.6c1.2 0 2.2.5 2.9 1.4.7.9.9 2 .6 3.1l-2.1 8c-.3 1.3-1.5 2.3-2.8 2.3H7.6c-1.3 0-2.5-1-2.8-2.3l-2.1-8c-.1-.7 0-1.3.4-1.8z" />
-        <circle cx="9" cy="19.5" r="1.5" fill="#fff" />
-        <circle cx="15" cy="19.5" r="1.5" fill="#fff" />
-      </svg>
-    ),
-    stats: [
-      { label: 'Produtos', value: '1.248' },
-      { label: 'Avaliações sincronizadas', value: '3.421' },
-    ],
-  },
+// Static catalog: only logo/copy/href live here. Real status + stats come from API.
+const staticIntegrations = [
   {
     id: 'shopify',
     name: 'Shopify',
@@ -88,7 +76,40 @@ const integrations = [
   },
 ]
 
+const wooLogo = (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="#7f54b3">
+    <path d="M3.1 8.7c-.3-.4-.3-1 .1-1.4C4 6.5 5 6 6.2 6h11.6c1.2 0 2.2.5 2.9 1.4.7.9.9 2 .6 3.1l-2.1 8c-.3 1.3-1.5 2.3-2.8 2.3H7.6c-1.3 0-2.5-1-2.8-2.3l-2.1-8c-.1-.7 0-1.3.4-1.8z" />
+    <circle cx="9" cy="19.5" r="1.5" fill="#fff" />
+    <circle cx="15" cy="19.5" r="1.5" fill="#fff" />
+  </svg>
+)
+
 export default function IntegrationsPage() {
+  const params = useParams()
+  const workspace = params?.workspace as string
+  const { getToken, isAuthenticated } = useAuth()
+
+  const { data: wooConfig } = useQuery({
+    queryKey: ['woocommerce-config', workspace],
+    queryFn: () => api.integrations.woocommerce.get(getToken()),
+    enabled: isAuthenticated,
+    retry: false,
+  })
+
+  const wooConnected = Boolean(wooConfig?.connected)
+  const wooStats = wooConnected
+    ? [
+        {
+          label: 'Produtos',
+          value: (wooConfig?.product_count ?? 0).toLocaleString('pt-BR'),
+        },
+        {
+          label: 'Avaliações sincronizadas',
+          value: (wooConfig?.review_count ?? 0).toLocaleString('pt-BR'),
+        },
+      ]
+    : undefined
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -106,7 +127,16 @@ export default function IntegrationsPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {integrations.map((integration) => (
+            <IntegrationCard
+              name="WooCommerce"
+              description="Sincronize produtos, importe avaliações de clientes e automatize a coleta de avaliações da sua loja WooCommerce."
+              status={wooConnected ? 'connected' : 'not_connected'}
+              logo={wooLogo}
+              href="integrations/woocommerce"
+              stats={wooStats}
+            />
+
+            {staticIntegrations.map((integration) => (
               <IntegrationCard
                 key={integration.id}
                 name={integration.name}
@@ -114,7 +144,6 @@ export default function IntegrationsPage() {
                 status={integration.status}
                 logo={integration.logo}
                 href={integration.href}
-                stats={integration.stats}
               />
             ))}
           </div>
