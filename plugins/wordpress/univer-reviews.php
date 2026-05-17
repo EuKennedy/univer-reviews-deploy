@@ -28,7 +28,7 @@ define( 'UNIVER_VERSION',     '0.1.0' );
 define( 'UNIVER_PLUGIN_DIR',  plugin_dir_path( __FILE__ ) );
 define( 'UNIVER_PLUGIN_URL',  plugin_dir_url( __FILE__ ) );
 define( 'UNIVER_API_URL',     'https://api.univerreviews.com' );
-define( 'UNIVER_WIDGET_CDN',  'https://cdn.univerreviews.com/widget/v1/widget.js' );
+define( 'UNIVER_WIDGET_CDN',  'https://api.univerreviews.com/widget.js' );
 define( 'UNIVER_MIN_PHP',     '8.1' );
 define( 'UNIVER_MIN_WP',      '6.0' );
 
