@@ -125,11 +125,22 @@ module Api
         # POST /api/v1/integrations/woocommerce/sync_products
         def sync_products
           require_write!
-          unless current_workspace.woocommerce_domain&.woo_store_url.present?
+          domain = current_workspace.woocommerce_domain
+          unless domain&.woo_store_url.present?
             render json: { error: "not_configured", message: "WooCommerce não configurado" },
                    status: :bad_request
             return
           end
+
+          # Run synchronously when ?inline=true so the response carries the
+          # actual sync result instead of just "enqueued". This bypasses the
+          # need to grep Sidekiq logs when diagnosing partial syncs.
+          if ActiveModel::Type::Boolean.new.cast(params[:inline])
+            result = run_inline_sync(domain)
+            render json: result
+            return
+          end
+
           WooCommerceSyncJob.perform_later(current_workspace.id)
           render json: { message: "Sincronização de produtos enfileirada" }
         end
@@ -148,6 +159,72 @@ module Api
         end
 
         private
+
+        def run_inline_sync(domain)
+          adapter = ::Integrations::WooCommerceAdapter.new(
+            store_url:       domain.woo_store_url,
+            consumer_key:    domain.woo_consumer_key,
+            consumer_secret: domain.woo_consumer_secret
+          )
+
+          synced = 0
+          failed = 0
+          total  = 0
+          pages  = 0
+          errors = []
+
+          workspace = current_workspace
+          ws_id     = workspace.id
+
+          adapter.all_products do |batch|
+            pages += 1
+            total += batch.length
+
+            ActiveRecord::Base.transaction do
+              ActiveRecord::Base.connection.execute(
+                ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", ws_id.to_s])
+              )
+              batch.each do |wp|
+                begin
+                  product = workspace.products.find_or_initialize_by(
+                    platform: "woocommerce",
+                    platform_product_id: wp["id"].to_s
+                  )
+                  product.assign_attributes(
+                    title:          wp["name"],
+                    handle:         wp["slug"],
+                    image_url:      wp.dig("images", 0, "src"),
+                    price:          wp["price"].to_f,
+                    currency:       wp["currency"].presence || "BRL",
+                    active:         wp["status"] == "publish",
+                    last_synced_at: Time.current
+                  )
+                  product.save!
+                  synced += 1
+                rescue => e
+                  failed += 1
+                  errors << { id: wp["id"], name: wp["name"], error: "#{e.class}: #{e.message}" }
+                end
+              end
+            end
+          end
+
+          {
+            ok: failed.zero?,
+            pages_fetched: pages,
+            total_fetched: total,
+            synced: synced,
+            failed: failed,
+            errors: errors.first(20),
+            sample_after: workspace.products.where(platform: "woocommerce").order(updated_at: :desc).limit(3).pluck(:platform_product_id, :title)
+          }
+        rescue ::Integrations::WooCommerceAdapter::AuthenticationError => e
+          { ok: false, stage: "auth", error: e.message }
+        rescue ::Integrations::WooCommerceAdapter::ConnectionError => e
+          { ok: false, stage: "connection", error: e.message }
+        rescue => e
+          { ok: false, stage: "fatal", class: e.class.to_s, error: e.message, backtrace: e.backtrace.first(8) }
+        end
 
         def woo_params
           params.permit(:store_url, :consumer_key, :consumer_secret,
