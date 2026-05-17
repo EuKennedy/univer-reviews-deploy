@@ -40,15 +40,6 @@ interface ReviewSummary {
   rating_distribution: { rating: number; count: number; percentage: number }[]
 }
 
-interface Question {
-  id: string
-  body: string
-  answer?: string | null
-  author_name: string | null
-  helpful_count: number
-  created_at: string
-}
-
 type Layout = 'default' | 'compact' | 'grid' | 'carousel'
 type SortMode = 'created_at' | 'helpful' | 'rating' | 'oldest'
 type RatingFilter = 0 | 1 | 2 | 3 | 4 | 5
@@ -597,13 +588,11 @@ interface VoteState { [reviewId: string]: 'helpful' | 'unhelpful' | undefined }
 
 class UniverReviewsWidget extends HTMLElement {
   private shadow: ShadowRoot
-  private workspaceId = ''
   private productId = ''
   private apiUrl = 'https://api.univerreviews.com'
   private layout: Layout = 'default'
   private locale = 'pt-BR'
   private themeColor = '#d4a850'
-  private showQa = true
   private showWriteReview = true
 
   private reviews: Review[] = []
@@ -653,13 +642,11 @@ class UniverReviewsWidget extends HTMLElement {
   }
 
   private readAttrs() {
-    this.workspaceId    = this.getAttribute('workspace-id') || ''
     this.productId      = this.getAttribute('product-id') || ''
     this.apiUrl         = this.getAttribute('api-url') || this.apiUrl
     this.layout         = (this.getAttribute('layout') as Layout) || 'default'
     this.locale         = this.getAttribute('locale') || 'pt-BR'
     this.themeColor     = this.getAttribute('theme-color') || '#d4a850'
-    this.showQa         = this.getAttribute('show-qa') !== 'false'
     this.showWriteReview = this.getAttribute('show-write-review') !== 'false'
     const pp = parseInt(this.getAttribute('per-page') || '', 10)
     if (pp > 0 && pp <= 100) this.perPage = pp
@@ -772,7 +759,7 @@ class UniverReviewsWidget extends HTMLElement {
     this.loading = true
     this.render()
     try { await this.fetchReviews() }
-    catch (e) { this.error = e instanceof Error ? e.message : 'unknown' }
+    catch (e) { console.warn('[univer-reviews]', e instanceof Error ? e.message : 'unknown') }
     this.loading = false
     this.render()
   }
