@@ -187,8 +187,7 @@ export const auth = betterAuth({
               return
             }
 
-            // 2. No existing WorkspaceUser. Auto-provision into the first workspace
-            //    as a 'viewer'. Single-tenant deployments: this is the right behavior.
+            // 2. No existing WorkspaceUser. Auto-provision into the first workspace.
             //    Multi-tenant: ALLOW_AUTOPROVISION_WORKSPACE_ID env can pin a specific WS.
             const targetWorkspaceId =
               process.env.AUTOPROVISION_WORKSPACE_ID ||
@@ -199,7 +198,18 @@ export const auth = betterAuth({
               return
             }
 
-            const role = process.env.AUTOPROVISION_ROLE || 'viewer'
+            // If the workspace has no owner yet, this user becomes the owner.
+            // Otherwise fall back to AUTOPROVISION_ROLE (default: 'viewer').
+            // Prevents the bootstrap problem where the first real user lands as
+            // a read-only viewer with no way to enable integrations.
+            const existingOwner = await sql<{ id: string }[]>`
+              SELECT id FROM public.workspace_users
+              WHERE workspace_id = ${targetWorkspaceId} AND role = 'owner'
+              LIMIT 1
+            `
+            const role = existingOwner.length === 0
+              ? 'owner'
+              : (process.env.AUTOPROVISION_ROLE || 'viewer')
 
             await sql`
               INSERT INTO public.workspace_users (workspace_id, email, name, role, better_auth_user_id, created_at, updated_at)
