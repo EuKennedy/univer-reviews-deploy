@@ -43,7 +43,7 @@ Rails.application.routes.draw do
       end
 
       # Workspace
-      resource :workspace, only: %i[show update] do
+      resource :workspace, controller: "workspace", only: %i[show update] do
         get :stats
         resources :users, controller: "workspace_users", only: %i[index create update destroy]
         resources :api_keys, controller: "workspace_api_keys", only: %i[index create destroy]
@@ -94,7 +94,7 @@ Rails.application.routes.draw do
 
       # Integrations
       namespace :integrations do
-        resource :woocommerce, only: %i[show create update destroy] do
+        resource :woocommerce, controller: "woocommerce", only: %i[show create update destroy] do
           post :test
           post :sync_products
           post :sync_reviews
@@ -102,7 +102,7 @@ Rails.application.routes.draw do
       end
 
       # Billing
-      resource :billing, only: [:show] do
+      resource :billing, controller: "billing", only: [:show] do
         post :create_checkout
         post :portal
       end

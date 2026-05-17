@@ -80,7 +80,7 @@ function StepIndicator({
 export default function WooCommercePage() {
   const params = useParams()
   const workspace = params?.workspace as string
-  const { getToken } = useAuth()
+  const { getToken, isAuthenticated, isLoading: authLoading } = useAuth()
 
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<Partial<WooCommerceConfig>>({
@@ -100,6 +100,8 @@ export default function WooCommercePage() {
   const { data: config, isLoading } = useQuery({
     queryKey: ['woocommerce-config', workspace],
     queryFn: () => api.integrations.woocommerce.get(getToken()),
+    enabled: isAuthenticated,
+    retry: false,
   })
 
   const saveMutation = useMutation({
@@ -109,7 +111,11 @@ export default function WooCommercePage() {
       toast.success('Integração WooCommerce salva')
       setStep(4)
     },
-    onError: () => toast.error('Falha ao salvar configuração'),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha ao salvar configuração'
+      const issues = (err as { issues?: string[] })?.issues
+      toast.error(issues?.length ? `${msg}: ${issues.join(', ')}` : msg)
+    },
   })
 
   const syncMutation = useMutation({
@@ -165,7 +171,7 @@ export default function WooCommercePage() {
   const inputClass =
     'w-full px-4 py-2.5 rounded-lg text-sm outline-none transition-all'
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#d4a850' }} />
