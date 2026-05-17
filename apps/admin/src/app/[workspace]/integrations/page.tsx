@@ -8,8 +8,17 @@ import { IntegrationCard } from '@/components/integrations/IntegrationCard'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 
+type StaticIntegration = {
+  id: string
+  name: string
+  description: string
+  status: 'coming_soon' | 'not_connected'
+  logo: React.ReactElement
+  href?: string
+}
+
 // Static catalog: only logo/copy/href live here. Real status + stats come from API.
-const staticIntegrations = [
+const staticIntegrations: StaticIntegration[] = [
   {
     id: 'shopify',
     name: 'Shopify',
