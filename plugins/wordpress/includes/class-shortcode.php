@@ -14,10 +14,110 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Univer_Shortcode {
 
     public function __construct() {
-        add_shortcode( 'univer_reviews', [ $this, 'render' ] );
+        add_shortcode( 'univer_reviews',          [ $this, 'render' ] );
+        add_shortcode( 'univer_featured_reviews', [ $this, 'render_featured' ] );
+        add_shortcode( 'univer_reviews_summary',  [ $this, 'render_summary' ] );
 
         // Also support Gutenberg block as a classic shortcode wrapper
         add_action( 'init', [ $this, 'register_block' ] );
+    }
+
+    /**
+     * [univer_featured_reviews] — wall of featured reviews across the workspace.
+     * Use on a dedicated landing page to showcase social proof.
+     */
+    public function render_featured( array|string $atts, ?string $content = null ): string {
+        $atts = shortcode_atts(
+            [
+                'workspace_id' => get_option( 'univer_workspace_id', '' ),
+                'layout'       => 'grid',
+                'locale'       => get_option( 'univer_widget_locale', 'pt-BR' ),
+                'theme_color'  => get_option( 'univer_widget_theme_color', '#d4a850' ),
+                'limit'        => '30',
+                'min_rating'   => '4',
+                'api_url'      => get_option( 'univer_api_url', UNIVER_API_URL ),
+                'class'        => '',
+            ],
+            $atts,
+            'univer_featured_reviews'
+        );
+
+        $workspace_id = sanitize_text_field( $atts['workspace_id'] );
+        if ( empty( $workspace_id ) ) {
+            return current_user_can( 'edit_posts' )
+                ? '<p style="color:#e53e3e">[univer_featured_reviews] — workspace_id ausente.</p>'
+                : '';
+        }
+
+        $this->ensure_widget_enqueued();
+
+        return sprintf(
+            '<div class="univer-reviews-wrapper %s">
+                <univer-reviews
+                    workspace-id="%s"
+                    featured="true"
+                    limit="%d"
+                    min-rating="%d"
+                    api-url="%s"
+                    layout="%s"
+                    locale="%s"
+                    theme-color="%s"
+                    show-write-review="false"
+                ></univer-reviews>
+            </div>',
+            esc_attr( sanitize_html_class( $atts['class'] ) ),
+            esc_attr( $workspace_id ),
+            (int) $atts['limit'],
+            (int) $atts['min_rating'],
+            esc_url( $atts['api_url'] ),
+            esc_attr( $this->sanitize_layout( $atts['layout'] ) ),
+            esc_attr( in_array( $atts['locale'], [ 'pt-BR', 'en-US', 'es-AR' ], true ) ? $atts['locale'] : 'pt-BR' ),
+            esc_attr( sanitize_hex_color( $atts['theme_color'] ) ?: '#d4a850' )
+        );
+    }
+
+    /**
+     * [univer_reviews_summary] — compact "★ 4.8 (123)" snippet, ideal for
+     * product cards in shop/category loops or hero CTAs.
+     */
+    public function render_summary( array|string $atts, ?string $content = null ): string {
+        $atts = shortcode_atts(
+            [
+                'product_id'   => '',
+                'workspace_id' => get_option( 'univer_workspace_id', '' ),
+                'api_url'      => get_option( 'univer_api_url', UNIVER_API_URL ),
+                'theme_color'  => get_option( 'univer_widget_theme_color', '#d4a850' ),
+            ],
+            $atts,
+            'univer_reviews_summary'
+        );
+
+        $product_id = sanitize_text_field( $atts['product_id'] ) ?: (string) $this->get_current_product_id();
+        if ( empty( $product_id ) ) {
+            return '';
+        }
+
+        $this->ensure_widget_enqueued();
+
+        return sprintf(
+            '<univer-reviews-summary workspace-id="%s" product-id="%s" api-url="%s" theme-color="%s"></univer-reviews-summary>',
+            esc_attr( sanitize_text_field( $atts['workspace_id'] ) ),
+            esc_attr( $product_id ),
+            esc_url( $atts['api_url'] ),
+            esc_attr( sanitize_hex_color( $atts['theme_color'] ) ?: '#d4a850' )
+        );
+    }
+
+    private function ensure_widget_enqueued(): void {
+        if ( ! wp_script_is( 'univer-reviews-widget', 'enqueued' ) ) {
+            wp_enqueue_script(
+                'univer-reviews-widget',
+                UNIVER_WIDGET_CDN,
+                [],
+                UNIVER_VERSION,
+                [ 'strategy' => 'defer', 'in_footer' => true ]
+            );
+        }
     }
 
     /**

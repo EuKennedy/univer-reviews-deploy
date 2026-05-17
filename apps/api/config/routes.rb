@@ -119,6 +119,7 @@ Rails.application.routes.draw do
       namespace :public do
         get  "reviews/:product_id",     to: "reviews#index"
         get  "summary/:product_id",     to: "reviews#summary"
+        get  "featured",                to: "reviews#featured"
         post "submit",                  to: "reviews#submit"
         post "reviews/:id/helpful",     to: "reviews#helpful"
         post "reviews/:id/unhelpful",   to: "reviews#unhelpful"

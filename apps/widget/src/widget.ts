@@ -633,8 +633,13 @@ class UniverReviewsWidget extends HTMLElement {
     return [
       'workspace-id', 'product-id', 'api-url', 'layout', 'locale',
       'theme-color', 'show-qa', 'show-write-review', 'per-page',
+      'featured', 'limit', 'min-rating',
     ]
   }
+
+  private featuredMode = false
+  private featuredLimit = 30
+  private featuredMinRating = 4
 
   connectedCallback() {
     this.readAttrs()
@@ -658,6 +663,11 @@ class UniverReviewsWidget extends HTMLElement {
     this.showWriteReview = this.getAttribute('show-write-review') !== 'false'
     const pp = parseInt(this.getAttribute('per-page') || '', 10)
     if (pp > 0 && pp <= 100) this.perPage = pp
+    this.featuredMode = this.getAttribute('featured') === 'true'
+    const lim = parseInt(this.getAttribute('limit') || '', 10)
+    if (lim > 0) this.featuredLimit = Math.min(lim, 100)
+    const mr = parseInt(this.getAttribute('min-rating') || '', 10)
+    if (mr >= 1 && mr <= 5) this.featuredMinRating = mr
   }
 
   private t(key: string): string {
@@ -682,6 +692,16 @@ class UniverReviewsWidget extends HTMLElement {
 
   // ─── Data fetching ──────────────────────────────────────────────────────
   private async fetchAll() {
+    if (this.featuredMode) {
+      this.loading = true
+      this.render()
+      try { await this.fetchFeatured() }
+      catch (e) { console.warn('[univer-reviews]', e instanceof Error ? e.message : 'unknown') }
+      this.loading = false
+      this.render()
+      return
+    }
+
     if (!this.productId) {
       this.loading = false
       this.render()
@@ -696,6 +716,22 @@ class UniverReviewsWidget extends HTMLElement {
     }
     this.loading = false
     this.render()
+  }
+
+  private async fetchFeatured() {
+    const params = new URLSearchParams({
+      limit: String(this.featuredLimit),
+      min_rating: String(this.featuredMinRating),
+    })
+    const r = await fetch(`${this.apiUrl}/api/v1/public/featured?${params}`, {
+      headers: { 'X-Univer-Domain': window.location.hostname },
+    })
+    if (!r.ok) return
+    const json = await r.json()
+    this.reviews = json.data || []
+    this.totalCount = json.meta?.total || this.reviews.length
+    this.totalPages = 1
+    this.summary = null
   }
 
   private async fetchSummary() {
@@ -792,6 +828,15 @@ class UniverReviewsWidget extends HTMLElement {
   }
 
   private renderRoot(): string {
+    if (this.featuredMode) {
+      if (this.loading) {
+        return `<div class="ur-root"><div class="ur-loading"><div class="ur-spinner"></div>${this.t('loading')}</div></div>`
+      }
+      return `
+<div class="ur-root">
+  ${this.renderList()}
+</div>`
+    }
     if (!this.productId) {
       return `<div class="ur-root"><div class="ur-empty">product-id is required</div></div>`
     }
@@ -1144,6 +1189,73 @@ class UniverReviewsWidget extends HTMLElement {
 
 if (!customElements.get('univer-reviews')) {
   customElements.define('univer-reviews', UniverReviewsWidget)
+}
+
+// ─── Compact summary element ────────────────────────────────────────────────
+// <univer-reviews-summary product-id="123" workspace-id="..."> →
+//    ★★★★★ 4.8 (123)
+// Used in shop loops / product cards.
+
+class UniverReviewsSummary extends HTMLElement {
+  private shadow: ShadowRoot
+  private productId = ''
+  private apiUrl = 'https://api.univerreviews.com'
+  private themeColor = '#d4a850'
+
+  constructor() {
+    super()
+    this.shadow = this.attachShadow({ mode: 'open' })
+  }
+
+  static get observedAttributes() {
+    return ['product-id', 'api-url', 'theme-color', 'workspace-id']
+  }
+
+  connectedCallback() {
+    this.productId = this.getAttribute('product-id') || ''
+    this.apiUrl    = this.getAttribute('api-url') || this.apiUrl
+    this.themeColor = this.getAttribute('theme-color') || this.themeColor
+    if (!this.productId) return
+    void this.fetchAndRender()
+  }
+
+  private async fetchAndRender() {
+    try {
+      const r = await fetch(`${this.apiUrl}/api/v1/public/summary/${this.productId}`, {
+        headers: { 'X-Univer-Domain': window.location.hostname },
+      })
+      if (!r.ok) return
+      const json = await r.json()
+      const avg = Number(json.data?.avg_rating || 0)
+      const total = Number(json.data?.total_reviews || 0)
+      this.render(avg, total)
+    } catch { /* ignore */ }
+  }
+
+  private render(avg: number, total: number) {
+    if (total === 0) { this.shadow.innerHTML = ''; return }
+    const full = Math.round(avg)
+    let stars = ''
+    for (let i = 1; i <= 5; i++) {
+      stars += `<span class="s${i > full ? ' empty' : ''}">★</span>`
+    }
+    this.shadow.innerHTML = `
+<style>
+  :host { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 13px; }
+  .stars { display: inline-flex; gap: 1px; color: #fbbf24; }
+  .stars .empty { color: #e5e7eb; }
+  .rating { font-weight: 600; color: #111827; }
+  .count { color: #6b7280; }
+</style>
+<span class="stars">${stars}</span>
+<span class="rating">${avg.toFixed(1)}</span>
+<span class="count">(${total})</span>
+`
+  }
+}
+
+if (!customElements.get('univer-reviews-summary')) {
+  customElements.define('univer-reviews-summary', UniverReviewsSummary)
 }
 
 export {}

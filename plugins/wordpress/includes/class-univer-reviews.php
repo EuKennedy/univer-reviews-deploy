@@ -53,6 +53,125 @@ final class Univer_Reviews {
 
         // Add "Settings" link on plugins page
         add_filter( 'plugin_action_links_' . plugin_basename( UNIVER_PLUGIN_DIR . 'univer-reviews.php' ), [ $this, 'plugin_action_links' ] );
+
+        // ─── WooCommerce integration ─────────────────────────────────────────
+        // Declare HPOS compatibility (WC 7.1+ High-Performance Order Storage).
+        add_action( 'before_woocommerce_init', [ $this, 'declare_hpos_compat' ] );
+
+        // Only wire WC-specific hooks when WooCommerce is actually loaded.
+        add_action( 'plugins_loaded', [ $this, 'maybe_register_woocommerce_hooks' ], 20 );
+    }
+
+    public function declare_hpos_compat(): void {
+        if ( class_exists( '\Automattic\WooCommerce\Utilities\FeaturesUtil' ) ) {
+            \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility(
+                'custom_order_tables',
+                UNIVER_PLUGIN_DIR . 'univer-reviews.php',
+                true
+            );
+        }
+    }
+
+    public function maybe_register_woocommerce_hooks(): void {
+        if ( ! class_exists( 'WooCommerce' ) ) {
+            return;
+        }
+
+        // Only enable replacements when admin opted in (default: on).
+        $auto_tab    = (string) get_option( 'univer_auto_tab', '1' ) === '1';
+        $auto_loop   = (string) get_option( 'univer_auto_loop_rating', '1' ) === '1';
+        $replace_def = (string) get_option( 'univer_replace_default_reviews', '1' ) === '1';
+
+        if ( $auto_tab ) {
+            // Replace the native WooCommerce "Reviews" tab with our widget tab.
+            add_filter( 'woocommerce_product_tabs', [ $this, 'register_reviews_tab' ], 98 );
+            add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_widget_on_woo_product' ] );
+        }
+
+        if ( $auto_loop ) {
+            // Inject summary star rating under each product card on shop/category.
+            add_action( 'woocommerce_after_shop_loop_item_title', [ $this, 'render_loop_rating' ], 6 );
+        }
+
+        if ( $replace_def ) {
+            // Strip the native review form/list so we are the only review surface.
+            add_filter( 'comments_template', [ $this, 'noop_default_reviews' ], 99 );
+        }
+    }
+
+    public function register_reviews_tab( array $tabs ): array {
+        // Remove WooCommerce's built-in tab and replace with ours so we are
+        // the single source of truth on the product page.
+        unset( $tabs['reviews'] );
+
+        $tabs['univer_reviews'] = [
+            'title'    => __( 'Avaliações', 'univer-reviews' ),
+            'priority' => 30,
+            'callback' => function () {
+                global $product;
+                if ( ! $product ) {
+                    return;
+                }
+                echo do_shortcode( sprintf(
+                    '[univer_reviews product_id="%d"]',
+                    (int) $product->get_id()
+                ) );
+            },
+        ];
+        return $tabs;
+    }
+
+    public function enqueue_widget_on_woo_product(): void {
+        if ( ! function_exists( 'is_product' ) || ! is_product() ) {
+            return;
+        }
+        wp_enqueue_script(
+            'univer-reviews-widget',
+            UNIVER_WIDGET_CDN,
+            [],
+            UNIVER_VERSION,
+            [ 'strategy' => 'defer', 'in_footer' => true ]
+        );
+    }
+
+    public function render_loop_rating(): void {
+        global $product;
+        if ( ! $product ) {
+            return;
+        }
+        $workspace_id = get_option( 'univer_workspace_id', '' );
+        if ( empty( $workspace_id ) ) {
+            return;
+        }
+        $api_url     = get_option( 'univer_api_url', UNIVER_API_URL );
+        $theme_color = get_option( 'univer_widget_theme_color', '#d4a850' );
+
+        wp_enqueue_script(
+            'univer-reviews-widget',
+            UNIVER_WIDGET_CDN,
+            [],
+            UNIVER_VERSION,
+            [ 'strategy' => 'defer', 'in_footer' => true ]
+        );
+
+        printf(
+            '<div class="univer-loop-rating"><univer-reviews-summary workspace-id="%s" product-id="%d" api-url="%s" theme-color="%s"></univer-reviews-summary></div>',
+            esc_attr( $workspace_id ),
+            (int) $product->get_id(),
+            esc_url( $api_url ),
+            esc_attr( $theme_color )
+        );
+    }
+
+    public function noop_default_reviews( string $template ): string {
+        // Returning a minimal template suppresses the native review section.
+        $blank = UNIVER_PLUGIN_DIR . 'templates/empty-comments.php';
+        if ( ! file_exists( $blank ) ) {
+            // Fallback: write an empty file lazily.
+            @mkdir( dirname( $blank ), 0755, true );
+            @file_put_contents( $blank, "<?php // intentionally empty — UniverReviews replaces native reviews.\n" );
+        }
+        return $blank;
     }
 
     // ─── Widget Enqueue ───────────────────────────────────────────────────────

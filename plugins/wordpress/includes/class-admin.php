@@ -80,14 +80,18 @@ class Univer_Admin {
 
     public function register_settings(): void {
         $settings = [
-            'univer_api_key'           => [ 'sanitize_callback' => 'sanitize_text_field' ],
-            'univer_workspace_id'      => [ 'sanitize_callback' => 'sanitize_text_field' ],
-            'univer_api_url'           => [ 'sanitize_callback' => 'esc_url_raw', 'default' => UNIVER_API_URL ],
-            'univer_widget_layout'     => [ 'sanitize_callback' => [ $this, 'sanitize_layout' ] ],
-            'univer_widget_locale'     => [ 'sanitize_callback' => 'sanitize_text_field' ],
-            'univer_widget_theme_color'=> [ 'sanitize_callback' => 'sanitize_hex_color' ],
-            'univer_sync_enabled'      => [ 'sanitize_callback' => 'sanitize_text_field' ],
-            'univer_auto_pull'         => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_api_key'                  => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_workspace_id'             => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_api_url'                  => [ 'sanitize_callback' => 'esc_url_raw', 'default' => UNIVER_API_URL ],
+            'univer_widget_layout'            => [ 'sanitize_callback' => [ $this, 'sanitize_layout' ] ],
+            'univer_widget_locale'            => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_widget_theme_color'       => [ 'sanitize_callback' => 'sanitize_hex_color' ],
+            'univer_sync_enabled'             => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_auto_pull'                => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            // ── WooCommerce auto-integration toggles ─────────────────────────
+            'univer_auto_tab'                 => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_auto_loop_rating'         => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_replace_default_reviews'  => [ 'sanitize_callback' => 'sanitize_text_field' ],
         ];
 
         foreach ( $settings as $option => $args ) {
@@ -410,6 +414,43 @@ class Univer_Admin {
                         <th scope="row"><label for="univer_widget_theme_color"><?php esc_html_e( 'Cor do tema', 'univer-reviews' ); ?></label></th>
                         <td>
                             <input type="color" id="univer_widget_theme_color" name="univer_widget_theme_color" value="<?php echo esc_attr( $theme_color ); ?>">
+                        </td>
+                    </tr>
+                </table>
+
+                <hr>
+                <h2><?php esc_html_e( 'WooCommerce', 'univer-reviews' ); ?></h2>
+                <table class="form-table" role="presentation">
+                    <?php
+                    $auto_tab     = (string) get_option( 'univer_auto_tab', '1' );
+                    $auto_loop    = (string) get_option( 'univer_auto_loop_rating', '1' );
+                    $replace_def  = (string) get_option( 'univer_replace_default_reviews', '1' );
+                    ?>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Aba automática', 'univer-reviews' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="univer_auto_tab" value="1" <?php checked( $auto_tab, '1' ); ?>>
+                                <?php esc_html_e( 'Adicionar aba "Avaliações" automaticamente nas páginas de produto', 'univer-reviews' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Estrelas no catálogo', 'univer-reviews' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="univer_auto_loop_rating" value="1" <?php checked( $auto_loop, '1' ); ?>>
+                                <?php esc_html_e( 'Exibir nota média e contagem em listagens (loja, categorias, busca)', 'univer-reviews' ); ?>
+                            </label>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Substituir avaliações nativas', 'univer-reviews' ); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="univer_replace_default_reviews" value="1" <?php checked( $replace_def, '1' ); ?>>
+                                <?php esc_html_e( 'Ocultar o formulário e a lista nativos do WooCommerce/WordPress', 'univer-reviews' ); ?>
+                            </label>
                         </td>
                     </tr>
                 </table>

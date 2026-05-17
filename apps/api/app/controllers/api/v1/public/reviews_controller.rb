@@ -74,6 +74,42 @@ module Api
           render json: { error: "not_found" }, status: :not_found
         end
 
+        # GET /api/v1/public/featured
+        # Workspace-wide featured reviews (no product scoping). Used by the
+        # [univer_featured_reviews] shortcode for landing-page social proof.
+        def featured
+          limit      = [(params[:limit] || 30).to_i, 100].min
+          min_rating = (params[:min_rating] || 4).to_i.clamp(1, 5)
+
+          scope = @workspace.reviews.approved
+                            .where("rating >= ?", min_rating)
+                            .includes(:review_media, :replies, :product)
+
+          scope = scope.featured if truthy?(params[:featured_only])
+
+          scope = case params[:sort]
+                  when "helpful" then scope.most_helpful
+                  when "rating"  then scope.order(rating: :desc, created_at: :desc)
+                  else scope.order(created_at: :desc)
+                  end
+
+          reviews = scope.limit(limit)
+
+          render json: {
+            data: reviews.map { |r|
+              public_serialize(r).merge(
+                product: r.product && {
+                  id: r.product.id,
+                  title: r.product.title,
+                  handle: r.product.handle,
+                  image_url: r.product.image_url
+                }
+              )
+            },
+            meta: { total: reviews.length, limit: limit, min_rating: min_rating }
+          }
+        end
+
         # POST /api/v1/public/reviews/:id/helpful
         def helpful
           review = @workspace.reviews.approved.find(params[:id])
