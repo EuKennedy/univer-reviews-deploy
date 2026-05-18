@@ -19,7 +19,7 @@ export function RatingStars({
   rating,
   max = 5,
   size = 'sm',
-  color = '#d4a850',
+  color = 'var(--ur-accent)',
   showValue = false,
 }: RatingStarsProps) {
   const px = sizeMap[size]
@@ -45,7 +45,7 @@ export function RatingStars({
                   <defs>
                     <linearGradient id={`star-partial-${i}`} x1="0" x2="1" y1="0" y2="0">
                       <stop offset={`${(rating % 1) * 100}%`} stopColor={color} />
-                      <stop offset={`${(rating % 1) * 100}%`} stopColor="#2a2a2e" />
+                      <stop offset={`${(rating % 1) * 100}%`} stopColor="var(--ur-border-strong)" />
                     </linearGradient>
                   </defs>
                   <path
@@ -59,8 +59,8 @@ export function RatingStars({
               ) : (
                 <path
                   d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                  fill={filled ? color : '#2a2a2e'}
-                  stroke={filled ? color : '#3a3a3e'}
+                  fill={filled ? color : 'var(--ur-border-strong)'}
+                  stroke={filled ? color : 'var(--ur-text-faint)'}
                   strokeWidth={0.5}
                 />
               )}
@@ -77,7 +77,7 @@ export function RatingStars({
             size === 'md' && 'text-sm',
             size === 'lg' && 'text-base'
           )}
-          style={{ color: '#d4a850' }}
+          style={{ color: 'var(--ur-accent)' }}
         >
           {Number(rating).toFixed(1)}
         </span>

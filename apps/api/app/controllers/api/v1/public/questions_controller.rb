@@ -6,15 +6,25 @@ module Api
         before_action :resolve_workspace
 
         # GET /api/v1/public/questions/:product_id
+        # Accepts the internal UUID, the handle/slug, or the storefront's
+        # platform_product_id (matches /public/reviews/:product_id semantics).
+        # Returns the union of questions linked directly to the product OR via
+        # any QuestionGroup it belongs to.
         def index
-          product = @workspace.products.find(params[:product_id])
-          questions = product.questions.published.order(helpful_count: :desc, created_at: :desc).limit(50)
+          product = resolve_product(params[:product_id])
+          raise ActiveRecord::RecordNotFound unless product
+
+          questions = product.all_questions
+                              .where(status: "published")
+                              .order(helpful_count: :desc, created_at: :desc)
+                              .limit(50)
 
           render json: {
             data: questions.map { |q|
               {
                 id: q.id,
                 body: q.body,
+                author_name: q.author_name,
                 answer: q.answer,
                 answered_at: q.answered_at&.iso8601,
                 helpful_count: q.helpful_count,
@@ -28,7 +38,8 @@ module Api
 
         # POST /api/v1/public/questions/:product_id
         def create
-          product = @workspace.products.find(params[:product_id])
+          product = resolve_product(params[:product_id])
+          raise ActiveRecord::RecordNotFound unless product
 
           question = @workspace.questions.new(
             product: product,
@@ -49,6 +60,20 @@ module Api
         end
 
         private
+
+        # Same resolver pattern as Api::V1::Public::ReviewsController#resolve_product.
+        def resolve_product(identifier)
+          ident = identifier.to_s
+          return nil if ident.blank?
+
+          if ident.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+            p = @workspace.products.find_by(id: ident)
+            return p if p
+          end
+          p = @workspace.products.find_by(handle: ident)
+          return p if p
+          @workspace.products.find_by(platform_product_id: ident)
+        end
 
         def resolve_workspace
           domain_header = request.headers["X-Univer-Domain"] ||

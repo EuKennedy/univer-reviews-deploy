@@ -22,27 +22,27 @@ export default function BillingPage() {
           {/* Current plan */}
           <div
             className="rounded-xl p-5 mb-8"
-            style={{ background: 'rgba(212,168,80,0.06)', border: '1px solid rgba(212,168,80,0.2)' }}
+            style={{ background: 'var(--ur-accent-glow)', border: '1px solid var(--ur-accent-soft-3)' }}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: '#d4a850' }}>
+                <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--ur-accent)' }}>
                   Plano atual
                 </p>
-                <h3 className="text-xl font-bold" style={{ color: '#f0f0f2' }}>Free</h3>
-                <p className="text-sm mt-1" style={{ color: '#8b8b96' }}>
+                <h3 className="text-xl font-bold" style={{ color: 'var(--ur-text)' }}>Free</h3>
+                <p className="text-sm mt-1" style={{ color: 'var(--ur-text-soft)' }}>
                   500 avaliações/mês · 1 usuário
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold" style={{ color: '#f0f0f2' }}>R$0</p>
-                <p className="text-xs" style={{ color: '#5a5a64' }}>por mês</p>
+                <p className="text-2xl font-bold" style={{ color: 'var(--ur-text)' }}>R$0</p>
+                <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>por mês</p>
               </div>
             </div>
           </div>
 
           {/* Plans */}
-          <h2 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
+          <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ur-text)' }}>
             Faça upgrade do seu plano
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -51,25 +51,25 @@ export default function BillingPage() {
                 key={plan.name}
                 className="rounded-xl p-5 relative"
                 style={{
-                  background: i === 2 ? 'rgba(212,168,80,0.06)' : '#111113',
-                  border: i === 2 ? '1px solid rgba(212,168,80,0.3)' : '1px solid #1e1e21',
+                  background: i === 2 ? 'var(--ur-accent-glow)' : 'var(--ur-surface)',
+                  border: i === 2 ? '1px solid var(--ur-accent-soft-3)' : '1px solid var(--ur-border)',
                 }}
               >
                 {i === 2 && (
                   <div
                     className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-medium px-3 py-1 rounded-full"
-                    style={{ background: '#d4a850', color: '#0a0a0b' }}
+                    style={{ background: 'var(--ur-accent)', color: 'var(--ur-text-on-accent)' }}
                   >
                     Mais popular
                   </div>
                 )}
-                <h3 className="text-sm font-semibold mb-1" style={{ color: '#f0f0f2' }}>
+                <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
                   {plan.name}
                 </h3>
-                <p className="text-xl font-bold mb-4" style={{ color: i === 2 ? '#d4a850' : '#f0f0f2' }}>
+                <p className="text-xl font-bold mb-4" style={{ color: i === 2 ? 'var(--ur-accent)' : 'var(--ur-text)' }}>
                   {plan.price}
                   {plan.price !== 'Sob consulta' && (
-                    <span className="text-xs font-normal ml-1" style={{ color: '#5a5a64' }}>
+                    <span className="text-xs font-normal ml-1" style={{ color: 'var(--ur-text-muted)' }}>
                       /mês
                     </span>
                   )}
@@ -77,8 +77,8 @@ export default function BillingPage() {
 
                 <div className="space-y-2 mb-5">
                   {plan.features.map((f) => (
-                    <p key={f} className="text-xs flex items-center gap-1.5" style={{ color: '#8b8b96' }}>
-                      <span style={{ color: '#22c55e' }}>✓</span> {f}
+                    <p key={f} className="text-xs flex items-center gap-1.5" style={{ color: 'var(--ur-text-soft)' }}>
+                      <span style={{ color: 'var(--ur-success)' }}>✓</span> {f}
                     </p>
                   ))}
                 </div>
@@ -86,9 +86,9 @@ export default function BillingPage() {
                 <button
                   className="w-full py-2 rounded-lg text-xs font-medium transition-all"
                   style={{
-                    background: i === 2 ? 'linear-gradient(135deg, #d4a850, #c49040)' : '#1a1a1d',
-                    color: i === 2 ? '#0a0a0b' : '#8b8b96',
-                    border: i === 2 ? 'none' : '1px solid #2a2a2d',
+                    background: i === 2 ? 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))' : 'var(--ur-surface-soft)',
+                    color: i === 2 ? 'var(--ur-bg)' : 'var(--ur-text-soft)',
+                    border: i === 2 ? 'none' : '1px solid var(--ur-border-strong)',
                   }}
                 >
                   {i === 0 ? 'Plano atual' : `Fazer upgrade para ${plan.name}`}

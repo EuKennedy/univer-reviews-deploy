@@ -7,8 +7,9 @@ module Api
       def index
         scope = current_workspace.questions
 
-        scope = scope.where(status: params[:status])       if params[:status].present?
-        scope = scope.where(product_id: params[:product_id]) if params[:product_id].present?
+        scope = scope.where(status: params[:status])                     if params[:status].present?
+        scope = scope.where(product_id: params[:product_id])             if params[:product_id].present?
+        scope = scope.where(question_group_id: params[:question_group_id]) if params[:question_group_id].present?
         scope = scope.order(created_at: :desc)
 
         pagy, questions = paginate(scope)
@@ -76,6 +77,7 @@ module Api
       def serialize_question(q)
         {
           id: q.id, product_id: q.product_id,
+          question_group_id: q.question_group_id,
           author_name: q.author_name, body: q.body,
           answer: q.answer, answered_at: q.answered_at&.iso8601,
           helpful_count: q.helpful_count, status: q.status,

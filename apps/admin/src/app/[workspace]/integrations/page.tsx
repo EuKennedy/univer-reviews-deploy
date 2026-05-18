@@ -76,7 +76,7 @@ const staticIntegrations: StaticIntegration[] = [
       'Envie eventos em tempo real para seus próprios endpoints quando avaliações forem criadas ou atualizadas.',
     status: 'coming_soon' as const,
     logo: (
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#8b8b96" strokeWidth="1.5">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--ur-text-soft)" strokeWidth="1.5">
         <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
         <path d="M9 12l2 2 4-4" />
       </svg>
@@ -129,7 +129,7 @@ export default function IntegrationsPage() {
       <div className="flex-1 overflow-y-auto p-5">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6">
-            <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: '#5a5a64' }}>
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--ur-text-muted)' }}>
               Integrações disponíveis
             </h2>
           </div>
@@ -158,26 +158,26 @@ export default function IntegrationsPage() {
 
           <div
             className="mt-8 rounded-xl p-5"
-            style={{ background: '#111113', border: '1px solid #1e1e21' }}
+            style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
           >
             <div className="flex items-start gap-4">
               <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.15)' }}
+                style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-2)' }}
               >
-                <Plug className="w-5 h-5" style={{ color: '#d4a850' }} />
+                <Plug className="w-5 h-5" style={{ color: 'var(--ur-accent)' }} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
                   Solicitar uma integração
                 </h3>
-                <p className="text-xs mt-1 leading-relaxed" style={{ color: '#8b8b96' }}>
+                <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--ur-text-soft)' }}>
                   Não encontrou sua plataforma? Lançamos integrações rápido. Entre em
                   contato e vamos priorizar conforme a demanda.
                 </p>
                 <button
                   className="mt-3 text-xs font-medium transition-colors"
-                  style={{ color: '#d4a850' }}
+                  style={{ color: 'var(--ur-accent)' }}
                 >
                   Solicitar integração →
                 </button>

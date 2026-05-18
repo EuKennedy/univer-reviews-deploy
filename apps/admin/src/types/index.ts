@@ -86,12 +86,28 @@ export interface CreateReviewInput {
 export interface AiModerateResult {
   review_id: string
   quality_score: number
-  sentiment: 'positive' | 'neutral' | 'negative'
+  sentiment: 'positive' | 'neutral' | 'negative' | 'mixed'
   topics: string[]
   is_synthetic: boolean
   synthetic_confidence: number
   moderation_flags: string[]
   recommendation: 'approve' | 'reject' | 'review'
+  reason?: string | null
+}
+
+export interface AiHealth {
+  configured: boolean
+  reason: 'ok' | 'missing' | 'placeholder' | string
+  models: { sonnet: string; haiku: string }
+}
+
+export interface AiSimilarReview {
+  id: string
+  title: string | null
+  body: string | null
+  rating: number
+  status: ReviewStatus
+  neighbor_distance: number
 }
 
 export interface GenerateVariantsInput {
@@ -184,6 +200,40 @@ export interface Product {
   source: string
   created_at: string
   updated_at: string
+}
+
+// ─── Questions & Q&A Groups ───────────────────────────────────────────────────
+
+export type QuestionStatus = 'pending' | 'published' | 'rejected'
+
+export interface Question {
+  id: string
+  product_id: string | null
+  question_group_id: string | null
+  author_name: string | null
+  body: string
+  answer: string | null
+  answered_at: string | null
+  helpful_count: number
+  status: QuestionStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface QuestionGroup {
+  id: string
+  name: string
+  description: string | null
+  products_count: number
+  questions_count: number
+  created_at: string
+  updated_at: string
+  products?: Array<{
+    id: string
+    title: string
+    handle: string | null
+    image_url: string | null
+  }>
 }
 
 // ─── Campaign ─────────────────────────────────────────────────────────────────

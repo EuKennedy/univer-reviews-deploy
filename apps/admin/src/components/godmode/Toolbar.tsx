@@ -14,8 +14,8 @@ export function Toolbar({ left, right, className }: ToolbarProps) {
         className
       )}
       style={{
-        borderBottom: '1px solid #1e1e21',
-        background: 'rgba(17,17,19,0.6)',
+        borderBottom: '1px solid var(--ur-border)',
+        background: 'var(--ur-surface-overlay)',
         backdropFilter: 'blur(8px)',
       }}
     >
@@ -42,7 +42,7 @@ export function SearchInput({
     <div className={cn('relative', className)}>
       <svg
         className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
-        style={{ color: '#5a5a64' }}
+        style={{ color: 'var(--ur-text-muted)' }}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -58,16 +58,16 @@ export function SearchInput({
         placeholder={placeholder}
         className="pl-9 pr-3 py-1.5 text-sm rounded-lg outline-none transition-all duration-150 w-56"
         style={{
-          background: '#0a0a0b',
-          border: '1px solid #1e1e21',
-          color: '#f0f0f2',
+          background: 'var(--ur-bg)',
+          border: '1px solid var(--ur-border)',
+          color: 'var(--ur-text)',
         }}
         onFocus={(e) => {
-          e.target.style.border = '1px solid rgba(212,168,80,0.4)'
-          e.target.style.boxShadow = '0 0 0 3px rgba(212,168,80,0.06)'
+          e.target.style.border = '1px solid var(--ur-accent-ring)'
+          e.target.style.boxShadow = '0 0 0 3px var(--ur-accent-glow)'
         }}
         onBlur={(e) => {
-          e.target.style.border = '1px solid #1e1e21'
+          e.target.style.border = '1px solid var(--ur-border)'
           e.target.style.boxShadow = 'none'
         }}
       />
@@ -94,14 +94,17 @@ export function FilterSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={cn('px-3 py-1.5 text-sm rounded-lg outline-none transition-all duration-150 cursor-pointer', className)}
+      className={cn(
+        'px-3 py-1.5 text-sm rounded-lg outline-none transition-all duration-150 cursor-pointer',
+        className
+      )}
       style={{
-        background: '#0a0a0b',
-        border: '1px solid #1e1e21',
-        color: value ? '#f0f0f2' : '#5a5a64',
+        background: 'var(--ur-bg)',
+        border: '1px solid var(--ur-border)',
+        color: value ? 'var(--ur-text)' : 'var(--ur-text-muted)',
         appearance: 'none',
         paddingRight: '2rem',
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a5a64' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'right 8px center',
       }}
@@ -133,24 +136,25 @@ export function ActionButton({
 }: ActionButtonProps) {
   const styles: Record<string, React.CSSProperties> = {
     default: {
-      background: '#0a0a0b',
-      border: '1px solid #1e1e21',
-      color: '#8b8b96',
+      background: 'var(--ur-bg)',
+      border: '1px solid var(--ur-border)',
+      color: 'var(--ur-text-soft)',
     },
     primary: {
-      background: 'linear-gradient(135deg, #d4a850, #c49040)',
+      background:
+        'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
       border: 'none',
-      color: '#0a0a0b',
+      color: 'var(--ur-text-on-accent)',
     },
     danger: {
-      background: 'rgba(239,68,68,0.1)',
-      border: '1px solid rgba(239,68,68,0.2)',
-      color: '#ef4444',
+      background: 'var(--ur-danger-bg)',
+      border: '1px solid var(--ur-danger)',
+      color: 'var(--ur-danger)',
     },
     ghost: {
       background: 'transparent',
       border: '1px solid transparent',
-      color: '#8b8b96',
+      color: 'var(--ur-text-soft)',
     },
   }
 

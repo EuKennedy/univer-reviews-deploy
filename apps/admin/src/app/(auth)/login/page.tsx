@@ -38,9 +38,9 @@ function LoginFallback() {
   return (
     <div
       className="min-h-screen flex items-center justify-center"
-      style={{ background: '#0a0a0b' }}
+      style={{ background: 'var(--ur-bg)' }}
     >
-      <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#d4a850' }} />
+      <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--ur-accent)' }} />
     </div>
   )
 }
@@ -118,13 +118,13 @@ function LoginContent() {
   return (
     <div
       className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: '#0a0a0b' }}
+      style={{ background: 'var(--ur-bg)' }}
     >
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            'radial-gradient(circle at 50% 0%, rgba(212,168,80,0.06) 0%, transparent 60%), linear-gradient(rgba(30,30,33,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(30,30,33,0.4) 1px, transparent 1px)',
+            'radial-gradient(circle at 50% 0%, var(--ur-accent-glow) 0%, transparent 60%), linear-gradient(rgba(30,30,33,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(30,30,33,0.4) 1px, transparent 1px)',
           backgroundSize: '100% 100%, 64px 64px, 64px 64px',
         }}
       />
@@ -137,11 +137,11 @@ function LoginContent() {
         >
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #d4a850, #a07830)' }}
+            style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-dim))' }}
           >
             <Sparkles className="w-4 h-4 text-white" />
           </div>
-          <span className="text-lg font-semibold" style={{ color: '#f0f0f2' }}>
+          <span className="text-lg font-semibold" style={{ color: 'var(--ur-text)' }}>
             UniverReviews
           </span>
         </motion.div>
@@ -152,24 +152,24 @@ function LoginContent() {
           transition={{ delay: 0.05 }}
           className="rounded-2xl p-8 relative overflow-hidden"
           style={{
-            background: '#111113',
-            border: '1px solid #1e1e21',
-            boxShadow: '0 0 0 1px rgba(255,255,255,0.03), 0 32px 64px rgba(0,0,0,0.5)',
+            background: 'var(--ur-surface)',
+            border: '1px solid var(--ur-border)',
+            boxShadow: '0 0 0 1px rgba(255,255,255,0.03), 0 32px 64px var(--ur-overlay)',
           }}
         >
           <div
             className="absolute top-0 left-8 right-8 h-px"
             style={{
               background:
-                'linear-gradient(90deg, transparent, rgba(212,168,80,0.6), transparent)',
+                'linear-gradient(90deg, transparent, var(--ur-accent-ring), transparent)',
             }}
           />
 
           <div className="mb-7">
-            <h1 className="text-2xl font-bold tracking-tight mb-1.5" style={{ color: '#f0f0f2' }}>
+            <h1 className="text-2xl font-bold tracking-tight mb-1.5" style={{ color: 'var(--ur-text)' }}>
               Bem-vindo de volta
             </h1>
-            <p className="text-sm" style={{ color: '#8b8b96' }}>
+            <p className="text-sm" style={{ color: 'var(--ur-text-soft)' }}>
               Acesse seu painel admin
             </p>
           </div>
@@ -182,7 +182,7 @@ function LoginContent() {
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-150 mb-4"
             style={{
               background: '#ffffff',
-              color: '#1a1a1d',
+              color: 'var(--ur-surface-soft)',
               boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
             }}
           >
@@ -196,17 +196,17 @@ function LoginContent() {
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-4">
-            <div className="flex-1 h-px" style={{ background: '#1e1e21' }} />
-            <span className="text-xs" style={{ color: '#5a5a64' }}>
+            <div className="flex-1 h-px" style={{ background: 'var(--ur-border)' }} />
+            <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
               ou
             </span>
-            <div className="flex-1 h-px" style={{ background: '#1e1e21' }} />
+            <div className="flex-1 h-px" style={{ background: 'var(--ur-border)' }} />
           </div>
 
           {/* Mode toggle */}
           <div
             className="flex p-1 rounded-lg mb-5"
-            style={{ background: '#0a0a0b', border: '1px solid #1e1e21' }}
+            style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)' }}
           >
             {(['password', 'magic-link'] as Mode[]).map((m) => (
               <button
@@ -217,8 +217,8 @@ function LoginContent() {
                 }}
                 className="flex-1 py-1.5 text-xs font-medium rounded-md transition-all"
                 style={{
-                  background: mode === m ? '#1e1e21' : 'transparent',
-                  color: mode === m ? '#f0f0f2' : '#5a5a64',
+                  background: mode === m ? 'var(--ur-border)' : 'transparent',
+                  color: mode === m ? 'var(--ur-text)' : 'var(--ur-text-muted)',
                 }}
               >
                 {m === 'password' ? 'Senha' : 'Link mágico'}
@@ -241,13 +241,13 @@ function LoginContent() {
           ) : magicSent ? (
             <div
               className="rounded-lg p-5 text-center"
-              style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}
+              style={{ background: 'var(--ur-success-bg)', border: '1px solid var(--ur-success-bg)' }}
             >
-              <Wand2 className="w-6 h-6 mx-auto mb-2" style={{ color: '#22c55e' }} />
-              <p className="text-sm" style={{ color: '#f0f0f2' }}>
+              <Wand2 className="w-6 h-6 mx-auto mb-2" style={{ color: 'var(--ur-success)' }} />
+              <p className="text-sm" style={{ color: 'var(--ur-text)' }}>
                 Link enviado!
               </p>
-              <p className="text-xs mt-1" style={{ color: '#8b8b96' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--ur-text-soft)' }}>
                 Abra seu e-mail e clique no link mágico para entrar.
               </p>
             </div>
@@ -261,12 +261,12 @@ function LoginContent() {
             </form>
           )}
 
-          <p className="mt-6 text-xs text-center" style={{ color: '#5a5a64' }}>
+          <p className="mt-6 text-xs text-center" style={{ color: 'var(--ur-text-muted)' }}>
             Acesso restrito a equipe autorizada
           </p>
         </motion.div>
 
-        <p className="text-center mt-6 text-xs" style={{ color: '#5a5a64' }}>
+        <p className="text-center mt-6 text-xs" style={{ color: 'var(--ur-text-muted)' }}>
           dash.univerreviews.com
         </p>
       </div>
@@ -285,11 +285,11 @@ function FieldEmail({
 }) {
   return (
     <div>
-      <label htmlFor="email" className="block text-xs font-medium mb-1.5" style={{ color: '#8b8b96' }}>
+      <label htmlFor="email" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-soft)' }}>
         E-mail
       </label>
       <div className="relative">
-        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#5a5a64' }} />
+        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
         <input
           id="email"
           type="email"
@@ -299,14 +299,14 @@ function FieldEmail({
           {...register}
           className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm transition-all duration-150 outline-none"
           style={{
-            background: '#0a0a0b',
-            border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid #1e1e21',
-            color: '#f0f0f2',
+            background: 'var(--ur-bg)',
+            border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid var(--ur-border)',
+            color: 'var(--ur-text)',
           }}
         />
       </div>
       {error && (
-        <p className="mt-1.5 text-xs" style={{ color: '#ef4444' }}>
+        <p className="mt-1.5 text-xs" style={{ color: 'var(--ur-danger)' }}>
           {error}
         </p>
       )}
@@ -323,11 +323,11 @@ function FieldPassword({
 }) {
   return (
     <div>
-      <label htmlFor="password" className="block text-xs font-medium mb-1.5" style={{ color: '#8b8b96' }}>
+      <label htmlFor="password" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-soft)' }}>
         Senha
       </label>
       <div className="relative">
-        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#5a5a64' }} />
+        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
         <input
           id="password"
           type="password"
@@ -336,14 +336,14 @@ function FieldPassword({
           {...register}
           className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm transition-all duration-150 outline-none"
           style={{
-            background: '#0a0a0b',
-            border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid #1e1e21',
-            color: '#f0f0f2',
+            background: 'var(--ur-bg)',
+            border: error ? '1px solid rgba(239,68,68,0.6)' : '1px solid var(--ur-border)',
+            color: 'var(--ur-text)',
           }}
         />
       </div>
       {error && (
-        <p className="mt-1.5 text-xs" style={{ color: '#ef4444' }}>
+        <p className="mt-1.5 text-xs" style={{ color: 'var(--ur-danger)' }}>
           {error}
         </p>
       )}
@@ -366,8 +366,8 @@ function SubmitButton({
       disabled={loading}
       className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-150"
       style={{
-        background: loading ? '#a07830' : 'linear-gradient(135deg, #d4a850, #c49040)',
-        color: '#0a0a0b',
+        background: loading ? 'var(--ur-accent-dim)' : 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
+        color: 'var(--ur-text-on-accent)',
         boxShadow: loading ? 'none' : '0 1px 2px rgba(0,0,0,0.4)',
       }}
     >

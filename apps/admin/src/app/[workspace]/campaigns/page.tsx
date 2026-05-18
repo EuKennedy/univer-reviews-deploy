@@ -13,10 +13,10 @@ import { ptBR } from 'date-fns/locale'
 import type { Campaign, CampaignStatus } from '@/types'
 
 const statusConfig: Record<CampaignStatus, { label: string; color: string; bg: string }> = {
-  draft: { label: 'Rascunho', color: '#8b8b96', bg: 'rgba(139,139,150,0.1)' },
-  active: { label: 'Ativa', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
-  paused: { label: 'Pausada', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-  completed: { label: 'Concluída', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
+  draft: { label: 'Rascunho', color: 'var(--ur-text-soft)', bg: 'var(--ur-neutral-bg)' },
+  active: { label: 'Ativa', color: 'var(--ur-success)', bg: 'var(--ur-success-bg)' },
+  paused: { label: 'Pausada', color: 'var(--ur-warn)', bg: 'var(--ur-warn-bg)' },
+  completed: { label: 'Concluída', color: 'var(--ur-info)', bg: 'var(--ur-info-bg)' },
 }
 
 const typeIcons = {
@@ -32,23 +32,23 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   return (
     <div
       className="rounded-xl p-5 transition-all duration-150 group"
-      style={{ background: '#111113', border: '1px solid #1e1e21' }}
-      onMouseEnter={(e) => { e.currentTarget.style.border = '1px solid rgba(212,168,80,0.2)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.border = '1px solid #1e1e21' }}
+      style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.border = '1px solid var(--ur-accent-soft-3)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.border = '1px solid var(--ur-border)' }}
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5">
           <div
             className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: '#1a1a1d', border: '1px solid #2a2a2d' }}
+            style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border-strong)' }}
           >
-            <TypeIcon className="w-4 h-4" style={{ color: '#8b8b96' }} />
+            <TypeIcon className="w-4 h-4" style={{ color: 'var(--ur-text-soft)' }} />
           </div>
           <div>
-            <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
               {campaign.name}
             </h3>
-            <p className="text-xs capitalize" style={{ color: '#5a5a64' }}>
+            <p className="text-xs capitalize" style={{ color: 'var(--ur-text-muted)' }}>
               Campanha de {campaign.type}
             </p>
           </div>
@@ -61,7 +61,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 mt-4 pt-4" style={{ borderTop: '1px solid #1a1a1d' }}>
+      <div className="grid grid-cols-4 gap-2 mt-4 pt-4" style={{ borderTop: '1px solid var(--ur-surface-soft)' }}>
         {[
           { label: 'Enviadas', value: formatNumber(campaign.sent_count) },
           { label: 'Aberturas', value: `${campaign.sent_count > 0 ? Math.round((campaign.open_count / campaign.sent_count) * 100) : 0}%` },
@@ -69,17 +69,17 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
           { label: 'Avaliações', value: formatNumber(campaign.review_count) },
         ].map(({ label, value }) => (
           <div key={label} className="text-center">
-            <p className="text-base font-bold" style={{ color: '#f0f0f2' }}>
+            <p className="text-base font-bold" style={{ color: 'var(--ur-text)' }}>
               {value}
             </p>
-            <p className="text-xs" style={{ color: '#5a5a64' }}>
+            <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
               {label}
             </p>
           </div>
         ))}
       </div>
 
-      <p className="mt-3 text-xs" style={{ color: '#5a5a64' }}>
+      <p className="mt-3 text-xs" style={{ color: 'var(--ur-text-muted)' }}>
         Criada em {format(new Date(campaign.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
       </p>
     </div>
@@ -117,8 +117,8 @@ export default function CampaignsPage() {
           <button
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium"
             style={{
-              background: 'linear-gradient(135deg, #d4a850, #c49040)',
-              color: '#0a0a0b',
+              background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
+              color: 'var(--ur-text-on-accent)',
             }}
           >
             <Plus className="w-3.5 h-3.5" />
@@ -138,12 +138,12 @@ export default function CampaignsPage() {
           </div>
         ) : (campaigns ?? []).length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-20">
-            <Megaphone className="w-12 h-12" style={{ color: '#2a2a2e' }} />
+            <Megaphone className="w-12 h-12" style={{ color: 'var(--ur-border-strong)' }} />
             <div className="text-center">
-              <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
                 Ainda não há campanhas
               </p>
-              <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--ur-text-muted)' }}>
                 Crie sua primeira campanha para começar a coletar avaliações
               </p>
             </div>

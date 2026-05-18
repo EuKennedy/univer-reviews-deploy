@@ -28,6 +28,7 @@ Rails.application.routes.draw do
 
       # AI
       namespace :ai do
+        get  :health
         post :moderate
         post :generate
         post "generate-variants", action: :generate_variants
@@ -92,6 +93,14 @@ Rails.application.routes.draw do
       resources :questions, only: %i[index show update destroy] do
         member do
           post :helpful
+        end
+      end
+
+      # Q&A groups (admin)
+      resources :question_groups, only: %i[index show create update destroy] do
+        member do
+          post :attach_products
+          post :detach_products
         end
       end
 

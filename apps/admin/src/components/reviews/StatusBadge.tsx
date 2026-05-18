@@ -6,21 +6,21 @@ const config: Record<
 > = {
   pending: {
     label: 'Pendente',
-    bg: 'rgba(245,158,11,0.1)',
-    color: '#f59e0b',
-    dot: '#f59e0b',
+    bg: 'var(--ur-warn-bg)',
+    color: 'var(--ur-warn)',
+    dot: 'var(--ur-warn)',
   },
   approved: {
     label: 'Aprovado',
-    bg: 'rgba(34,197,94,0.1)',
-    color: '#22c55e',
-    dot: '#22c55e',
+    bg: 'var(--ur-success-bg)',
+    color: 'var(--ur-success)',
+    dot: 'var(--ur-success)',
   },
   rejected: {
     label: 'Rejeitado',
-    bg: 'rgba(239,68,68,0.1)',
-    color: '#ef4444',
-    dot: '#ef4444',
+    bg: 'var(--ur-danger-bg)',
+    color: 'var(--ur-danger)',
+    dot: 'var(--ur-danger)',
   },
   hidden: {
     label: 'Oculto',

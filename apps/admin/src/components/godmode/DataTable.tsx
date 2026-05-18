@@ -55,19 +55,47 @@ function EmptyState() {
             viewBox="0 0 64 64"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            style={{ opacity: 0.4 }}
+            style={{ opacity: 0.6 }}
           >
-            <rect x="8" y="16" width="48" height="36" rx="4" stroke="#5a5a64" strokeWidth="1.5" />
-            <path d="M8 24h48" stroke="#5a5a64" strokeWidth="1.5" />
-            <path d="M16 32h12M16 38h20" stroke="#3a3a3e" strokeWidth="1.5" strokeLinecap="round" />
-            <circle cx="48" cy="44" r="12" fill="#111113" stroke="#2a2a2e" strokeWidth="1.5" />
-            <path d="M44 44h8M48 40v8" stroke="#3a3a3e" strokeWidth="1.5" strokeLinecap="round" />
+            <rect
+              x="8"
+              y="16"
+              width="48"
+              height="36"
+              rx="4"
+              stroke="var(--ur-text-muted)"
+              strokeWidth="1.5"
+            />
+            <path d="M8 24h48" stroke="var(--ur-text-muted)" strokeWidth="1.5" />
+            <path
+              d="M16 32h12M16 38h20"
+              stroke="var(--ur-text-faint)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+            <circle
+              cx="48"
+              cy="44"
+              r="12"
+              fill="var(--ur-surface)"
+              stroke="var(--ur-border-strong)"
+              strokeWidth="1.5"
+            />
+            <path
+              d="M44 44h8M48 40v8"
+              stroke="var(--ur-text-faint)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
           </svg>
           <div>
-            <p className="text-sm font-medium" style={{ color: '#8b8b96' }}>
+            <p
+              className="text-sm font-medium"
+              style={{ color: 'var(--ur-text-soft)' }}
+            >
               Nenhum resultado encontrado
             </p>
-            <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
+            <p className="text-xs mt-1" style={{ color: 'var(--ur-text-muted)' }}>
               Tente ajustar os filtros ou a busca
             </p>
           </div>
@@ -122,30 +150,40 @@ export function DataTable<TData>({
           {table.getHeaderGroups().map((headerGroup) => (
             <tr
               key={headerGroup.id}
-              style={{ borderBottom: '1px solid #1e1e21' }}
+              style={{ borderBottom: '1px solid var(--ur-border)' }}
             >
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
                   className="px-4 py-2.5 text-left"
-                  style={{ background: '#0d0d0f' }}
+                  style={{ background: 'var(--ur-bg-soft)' }}
                 >
                   {header.isPlaceholder ? null : (
                     <div
                       className={cn(
                         'flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider',
                         header.column.getCanSort() &&
-                          'cursor-pointer select-none hover:text-[#f0f0f2] transition-colors'
+                          'cursor-pointer select-none transition-colors'
                       )}
-                      style={{ color: '#5a5a64' }}
+                      style={{ color: 'var(--ur-text-muted)' }}
                       onClick={header.column.getToggleSortingHandler()}
+                      onMouseEnter={(e) => {
+                        if (header.column.getCanSort()) {
+                          e.currentTarget.style.color = 'var(--ur-text)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (header.column.getCanSort()) {
+                          e.currentTarget.style.color = 'var(--ur-text-muted)'
+                        }
+                      }}
                     >
                       {flexRender(
                         header.column.columnDef.header,
                         header.getContext()
                       )}
                       {header.column.getCanSort() && (
-                        <span style={{ color: '#3a3a3e' }}>
+                        <span style={{ color: 'var(--ur-text-faint)' }}>
                           {header.column.getIsSorted() === 'asc' ? (
                             <ChevronUp className="w-3 h-3" />
                           ) : header.column.getIsSorted() === 'desc' ? (
@@ -180,13 +218,13 @@ export function DataTable<TData>({
                 onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                 className="group transition-all duration-100"
                 style={{
-                  borderBottom: '1px solid #17171a',
+                  borderBottom: '1px solid var(--ur-border-soft)',
                   cursor: onRowClick ? 'pointer' : 'default',
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget
-                  el.style.background = 'rgba(255,255,255,0.02)'
-                  el.style.borderLeft = '2px solid rgba(212,168,80,0.4)'
+                  el.style.background = 'var(--ur-surface-soft)'
+                  el.style.borderLeft = '2px solid var(--ur-accent-ring)'
                   el.style.paddingLeft = '0'
                 }}
                 onMouseLeave={(e) => {
@@ -199,7 +237,7 @@ export function DataTable<TData>({
                   <td
                     key={cell.id}
                     className="px-4 py-3 text-sm"
-                    style={{ color: '#f0f0f2' }}
+                    style={{ color: 'var(--ur-text)' }}
                   >
                     {flexRender(
                       cell.column.columnDef.cell,

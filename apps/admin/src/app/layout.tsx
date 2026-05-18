@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Toaster } from 'sonner'
 import { Providers } from '@/lib/providers'
+import { themeBootstrapScript } from '@/lib/theme'
+import { ThemedToaster } from '@/components/ThemedToaster'
 import './globals.css'
 
 const geistSans = Geist({
@@ -29,24 +30,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR" data-theme="light" suppressHydrationWarning>
+      <head>
+        {/* Apply persisted theme before first paint to avoid FOUC. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: themeBootstrapScript }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        style={{ background: '#0a0a0b', color: '#f0f0f2' }}
       >
         <Providers>
           {children}
-          <Toaster
-            theme="dark"
-            position="bottom-right"
-            toastOptions={{
-              style: {
-                background: '#111113',
-                border: '1px solid #1e1e21',
-                color: '#f0f0f2',
-              },
-            }}
-          />
+          <ThemedToaster />
         </Providers>
       </body>
     </html>

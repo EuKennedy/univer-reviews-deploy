@@ -1,28 +1,147 @@
 @import "tailwindcss";
 
-@theme {
-  --color-background: #0a0a0b;
-  --color-surface: #111113;
-  --color-surface-2: #16161a;
-  --color-border: #1e1e21;
-  --color-border-subtle: #17171a;
-  --color-accent-gold: #d4a850;
-  --color-accent-gold-dim: #a07830;
-  --color-accent-gold-glow: rgba(212, 168, 80, 0.15);
-  --color-text-primary: #f0f0f2;
-  --color-text-secondary: #8b8b96;
-  --color-text-muted: #5a5a64;
+/* ───────────────────────────────────────────────────────────────────────────
+ * UniverReviews Admin — theme variables.
+ * Light is the default. data-theme="dark" on <html> swaps the palette.
+ * Light palette is sourced from apps/widget/src/widget.ts (buildCSS).
+ * ─────────────────────────────────────────────────────────────────────── */
 
-  --color-status-approved: #22c55e;
-  --color-status-approved-bg: rgba(34, 197, 94, 0.1);
-  --color-status-pending: #f59e0b;
-  --color-status-pending-bg: rgba(245, 158, 11, 0.1);
-  --color-status-rejected: #ef4444;
-  --color-status-rejected-bg: rgba(239, 68, 68, 0.1);
-  --color-status-hidden: #6b7280;
-  --color-status-hidden-bg: rgba(107, 114, 128, 0.1);
-  --color-status-spam: #dc2626;
-  --color-status-spam-bg: rgba(220, 38, 38, 0.08);
+:root,
+:root[data-theme="light"] {
+  /* Surfaces */
+  --ur-bg: #ffffff;
+  --ur-bg-soft: #fafafa;
+  --ur-surface: #ffffff;
+  --ur-surface-soft: #fafafa;
+  --ur-surface-2: #f3f4f6;
+  --ur-surface-overlay: rgba(255, 255, 255, 0.72);
+
+  /* Borders */
+  --ur-border: #e5e7eb;
+  --ur-border-soft: #f3f4f6;
+  --ur-border-strong: #d1d5db;
+
+  /* Text */
+  --ur-text: #111827;
+  --ur-text-soft: #6b7280;
+  --ur-text-muted: #9ca3af;
+  --ur-text-faint: #d1d5db;
+  --ur-text-on-accent: #ffffff;
+
+  /* Accent (gold) */
+  --ur-accent: #d4a850;
+  --ur-accent-strong: #c49040;
+  --ur-accent-dim: #a07830;
+  --ur-accent-soft: rgba(212, 168, 80, 0.1);
+  --ur-accent-soft-2: rgba(212, 168, 80, 0.15);
+  --ur-accent-soft-3: rgba(212, 168, 80, 0.2);
+  --ur-accent-glow: rgba(212, 168, 80, 0.08);
+  --ur-accent-ring: rgba(212, 168, 80, 0.35);
+
+  /* Status */
+  --ur-success: #16a34a;
+  --ur-success-bg: rgba(22, 163, 74, 0.1);
+  --ur-warn: #d97706;
+  --ur-warn-bg: rgba(217, 119, 6, 0.1);
+  --ur-danger: #dc2626;
+  --ur-danger-bg: rgba(220, 38, 38, 0.08);
+  --ur-info: #2563eb;
+  --ur-info-bg: rgba(37, 99, 235, 0.1);
+  --ur-neutral: #6b7280;
+  --ur-neutral-bg: rgba(107, 114, 128, 0.1);
+
+  /* Skeleton shimmer */
+  --ur-skeleton-1: #f3f4f6;
+  --ur-skeleton-2: #e5e7eb;
+
+  /* Scrollbar */
+  --ur-scrollbar: #cbd5e1;
+  --ur-scrollbar-hover: #94a3b8;
+
+  /* Effects */
+  --ur-shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.04);
+  --ur-shadow-md: 0 4px 12px rgba(17, 24, 39, 0.06);
+  --ur-shadow-lg: 0 20px 50px rgba(17, 24, 39, 0.10);
+  --ur-overlay: rgba(17, 24, 39, 0.4);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --ur-bg: #0a0a0b;
+  --ur-bg-soft: #0d0d0f;
+  --ur-surface: #111113;
+  --ur-surface-soft: #1a1a1d;
+  --ur-surface-2: #16161a;
+  --ur-surface-overlay: rgba(17, 17, 19, 0.6);
+
+  --ur-border: #1e1e21;
+  --ur-border-soft: #17171a;
+  --ur-border-strong: #2a2a2d;
+
+  --ur-text: #f0f0f2;
+  --ur-text-soft: #8b8b96;
+  --ur-text-muted: #5a5a64;
+  --ur-text-faint: #3a3a3e;
+  --ur-text-on-accent: #0a0a0b;
+
+  --ur-accent: #d4a850;
+  --ur-accent-strong: #c49040;
+  --ur-accent-dim: #a07830;
+  --ur-accent-soft: rgba(212, 168, 80, 0.1);
+  --ur-accent-soft-2: rgba(212, 168, 80, 0.15);
+  --ur-accent-soft-3: rgba(212, 168, 80, 0.2);
+  --ur-accent-glow: rgba(212, 168, 80, 0.08);
+  --ur-accent-ring: rgba(212, 168, 80, 0.35);
+
+  --ur-success: #22c55e;
+  --ur-success-bg: rgba(34, 197, 94, 0.1);
+  --ur-warn: #f59e0b;
+  --ur-warn-bg: rgba(245, 158, 11, 0.1);
+  --ur-danger: #ef4444;
+  --ur-danger-bg: rgba(239, 68, 68, 0.1);
+  --ur-info: #60a5fa;
+  --ur-info-bg: rgba(96, 165, 250, 0.1);
+  --ur-neutral: #6b7280;
+  --ur-neutral-bg: rgba(107, 114, 128, 0.1);
+
+  --ur-skeleton-1: #1a1a1d;
+  --ur-skeleton-2: #222226;
+
+  --ur-scrollbar: #2a2a2e;
+  --ur-scrollbar-hover: #3a3a3e;
+
+  --ur-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ur-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --ur-shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.6);
+  --ur-overlay: rgba(0, 0, 0, 0.7);
+
+  color-scheme: dark;
+}
+
+@theme {
+  --color-background: var(--ur-bg);
+  --color-surface: var(--ur-surface);
+  --color-surface-2: var(--ur-surface-2);
+  --color-border: var(--ur-border);
+  --color-border-subtle: var(--ur-border-soft);
+  --color-accent-gold: var(--ur-accent);
+  --color-accent-gold-dim: var(--ur-accent-dim);
+  --color-accent-gold-glow: var(--ur-accent-soft-2);
+  --color-text-primary: var(--ur-text);
+  --color-text-secondary: var(--ur-text-soft);
+  --color-text-muted: var(--ur-text-muted);
+
+  --color-status-approved: var(--ur-success);
+  --color-status-approved-bg: var(--ur-success-bg);
+  --color-status-pending: var(--ur-warn);
+  --color-status-pending-bg: var(--ur-warn-bg);
+  --color-status-rejected: var(--ur-danger);
+  --color-status-rejected-bg: var(--ur-danger-bg);
+  --color-status-hidden: var(--ur-neutral);
+  --color-status-hidden-bg: var(--ur-neutral-bg);
+  --color-status-spam: var(--ur-danger);
+  --color-status-spam-bg: var(--ur-danger-bg);
 }
 
 *, *::before, *::after {
@@ -35,9 +154,10 @@ html {
 }
 
 body {
-  background-color: #0a0a0b;
-  color: #f0f0f2;
+  background-color: var(--ur-bg);
+  color: var(--ur-text);
   font-family: var(--font-geist-sans, 'Inter', system-ui, sans-serif);
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 /* Scrollbar */
@@ -49,20 +169,20 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2e;
+  background: var(--ur-scrollbar);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a3e;
+  background: var(--ur-scrollbar-hover);
 }
 
 /* Selection */
 ::selection {
-  background: rgba(212, 168, 80, 0.25);
-  color: #f0f0f2;
+  background: var(--ur-accent-soft-3);
+  color: var(--ur-text);
 }
 
-/* Shimmer animation */
+/* Shimmer */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -71,9 +191,9 @@ body {
 .skeleton {
   background: linear-gradient(
     90deg,
-    #1a1a1d 25%,
-    #222226 50%,
-    #1a1a1d 75%
+    var(--ur-skeleton-1) 25%,
+    var(--ur-skeleton-2) 50%,
+    var(--ur-skeleton-1) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
@@ -82,7 +202,7 @@ body {
 
 /* Gold gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #d4a850 0%, #f0c060 50%, #a07830 100%);
+  background: linear-gradient(135deg, var(--ur-accent) 0%, #f0c060 50%, var(--ur-accent-dim) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -93,13 +213,12 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
-
 .pulse-dot {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
 /* Focus ring */
 *:focus-visible {
-  outline: 2px solid rgba(212, 168, 80, 0.6);
+  outline: 2px solid var(--ur-accent-ring);
   outline-offset: 2px;
 }

@@ -45,10 +45,10 @@ function CustomTooltip({ active, payload, label }: {
   return (
     <div
       className="px-3 py-2 rounded-lg text-xs"
-      style={{ background: '#1a1a1d', border: '1px solid #2a2a2e' }}
+      style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border-strong)' }}
     >
-      <p style={{ color: '#8b8b96' }}>{label}</p>
-      <p style={{ color: '#d4a850' }} className="font-semibold">
+      <p style={{ color: 'var(--ur-text-soft)' }}>{label}</p>
+      <p style={{ color: 'var(--ur-accent)' }} className="font-semibold">
         {payload[0].value} avaliações
       </p>
     </div>
@@ -102,7 +102,7 @@ export default function DashboardPage() {
     },
   ]
 
-  const ratingColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e']
+  const ratingColors = ['var(--ur-danger)', '#f97316', 'var(--ur-warn)', '#84cc16', 'var(--ur-success)']
 
   return (
     <div className="flex flex-col h-full">
@@ -116,9 +116,9 @@ export default function DashboardPage() {
               onClick={() => toast.info('Executando moderação…')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
               style={{
-                background: 'rgba(212,168,80,0.1)',
-                border: '1px solid rgba(212,168,80,0.2)',
-                color: '#d4a850',
+                background: 'var(--ur-accent-soft)',
+                border: '1px solid var(--ur-accent-soft-3)',
+                color: 'var(--ur-accent)',
               }}
             >
               <Zap className="w-3.5 h-3.5" />
@@ -128,9 +128,9 @@ export default function DashboardPage() {
               onClick={() => toast.info('Executando limpeza de duplicatas…')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
               style={{
-                background: '#0a0a0b',
-                border: '1px solid #1e1e21',
-                color: '#8b8b96',
+                background: 'var(--ur-bg)',
+                border: '1px solid var(--ur-border)',
+                color: 'var(--ur-text-soft)',
               }}
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -146,14 +146,14 @@ export default function DashboardPage() {
         {/* Reviews over time */}
         <div
           className="lg:col-span-2 rounded-xl p-5"
-          style={{ background: '#111113', border: '1px solid #1e1e21' }}
+          style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
         >
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
                 Avaliações ao longo do tempo
               </h3>
-              <p className="text-xs mt-0.5" style={{ color: '#5a5a64' }}>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--ur-text-muted)' }}>
                 Últimos 30 dias
               </p>
             </div>
@@ -167,16 +167,16 @@ export default function DashboardPage() {
                 data={stats?.reviews_over_time ?? []}
                 margin={{ top: 4, right: 4, bottom: 4, left: -20 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1d" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--ur-surface-soft)" />
                 <XAxis
                   dataKey="date"
                   tickFormatter={(v) => format(new Date(v), "d 'de' MMM", { locale: ptBR })}
-                  tick={{ fill: '#5a5a64', fontSize: 11 }}
+                  tick={{ fill: 'var(--ur-text-muted)', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: '#5a5a64', fontSize: 11 }}
+                  tick={{ fill: 'var(--ur-text-muted)', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -184,10 +184,10 @@ export default function DashboardPage() {
                 <Line
                   type="monotone"
                   dataKey="count"
-                  stroke="#d4a850"
+                  stroke="var(--ur-accent)"
                   strokeWidth={2}
                   dot={false}
-                  activeDot={{ r: 4, fill: '#d4a850', strokeWidth: 0 }}
+                  activeDot={{ r: 4, fill: 'var(--ur-accent)', strokeWidth: 0 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -197,9 +197,9 @@ export default function DashboardPage() {
         {/* Rating distribution */}
         <div
           className="rounded-xl p-5"
-          style={{ background: '#111113', border: '1px solid #1e1e21' }}
+          style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
         >
-          <h3 className="text-sm font-semibold mb-5" style={{ color: '#f0f0f2' }}>
+          <h3 className="text-sm font-semibold mb-5" style={{ color: 'var(--ur-text)' }}>
             Distribuição de notas
           </h3>
 
@@ -227,13 +227,13 @@ export default function DashboardPage() {
                   <div key={rating} className="flex items-center gap-2">
                     <span
                       className="text-xs w-4 text-right tabular-nums"
-                      style={{ color: '#8b8b96' }}
+                      style={{ color: 'var(--ur-text-soft)' }}
                     >
                       {rating}
                     </span>
                     <div
                       className="flex-1 h-2 rounded-full overflow-hidden"
-                      style={{ background: '#1a1a1d' }}
+                      style={{ background: 'var(--ur-surface-soft)' }}
                     >
                       <div
                         className="h-full rounded-full transition-all duration-700"
@@ -245,7 +245,7 @@ export default function DashboardPage() {
                     </div>
                     <span
                       className="text-xs w-8 text-right tabular-nums"
-                      style={{ color: '#5a5a64' }}
+                      style={{ color: 'var(--ur-text-muted)' }}
                     >
                       {pct}%
                     </span>
@@ -287,25 +287,25 @@ export default function DashboardPage() {
         {/* Recent reviews */}
         <div
           className="lg:col-span-2 rounded-xl overflow-hidden"
-          style={{ background: '#111113', border: '1px solid #1e1e21' }}
+          style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
         >
           <div
             className="flex items-center justify-between px-5 py-4"
-            style={{ borderBottom: '1px solid #1a1a1d' }}
+            style={{ borderBottom: '1px solid var(--ur-surface-soft)' }}
           >
-            <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
               Avaliações recentes
             </h3>
             <Link
               href={`/${workspace}/reviews`}
               className="flex items-center gap-1 text-xs transition-colors"
-              style={{ color: '#5a5a64' }}
+              style={{ color: 'var(--ur-text-muted)' }}
             >
               Ver todas <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
-          <div className="divide-y" style={{ borderColor: '#1a1a1d' }}>
+          <div className="divide-y" style={{ borderColor: 'var(--ur-surface-soft)' }}>
             {reviewsLoading
               ? Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="px-5 py-3 flex items-center gap-3">
@@ -324,7 +324,7 @@ export default function DashboardPage() {
                     className="flex items-center gap-3 px-5 py-3 transition-colors"
                     style={{ display: 'flex' }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+                      e.currentTarget.style.background = 'var(--ur-surface-soft)'
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.background = 'transparent'
@@ -333,8 +333,8 @@ export default function DashboardPage() {
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                       style={{
-                        background: 'rgba(212,168,80,0.1)',
-                        color: '#d4a850',
+                        background: 'var(--ur-accent-soft)',
+                        color: 'var(--ur-accent)',
                       }}
                     >
                       {review.author_name[0]?.toUpperCase()}
@@ -343,7 +343,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2 mb-0.5">
                         <span
                           className="text-xs font-medium truncate"
-                          style={{ color: '#f0f0f2' }}
+                          style={{ color: 'var(--ur-text)' }}
                         >
                           {review.author_name}
                         </span>
@@ -351,7 +351,7 @@ export default function DashboardPage() {
                       </div>
                       <p
                         className="text-xs truncate"
-                        style={{ color: '#5a5a64' }}
+                        style={{ color: 'var(--ur-text-muted)' }}
                       >
                         {truncate(review.body, 80)}
                       </p>
@@ -365,9 +365,9 @@ export default function DashboardPage() {
         {/* Quick actions */}
         <div
           className="rounded-xl p-5"
-          style={{ background: '#111113', border: '1px solid #1e1e21' }}
+          style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
         >
-          <h3 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
+          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--ur-text)' }}>
             Ações rápidas
           </h3>
 
@@ -402,22 +402,22 @@ export default function DashboardPage() {
                 key={qa.label}
                 onClick={qa.action}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150"
-                style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
+                style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(212,168,80,0.2)'
-                  e.currentTarget.style.background = '#131316'
+                  e.currentTarget.style.borderColor = 'var(--ur-accent-soft-3)'
+                  e.currentTarget.style.background = 'var(--ur-surface)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#1a1a1d'
-                  e.currentTarget.style.background = '#0d0d0f'
+                  e.currentTarget.style.borderColor = 'var(--ur-surface-soft)'
+                  e.currentTarget.style.background = 'var(--ur-bg-soft)'
                 }}
               >
                 <span className="text-lg">{qa.icon}</span>
                 <div>
-                  <p className="text-xs font-medium" style={{ color: '#f0f0f2' }}>
+                  <p className="text-xs font-medium" style={{ color: 'var(--ur-text)' }}>
                     {qa.label}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#5a5a64' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--ur-text-muted)' }}>
                     {qa.desc}
                   </p>
                 </div>

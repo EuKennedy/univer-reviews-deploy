@@ -40,10 +40,21 @@ interface ReviewSummary {
   rating_distribution: { rating: number; count: number; percentage: number }[]
 }
 
+interface PublicQuestion {
+  id: string
+  body: string
+  author_name: string | null
+  answer: string | null
+  answered_at: string | null
+  helpful_count: number
+  created_at: string
+}
+
 type Layout = 'default' | 'compact' | 'grid' | 'carousel'
 type SortMode = 'created_at' | 'helpful' | 'rating' | 'oldest'
 type RatingFilter = 0 | 1 | 2 | 3 | 4 | 5
 type MediaFilter = 'all' | 'with_photo' | 'with_video' | 'verified'
+type ActiveTab = 'reviews' | 'qa'
 
 // ─── i18n ────────────────────────────────────────────────────────────────────
 
@@ -570,6 +581,54 @@ button { font-family: inherit; cursor: pointer; }
 .ur-btn.primary:hover { filter: brightness(1.05); }
 .ur-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── Q&A ──────────────────────────────────────────────────────────────────── */
+.ur-qa-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px 0; border-bottom: 1px solid var(--ur-border-soft);
+}
+.ur-qa-title { font-size: 16px; font-weight: 700; color: var(--ur-text); margin: 0; }
+.ur-qa-sub { font-size: 13px; color: var(--ur-text-soft); margin-top: 2px; }
+.ur-qa-ask-btn {
+  background: var(--ur-accent); color: #fff; border: none;
+  padding: 10px 18px; border-radius: 6px; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.04em; transition: filter 0.15s, transform 0.1s; white-space: nowrap;
+}
+.ur-qa-ask-btn:hover { filter: brightness(1.05); }
+.ur-qa-ask-btn:active { transform: translateY(1px); }
+
+.ur-qa-list { display: flex; flex-direction: column; gap: 12px; padding: 20px 0; }
+.ur-qa-card {
+  background: var(--ur-surface);
+  border: 1px solid var(--ur-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ur-qa-q {
+  display: flex; align-items: flex-start; gap: 10px; font-size: 14px;
+}
+.ur-qa-q-mark {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--ur-accent); color: #fff; font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.ur-qa-q-body { color: var(--ur-text); flex: 1; }
+.ur-qa-meta { font-size: 12px; color: var(--ur-text-muted); margin-top: 4px; }
+.ur-qa-a {
+  margin-left: 32px; padding: 10px 12px;
+  background: var(--ur-surface-soft);
+  border-left: 3px solid var(--ur-accent);
+  border-radius: 6px;
+  font-size: 13px; color: var(--ur-text);
+}
+.ur-qa-a-label {
+  font-size: 11px; font-weight: 700; color: var(--ur-accent);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
+}
+.ur-qa-pending {
+  margin-left: 32px; font-size: 12px; font-style: italic; color: var(--ur-text-muted);
+}
+
 /* ── Lightbox ─────────────────────────────────────────────────────────────── */
 .ur-lightbox {
   position: fixed; inset: 0; background: rgba(0,0,0,0.85);
@@ -607,9 +666,14 @@ class UniverReviewsWidget extends HTMLElement {
   private locale = 'pt-BR'
   private themeColor = '#d4a850'
   private showWriteReview = true
+  private showQa = true
 
   private reviews: Review[] = []
   private summary: ReviewSummary | null = null
+  private questions: PublicQuestion[] = []
+  private questionsLoaded = false
+
+  private activeTab: ActiveTab = 'reviews'
 
   private currentPage = 1
   private totalPages = 1
@@ -624,6 +688,7 @@ class UniverReviewsWidget extends HTMLElement {
   private votes: VoteState = {}
 
   private showReviewForm = false
+  private showQuestionForm = false
   private formSuccess: string | null = null
 
   constructor() {
@@ -661,6 +726,7 @@ class UniverReviewsWidget extends HTMLElement {
     this.locale         = this.getAttribute('locale') || 'pt-BR'
     this.themeColor     = this.getAttribute('theme-color') || '#d4a850'
     this.showWriteReview = this.getAttribute('show-write-review') !== 'false'
+    this.showQa          = this.getAttribute('show-qa') !== 'false'
     const pp = parseInt(this.getAttribute('per-page') || '', 10)
     if (pp > 0 && pp <= 100) this.perPage = pp
     this.featuredMode = this.getAttribute('featured') === 'true'
@@ -710,7 +776,9 @@ class UniverReviewsWidget extends HTMLElement {
     this.loading = true
     this.render()
     try {
-      await Promise.all([this.fetchSummary(), this.fetchReviews()])
+      const tasks: Promise<void>[] = [this.fetchSummary(), this.fetchReviews()]
+      if (this.showQa) tasks.push(this.fetchQuestions())
+      await Promise.all(tasks)
     } catch (e) {
       console.warn('[univer-reviews]', e instanceof Error ? e.message : 'unknown')
     }
@@ -732,6 +800,20 @@ class UniverReviewsWidget extends HTMLElement {
     this.totalCount = json.meta?.total || this.reviews.length
     this.totalPages = 1
     this.summary = null
+  }
+
+  private async fetchQuestions() {
+    if (!this.productId) return
+    const r = await fetch(`${this.apiUrl}/api/v1/public/questions/${this.productId}`, {
+      headers: { 'X-Univer-Domain': window.location.hostname },
+    })
+    if (!r.ok) {
+      this.questionsLoaded = true
+      return
+    }
+    const json = await r.json()
+    this.questions = json.data || []
+    this.questionsLoaded = true
   }
 
   private async fetchSummary() {
@@ -840,16 +922,95 @@ class UniverReviewsWidget extends HTMLElement {
     if (!this.productId) {
       return `<div class="ur-root"><div class="ur-empty">product-id is required</div></div>`
     }
-    if (this.loading && this.reviews.length === 0) {
-      return `<div class="ur-root">${this.renderSummary()}${this.renderToolbar()}<div class="ur-loading"><div class="ur-spinner"></div>${this.t('loading')}</div></div>`
+    if (this.loading && this.reviews.length === 0 && this.activeTab === 'reviews') {
+      return `<div class="ur-root">${this.renderSummary()}${this.renderTabs()}${this.renderToolbar()}<div class="ur-loading"><div class="ur-spinner"></div>${this.t('loading')}</div></div>`
     }
+    const body = this.activeTab === 'qa'
+      ? this.renderQa()
+      : `${this.renderToolbar()}${this.renderList()}${this.totalPages > 1 ? this.renderPagination() : ''}`
     return `
 <div class="ur-root">
   ${this.renderSummary()}
-  ${this.renderToolbar()}
-  ${this.renderList()}
-  ${this.totalPages > 1 ? this.renderPagination() : ''}
+  ${this.renderTabs()}
+  ${body}
   ${this.showReviewForm ? this.renderForm() : ''}
+  ${this.showQuestionForm ? this.renderQuestionForm() : ''}
+</div>`
+  }
+
+  // ─── Tabs ────────────────────────────────────────────────────────────────
+  private renderTabs(): string {
+    if (!this.showQa) return ''
+    return `
+<div class="ur-tabs">
+  <button class="ur-tab ${this.activeTab === 'reviews' ? 'active' : ''}" data-tab="reviews">${this.t('reviews')}</button>
+  <button class="ur-tab ${this.activeTab === 'qa' ? 'active' : ''}" data-tab="qa">${this.t('qa')}</button>
+</div>`
+  }
+
+  // ─── Q&A ─────────────────────────────────────────────────────────────────
+  private renderQa(): string {
+    if (this.loading && !this.questionsLoaded) {
+      return `<div class="ur-loading"><div class="ur-spinner"></div>${this.t('loading')}</div>`
+    }
+    const items = this.questions
+    return `
+<div class="ur-qa-head">
+  <div>
+    <h3 class="ur-qa-title">${this.t('qa')}</h3>
+    <p class="ur-qa-sub">${items.length} ${this.t('qa').toLowerCase()}</p>
+  </div>
+  <button class="ur-qa-ask-btn" data-action="open-question-form">${this.t('ask_question')}</button>
+</div>
+${items.length === 0
+  ? `<div class="ur-empty">${this.t('no_questions')}</div>`
+  : `<div class="ur-qa-list">${items.map(q => this.renderQaCard(q)).join('')}</div>`}`
+  }
+
+  private renderQaCard(q: PublicQuestion): string {
+    const time = relativeTime(q.created_at, this.locale)
+    const author = q.author_name?.trim() || ''
+    return `
+<article class="ur-qa-card">
+  <div class="ur-qa-q">
+    <div class="ur-qa-q-mark">Q</div>
+    <div class="ur-qa-q-body">
+      ${escapeHtml(q.body)}
+      <div class="ur-qa-meta">${author ? escapeHtml(author) + ' · ' : ''}${time}</div>
+    </div>
+  </div>
+  ${q.answer
+    ? `<div class="ur-qa-a">
+         <div class="ur-qa-a-label">${this.t('store_reply')}</div>
+         ${escapeHtml(q.answer)}
+       </div>`
+    : ''}
+</article>`
+  }
+
+  private renderQuestionForm(): string {
+    return `
+<div class="ur-form-overlay" data-action="close-question-form">
+  <form class="ur-form" data-action="submit-question-form" id="ur-q-form">
+    <h3 class="ur-form-title">${this.t('ask_question')}</h3>
+    ${this.formSuccess ? `<div class="ur-form-success">${this.formSuccess}</div>` : ''}
+    <div class="ur-field">
+      <label class="ur-label">${this.t('your_name')}</label>
+      <input class="ur-input" name="author_name" required />
+    </div>
+    <div class="ur-field">
+      <label class="ur-label">${this.t('your_email')}</label>
+      <input class="ur-input" name="author_email" type="email" required />
+    </div>
+    <div class="ur-field">
+      <label class="ur-label">${this.t('question_ph')}</label>
+      <textarea class="ur-textarea" name="body" placeholder="${this.t('question_ph')}" required minlength="6"></textarea>
+    </div>
+    <div class="ur-form-actions">
+      <button type="button" class="ur-btn" data-action="close-question-form">${this.t('cancel')}</button>
+      <button type="submit" class="ur-btn primary">${this.t('submit')}</button>
+    </div>
+  </form>
 </div>`
   }
 
@@ -1126,6 +1287,76 @@ class UniverReviewsWidget extends HTMLElement {
       this.formSuccess = null
       this.render()
     })
+
+    // Tab switching
+    root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab as ActiveTab
+        if (tab === this.activeTab) return
+        this.activeTab = tab
+        if (tab === 'qa' && !this.questionsLoaded && this.showQa) {
+          void this.fetchQuestions().then(() => this.render())
+        }
+        this.render()
+      })
+    })
+
+    // Open question form
+    root.querySelector('[data-action="open-question-form"]')?.addEventListener('click', () => {
+      this.showQuestionForm = true
+      this.formSuccess = null
+      this.render()
+    })
+
+    // Close question form (overlay click or cancel button)
+    root.querySelectorAll('[data-action="close-question-form"]').forEach(el => {
+      el.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement
+        const isOverlay = target === el
+        const isCancelBtn = target.dataset?.action === 'close-question-form'
+        if (!isOverlay && !isCancelBtn) return
+        this.showQuestionForm = false
+        this.render()
+      })
+    })
+
+    // Submit question form
+    const qForm = root.querySelector<HTMLFormElement>('#ur-q-form')
+    if (qForm) {
+      qForm.addEventListener('click', (e) => e.stopPropagation())
+      qForm.addEventListener('submit', async (e) => {
+        e.preventDefault()
+        const fd = new FormData(qForm)
+        const body = String(fd.get('body') || '').trim()
+        if (body.length < 6) { alert(this.t('body_required')); return }
+
+        const payload = {
+          author_name:  fd.get('author_name'),
+          author_email: fd.get('author_email'),
+          body,
+        }
+        const r = await fetch(`${this.apiUrl}/api/v1/public/questions/${this.productId}`, {
+          method: 'POST',
+          headers: {
+            'X-Univer-Domain': window.location.hostname,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        })
+        if (r.ok) {
+          this.formSuccess = this.t('thank_question')
+          this.render()
+          setTimeout(() => {
+            this.showQuestionForm = false
+            this.questionsLoaded = false
+            void this.fetchQuestions().then(() => this.render())
+          }, 2000)
+        } else {
+          const err = await r.json().catch(() => ({}))
+          alert(err.message || this.t('error'))
+        }
+      })
+    }
 
     // Form close: only when user clicks the overlay backdrop or the
     // explicit Cancel button. Star picker / inputs / submit no longer trigger

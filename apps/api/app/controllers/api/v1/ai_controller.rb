@@ -1,6 +1,30 @@
 module Api
   module V1
     class AiController < ApplicationController
+      # GET /api/v1/ai/health
+      # No-auth-needed check that ANTHROPIC_API_KEY is present and not the
+      # placeholder. Returned as { configured, reason, models } so the admin
+      # can render a banner before users hit a 422 on the first action.
+      def health
+        key = ENV["ANTHROPIC_API_KEY"].to_s
+        configured =
+          if key.blank?              then [false, "missing"]
+          elsif key == "SET_ME_LATER" then [false, "placeholder"]
+          else                              [true,  "ok"]
+          end
+
+        render json: {
+          data: {
+            configured: configured[0],
+            reason:     configured[1],
+            models: {
+              sonnet: Ai::BaseService::SONNET,
+              haiku:  Ai::BaseService::HAIKU
+            }
+          }
+        }
+      end
+
       # POST /api/v1/ai/moderate
       def moderate
         require_write!
@@ -8,9 +32,27 @@ module Api
         review_id = params.require(:review_id)
         review = current_workspace.reviews.find(review_id)
 
-        result = Ai::ModerateService.new(current_workspace).call(review)
+        raw = Ai::ModerateService.new(current_workspace).call(review)
+
+        # Normalise the shape so the admin doesn't have to know about the
+        # internal Claude JSON. `suggestion` from the prompt is exposed as
+        # `recommendation`; `flagged_reason` becomes a single-element array
+        # when present, matching the React typings.
+        result = {
+          review_id:            review.id,
+          quality_score:        raw[:quality_score].to_i,
+          sentiment:            raw[:sentiment].to_s,
+          topics:               Array(raw[:topics]),
+          is_synthetic:         raw[:is_synthetic] ? true : false,
+          synthetic_confidence: raw[:is_synthetic] ? 0.9 : 0.0,
+          moderation_flags:     raw[:flagged_reason].present? ? [raw[:flagged_reason]] : [],
+          recommendation:       raw[:suggestion].to_s.presence || "review",
+          reason:               raw[:reason]
+        }
 
         render json: { data: result }
+      rescue Ai::BaseService::MissingApiKeyError => e
+        render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
       rescue => e
         render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
       end
@@ -27,6 +69,8 @@ module Api
         result  = Ai::GenerateService.new(current_workspace).call(template: template, product: product, count: count)
 
         render json: { data: result }
+      rescue Ai::BaseService::MissingApiKeyError => e
+        render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
       rescue => e
         render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
       end
@@ -46,6 +90,8 @@ module Api
         )
 
         render json: { data: result }
+      rescue Ai::BaseService::MissingApiKeyError => e
+        render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
       rescue => e
         render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
       end
@@ -59,7 +105,9 @@ module Api
 
         result = Ai::ReplyService.new(current_workspace).call(review)
 
-        render json: { data: result }
+        render json: { data: { reply: result[:reply] } }
+      rescue Ai::BaseService::MissingApiKeyError => e
+        render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
       rescue => e
         render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
       end
@@ -82,7 +130,12 @@ module Api
           is_published: true
         )
 
-        render json: { data: { reply_id: reply.id, body: reply.body } }
+        # `reply` is the canonical field — admins read result.reply for both
+        # /ai/reply (preview only) and /ai/auto-reply (persisted). reply_id
+        # surfaces for callers that want to navigate to it.
+        render json: { data: { reply: reply.body, reply_id: reply.id } }
+      rescue Ai::BaseService::MissingApiKeyError => e
+        render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
       rescue => e
         render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
       end

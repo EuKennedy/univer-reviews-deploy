@@ -14,16 +14,16 @@ export default function RewardsPage() {
           <div
             className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
             style={{
-              background: 'rgba(212,168,80,0.08)',
-              border: '1px solid rgba(212,168,80,0.15)',
+              background: 'var(--ur-accent-glow)',
+              border: '1px solid var(--ur-accent-soft-2)',
             }}
           >
-            <Gift className="w-8 h-8" style={{ color: '#d4a850' }} />
+            <Gift className="w-8 h-8" style={{ color: 'var(--ur-accent)' }} />
           </div>
-          <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
             Recompensas — Em breve
           </p>
-          <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
+          <p className="text-xs mt-1" style={{ color: 'var(--ur-text-muted)' }}>
             Cupons de desconto, cashback e pontos de fidelidade para quem avalia
           </p>
         </div>

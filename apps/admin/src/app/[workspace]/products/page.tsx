@@ -30,17 +30,17 @@ const columns = [
             src={info.row.original.image_url}
             alt=""
             className="w-8 h-8 rounded-lg object-cover"
-            style={{ border: '1px solid #2a2a2d' }}
+            style={{ border: '1px solid var(--ur-border-strong)' }}
           />
         ) : (
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: '#1a1a1d' }}
+            style={{ background: 'var(--ur-surface-soft)' }}
           >
-            <Package className="w-4 h-4" style={{ color: '#5a5a64' }} />
+            <Package className="w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
           </div>
         )}
-        <span className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+        <span className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
           {info.getValue()}
         </span>
       </div>
@@ -49,7 +49,7 @@ const columns = [
   col.accessor('review_count', {
     header: 'Avaliações',
     cell: (info) => (
-      <span className="text-sm tabular-nums" style={{ color: '#f0f0f2' }}>
+      <span className="text-sm tabular-nums" style={{ color: 'var(--ur-text)' }}>
         {formatNumber(info.getValue())}
       </span>
     ),
@@ -60,7 +60,7 @@ const columns = [
       const raw = info.getValue()
       const num = raw == null ? null : Number(raw)
       if (num === null || Number.isNaN(num)) {
-        return <span style={{ color: '#5a5a64' }}>—</span>
+        return <span style={{ color: 'var(--ur-text-muted)' }}>—</span>
       }
       return <RatingStars rating={num} size="xs" showValue />
     },
@@ -71,10 +71,10 @@ const columns = [
       const raw = info.getValue()
       const num = raw == null ? null : Number(raw)
       if (num === null || Number.isNaN(num)) {
-        return <span style={{ color: '#5a5a64' }}>—</span>
+        return <span style={{ color: 'var(--ur-text-muted)' }}>—</span>
       }
       return (
-        <span className="text-sm tabular-nums" style={{ color: '#8b8b96' }}>
+        <span className="text-sm tabular-nums" style={{ color: 'var(--ur-text-soft)' }}>
           {info.row.original.currency} {num.toFixed(2)}
         </span>
       )
@@ -85,7 +85,7 @@ const columns = [
     cell: (info) => (
       <span
         className="text-xs px-2 py-0.5 rounded-full"
-        style={{ background: '#1a1a1d', color: '#5a5a64', border: '1px solid #2a2a2d' }}
+        style={{ background: 'var(--ur-surface-soft)', color: 'var(--ur-text-muted)', border: '1px solid var(--ur-border-strong)' }}
       >
         {info.getValue()}
       </span>
@@ -96,7 +96,7 @@ const columns = [
     header: '',
     cell: ({ row }) =>
       row.original.external_id ? (
-        <button className="p-1.5 rounded" style={{ color: '#5a5a64' }}>
+        <button className="p-1.5 rounded" style={{ color: 'var(--ur-text-muted)' }}>
           <ExternalLink className="w-3.5 h-3.5" />
         </button>
       ) : null,
@@ -154,9 +154,9 @@ export default function ProductsPage() {
             disabled={syncMutation.isPending}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              background: 'rgba(212,168,80,0.1)',
-              border: '1px solid rgba(212,168,80,0.2)',
-              color: '#d4a850',
+              background: 'var(--ur-accent-soft)',
+              border: '1px solid var(--ur-accent-soft-3)',
+              color: 'var(--ur-accent)',
             }}
           >
             {syncMutation.isPending ? (
@@ -180,7 +180,7 @@ export default function ProductsPage() {
           />
         }
         right={
-          <span className="text-xs" style={{ color: '#5a5a64' }}>
+          <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
             {data?.meta.total_count ?? 0} produtos
           </span>
         }

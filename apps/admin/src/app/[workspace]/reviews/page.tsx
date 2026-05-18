@@ -140,7 +140,7 @@ export default function ReviewsPage() {
           checked={table.getIsAllPageRowsSelected()}
           onChange={table.getToggleAllPageRowsSelectedHandler()}
           className="w-3.5 h-3.5 rounded"
-          style={{ accentColor: '#d4a850' }}
+          style={{ accentColor: 'var(--ur-accent)' }}
         />
       ),
       cell: ({ row }) => (
@@ -150,7 +150,7 @@ export default function ReviewsPage() {
           onChange={row.getToggleSelectedHandler()}
           onClick={(e) => e.stopPropagation()}
           className="w-3.5 h-3.5 rounded"
-          style={{ accentColor: '#d4a850' }}
+          style={{ accentColor: 'var(--ur-accent)' }}
         />
       ),
       size: 40,
@@ -164,16 +164,16 @@ export default function ReviewsPage() {
           <div className="flex items-center gap-2">
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ background: 'rgba(212,168,80,0.1)', color: '#d4a850' }}
+              style={{ background: 'var(--ur-accent-soft)', color: 'var(--ur-accent)' }}
             >
               {getInitials(info.getValue())}
             </div>
             <div>
-              <p className="text-xs font-medium" style={{ color: '#f0f0f2' }}>
+              <p className="text-xs font-medium" style={{ color: 'var(--ur-text)' }}>
                 {info.getValue()}
               </p>
               {review.verified_purchase && (
-                <p className="text-xs" style={{ color: '#22c55e' }}>
+                <p className="text-xs" style={{ color: 'var(--ur-success)' }}>
                   Verificado
                 </p>
               )}
@@ -192,7 +192,7 @@ export default function ReviewsPage() {
     columnHelper.accessor('product_name', {
       header: 'Produto',
       cell: (info) => (
-        <span className="text-xs" style={{ color: '#8b8b96' }}>
+        <span className="text-xs" style={{ color: 'var(--ur-text-soft)' }}>
           {info.getValue() ?? '—'}
         </span>
       ),
@@ -200,7 +200,7 @@ export default function ReviewsPage() {
     columnHelper.accessor('body', {
       header: 'Avaliação',
       cell: (info) => (
-        <p className="text-xs max-w-xs" style={{ color: '#8b8b96' }}>
+        <p className="text-xs max-w-xs" style={{ color: 'var(--ur-text-soft)' }}>
           {truncate(info.getValue(), 80)}
         </p>
       ),
@@ -217,9 +217,9 @@ export default function ReviewsPage() {
         <span
           className="text-xs px-2 py-0.5 rounded-full"
           style={{
-            background: '#1a1a1d',
-            color: '#5a5a64',
-            border: '1px solid #2a2a2d',
+            background: 'var(--ur-surface-soft)',
+            color: 'var(--ur-text-muted)',
+            border: '1px solid var(--ur-border-strong)',
           }}
         >
           {info.getValue()}
@@ -230,7 +230,7 @@ export default function ReviewsPage() {
     columnHelper.accessor('created_at', {
       header: 'Data',
       cell: (info) => (
-        <span className="text-xs tabular-nums" style={{ color: '#5a5a64' }}>
+        <span className="text-xs tabular-nums" style={{ color: 'var(--ur-text-muted)' }}>
           {format(new Date(info.getValue()), "d 'de' MMM, yyyy", { locale: ptBR })}
         </span>
       ),
@@ -253,7 +253,7 @@ export default function ReviewsPage() {
                 }
                 variant="ghost"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#22c55e' }} />
+                <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-success)' }} />
               </ActionButton>
             )}
             {review.status !== 'rejected' && (
@@ -263,7 +263,7 @@ export default function ReviewsPage() {
                 }
                 variant="ghost"
               >
-                <XCircle className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
+                <XCircle className="w-3.5 h-3.5" style={{ color: 'var(--ur-danger)' }} />
               </ActionButton>
             )}
             {review.status === 'hidden' ? (
@@ -289,7 +289,7 @@ export default function ReviewsPage() {
               onClick={() => deleteMutation.mutate(review.id)}
               variant="ghost"
             >
-              <Trash2 className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
+              <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-danger)' }} />
             </ActionButton>
           </div>
         )
@@ -351,27 +351,27 @@ export default function ReviewsPage() {
             exit={{ opacity: 0, y: -8 }}
             className="flex items-center gap-3 px-4 py-2.5"
             style={{
-              background: 'rgba(212,168,80,0.06)',
-              borderBottom: '1px solid rgba(212,168,80,0.15)',
+              background: 'var(--ur-accent-glow)',
+              borderBottom: '1px solid var(--ur-accent-soft-2)',
             }}
           >
-            <span className="text-xs font-medium" style={{ color: '#d4a850' }}>
+            <span className="text-xs font-medium" style={{ color: 'var(--ur-accent)' }}>
               {selectedIds.length} selecionadas
             </span>
-            <div className="h-3 w-px" style={{ background: '#2a2a2d' }} />
+            <div className="h-3 w-px" style={{ background: 'var(--ur-border-strong)' }} />
             <div className="flex items-center gap-1.5">
               <ActionButton
                 onClick={() => handleBulk('approve')}
                 disabled={bulkMutation.isPending}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#22c55e' }} />
+                <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-success)' }} />
                 Aprovar
               </ActionButton>
               <ActionButton
                 onClick={() => handleBulk('reject')}
                 disabled={bulkMutation.isPending}
               >
-                <XCircle className="w-3.5 h-3.5" style={{ color: '#ef4444' }} />
+                <XCircle className="w-3.5 h-3.5" style={{ color: 'var(--ur-danger)' }} />
                 Rejeitar
               </ActionButton>
               <ActionButton
@@ -393,7 +393,7 @@ export default function ReviewsPage() {
             <button
               onClick={() => setRowSelection({})}
               className="ml-auto p-1 rounded"
-              style={{ color: '#5a5a64' }}
+              style={{ color: 'var(--ur-text-muted)' }}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -430,7 +430,7 @@ export default function ReviewsPage() {
           </>
         }
         right={
-          <span className="text-xs" style={{ color: '#5a5a64' }}>
+          <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
             {data?.meta.total_count ?? 0} resultados
           </span>
         }
@@ -468,7 +468,7 @@ export default function ReviewsPage() {
               exit={{ opacity: 0 }}
               onClick={() => setSlidePanel(null)}
               className="fixed inset-0 z-40"
-              style={{ background: 'rgba(0,0,0,0.6)' }}
+              style={{ background: 'var(--ur-overlay)' }}
             />
             <motion.div
               initial={{ x: '100%' }}
@@ -477,15 +477,15 @@ export default function ReviewsPage() {
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
               className="fixed right-0 top-0 bottom-0 w-full max-w-md z-50 flex flex-col overflow-hidden"
               style={{
-                background: '#111113',
-                borderLeft: '1px solid #1e1e21',
-                boxShadow: '-24px 0 80px rgba(0,0,0,0.6)',
+                background: 'var(--ur-surface)',
+                borderLeft: '1px solid var(--ur-border)',
+                boxShadow: '-24px 0 80px var(--ur-overlay)',
               }}
             >
               {/* Panel header */}
               <div
                 className="flex items-center justify-between px-5 py-4 shrink-0"
-                style={{ borderBottom: '1px solid #1e1e21' }}
+                style={{ borderBottom: '1px solid var(--ur-border)' }}
               >
                 <div className="flex items-center gap-2">
                   <RatingStars rating={slidePanel.rating} size="sm" showValue />
@@ -495,14 +495,14 @@ export default function ReviewsPage() {
                   <Link
                     href={`/${workspace}/reviews/${slidePanel.id}`}
                     className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors"
-                    style={{ color: '#8b8b96', border: '1px solid #1e1e21' }}
+                    style={{ color: 'var(--ur-text-soft)', border: '1px solid var(--ur-border)' }}
                   >
                     Página completa <ChevronRight className="w-3 h-3" />
                   </Link>
                   <button
                     onClick={() => setSlidePanel(null)}
                     className="p-1.5 rounded-md transition-colors"
-                    style={{ color: '#5a5a64' }}
+                    style={{ color: 'var(--ur-text-muted)' }}
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -515,15 +515,15 @@ export default function ReviewsPage() {
                 <div className="flex items-center gap-3">
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                    style={{ background: 'rgba(212,168,80,0.1)', color: '#d4a850' }}
+                    style={{ background: 'var(--ur-accent-soft)', color: 'var(--ur-accent)' }}
                   >
                     {getInitials(slidePanel.author_name)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+                    <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
                       {slidePanel.author_name}
                     </p>
-                    <p className="text-xs" style={{ color: '#5a5a64' }}>
+                    <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                       {slidePanel.author_email ?? '—'} •{' '}
                       {format(new Date(slidePanel.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
                     </p>
@@ -534,10 +534,10 @@ export default function ReviewsPage() {
                 {slidePanel.product_name && (
                   <div
                     className="px-3 py-2 rounded-lg text-xs"
-                    style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
+                    style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
                   >
-                    <span style={{ color: '#5a5a64' }}>Produto: </span>
-                    <span style={{ color: '#f0f0f2' }}>{slidePanel.product_name}</span>
+                    <span style={{ color: 'var(--ur-text-muted)' }}>Produto: </span>
+                    <span style={{ color: 'var(--ur-text)' }}>{slidePanel.product_name}</span>
                   </div>
                 )}
 
@@ -546,12 +546,12 @@ export default function ReviewsPage() {
                   {slidePanel.title && (
                     <h3
                       className="text-sm font-semibold mb-2"
-                      style={{ color: '#f0f0f2' }}
+                      style={{ color: 'var(--ur-text)' }}
                     >
                       {slidePanel.title}
                     </h3>
                   )}
-                  <p className="text-sm leading-relaxed" style={{ color: '#8b8b96' }}>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--ur-text-soft)' }}>
                     {slidePanel.body}
                   </p>
                 </div>
@@ -560,17 +560,17 @@ export default function ReviewsPage() {
                 {slidePanel.ai_analysis && (
                   <div
                     className="rounded-xl p-4"
-                    style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
+                    style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
                   >
                     <p
                       className="text-xs font-semibold mb-3 uppercase tracking-wider"
-                      style={{ color: '#5a5a64' }}
+                      style={{ color: 'var(--ur-text-muted)' }}
                     >
                       Análise por IA
                     </p>
                     <div className="flex items-center gap-4 mb-3">
                       <div>
-                        <p className="text-xs" style={{ color: '#5a5a64' }}>
+                        <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                           Qualidade
                         </p>
                         <p
@@ -578,32 +578,32 @@ export default function ReviewsPage() {
                           style={{
                             color:
                               slidePanel.ai_analysis.quality_score >= 70
-                                ? '#22c55e'
+                                ? 'var(--ur-success)'
                                 : slidePanel.ai_analysis.quality_score >= 40
-                                ? '#f59e0b'
-                                : '#ef4444',
+                                ? 'var(--ur-warn)'
+                                : 'var(--ur-danger)',
                           }}
                         >
                           {slidePanel.ai_analysis.quality_score}
-                          <span className="text-xs font-normal ml-0.5" style={{ color: '#5a5a64' }}>
+                          <span className="text-xs font-normal ml-0.5" style={{ color: 'var(--ur-text-muted)' }}>
                             /100
                           </span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs" style={{ color: '#5a5a64' }}>
+                        <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                           Sentimento
                         </p>
-                        <p className="text-sm font-medium capitalize" style={{ color: '#f0f0f2' }}>
+                        <p className="text-sm font-medium capitalize" style={{ color: 'var(--ur-text)' }}>
                           {slidePanel.ai_analysis.sentiment}
                         </p>
                       </div>
                       {slidePanel.ai_analysis.is_synthetic && (
                         <div>
-                          <p className="text-xs" style={{ color: '#5a5a64' }}>
+                          <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                             Sintético
                           </p>
-                          <p className="text-sm font-medium" style={{ color: '#ef4444' }}>
+                          <p className="text-sm font-medium" style={{ color: 'var(--ur-danger)' }}>
                             {Math.round(slidePanel.ai_analysis.synthetic_confidence * 100)}%
                           </p>
                         </div>
@@ -616,9 +616,9 @@ export default function ReviewsPage() {
                             key={t}
                             className="text-xs px-2 py-0.5 rounded-full"
                             style={{
-                              background: 'rgba(212,168,80,0.08)',
-                              border: '1px solid rgba(212,168,80,0.15)',
-                              color: '#d4a850',
+                              background: 'var(--ur-accent-glow)',
+                              border: '1px solid var(--ur-accent-soft-2)',
+                              color: 'var(--ur-accent)',
                             }}
                           >
                             {t}
@@ -634,7 +634,7 @@ export default function ReviewsPage() {
                   <div>
                     <p
                       className="text-xs font-semibold mb-2 uppercase tracking-wider"
-                      style={{ color: '#5a5a64' }}
+                      style={{ color: 'var(--ur-text-muted)' }}
                     >
                       Respostas
                     </p>
@@ -643,23 +643,23 @@ export default function ReviewsPage() {
                         <div
                           key={reply.id}
                           className="px-3 py-2 rounded-lg text-xs"
-                          style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
+                          style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <span style={{ color: '#f0f0f2' }}>{reply.author}</span>
+                            <span style={{ color: 'var(--ur-text)' }}>{reply.author}</span>
                             {reply.ai_generated && (
                               <span
                                 className="px-1.5 py-0.5 rounded text-xs"
                                 style={{
-                                  background: 'rgba(212,168,80,0.08)',
-                                  color: '#d4a850',
+                                  background: 'var(--ur-accent-glow)',
+                                  color: 'var(--ur-accent)',
                                 }}
                               >
                                 IA
                               </span>
                             )}
                           </div>
-                          <p style={{ color: '#8b8b96' }}>{reply.body}</p>
+                          <p style={{ color: 'var(--ur-text-soft)' }}>{reply.body}</p>
                         </div>
                       ))}
                     </div>
@@ -670,7 +670,7 @@ export default function ReviewsPage() {
               {/* Panel actions */}
               <div
                 className="flex items-center gap-2 px-5 py-4 shrink-0"
-                style={{ borderTop: '1px solid #1e1e21' }}
+                style={{ borderTop: '1px solid var(--ur-border)' }}
               >
                 {slidePanel.status !== 'approved' && (
                   <button
@@ -683,9 +683,9 @@ export default function ReviewsPage() {
                     }}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all"
                     style={{
-                      background: 'rgba(34,197,94,0.1)',
-                      border: '1px solid rgba(34,197,94,0.2)',
-                      color: '#22c55e',
+                      background: 'var(--ur-success-bg)',
+                      border: '1px solid var(--ur-success-bg)',
+                      color: 'var(--ur-success)',
                     }}
                   >
                     <CheckCircle2 className="w-4 h-4" />
@@ -703,9 +703,9 @@ export default function ReviewsPage() {
                     }}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all"
                     style={{
-                      background: 'rgba(239,68,68,0.1)',
-                      border: '1px solid rgba(239,68,68,0.2)',
-                      color: '#ef4444',
+                      background: 'var(--ur-danger-bg)',
+                      border: '1px solid var(--ur-danger-bg)',
+                      color: 'var(--ur-danger)',
                     }}
                   >
                     <XCircle className="w-4 h-4" />
@@ -715,9 +715,9 @@ export default function ReviewsPage() {
                 <button
                   className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{
-                    background: 'rgba(212,168,80,0.08)',
-                    border: '1px solid rgba(212,168,80,0.15)',
-                    color: '#d4a850',
+                    background: 'var(--ur-accent-glow)',
+                    border: '1px solid var(--ur-accent-soft-2)',
+                    color: 'var(--ur-accent)',
                   }}
                 >
                   <MessageSquare className="w-4 h-4" />

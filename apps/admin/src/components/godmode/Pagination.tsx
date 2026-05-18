@@ -25,9 +25,9 @@ export function Pagination({
   return (
     <div
       className="flex items-center justify-between px-4 py-3"
-      style={{ borderTop: '1px solid #1e1e21' }}
+      style={{ borderTop: '1px solid var(--ur-border)' }}
     >
-      <span className="text-xs" style={{ color: '#5a5a64' }}>
+      <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
         Exibindo {start}–{end} de {totalCount} resultados
       </span>
 
@@ -44,7 +44,7 @@ export function Pagination({
             <span
               key={`ellipsis-${i}`}
               className="w-8 h-7 flex items-center justify-center text-xs"
-              style={{ color: '#5a5a64' }}
+              style={{ color: 'var(--ur-text-muted)' }}
             >
               …
             </span>
@@ -87,9 +87,11 @@ function PageButton({
       disabled={disabled}
       className="w-7 h-7 rounded-md text-xs font-medium transition-all duration-100 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
       style={{
-        background: active ? 'rgba(212,168,80,0.15)' : 'transparent',
-        border: active ? '1px solid rgba(212,168,80,0.3)' : '1px solid transparent',
-        color: active ? '#d4a850' : '#8b8b96',
+        background: active ? 'var(--ur-accent-soft-2)' : 'transparent',
+        border: active
+          ? '1px solid var(--ur-accent-soft-3)'
+          : '1px solid transparent',
+        color: active ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
       }}
     >
       {children}

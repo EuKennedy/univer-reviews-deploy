@@ -16,9 +16,9 @@ export function AiScoreGauge({
   const clamped = Math.max(0, Math.min(100, score))
 
   const color = useMemo(() => {
-    if (clamped < 40) return '#ef4444'
-    if (clamped < 70) return '#f59e0b'
-    return '#22c55e'
+    if (clamped < 40) return 'var(--ur-danger)'
+    if (clamped < 70) return 'var(--ur-warn)'
+    return 'var(--ur-success)'
   }, [clamped])
 
   // SVG arc calculation
@@ -60,7 +60,7 @@ export function AiScoreGauge({
           <path
             d={trackPath}
             fill="none"
-            stroke="#2a2a2e"
+            stroke="var(--ur-border-strong)"
             strokeWidth={5}
             strokeLinecap="round"
           />
@@ -89,7 +89,7 @@ export function AiScoreGauge({
         </div>
       </div>
       {label && (
-        <span className="text-xs" style={{ color: '#5a5a64' }}>
+        <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
           {label}
         </span>
       )}

@@ -5,6 +5,8 @@ import type {
   BulkAction,
   CreateReviewInput,
   AiModerateResult,
+  AiHealth,
+  AiSimilarReview,
   GenerateVariantsInput,
   ReviewVariant,
   DuplicateCluster,
@@ -18,6 +20,9 @@ import type {
   Campaign,
   PaginatedResponse,
   ApiKey,
+  Question,
+  QuestionStatus,
+  QuestionGroup,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -119,31 +124,98 @@ class ApiClient {
   }
 
   // ─── AI ─────────────────────────────────────────────────────────────────────
+  //
+  // All Rails AI endpoints wrap their payload in `{ data: ... }`. The client
+  // unwraps once so callers receive plain typed objects. Errors raise
+  // ApiError; HTTP 503 + error="missing_api_key" specifically means the
+  // server is missing ANTHROPIC_API_KEY — the AI Lab UI surfaces this as a
+  // banner with a link to /settings#api-keys.
   ai = {
+    health: (token: string) =>
+      this.request<{ data: AiHealth }>('/ai/health', {}, token).then(r => r.data),
+
     moderate: (reviewId: string, token: string) =>
-      this.request<AiModerateResult>(
+      this.request<{ data: AiModerateResult }>(
         '/ai/moderate',
         { method: 'POST', body: JSON.stringify({ review_id: reviewId }) },
         token
-      ),
-    generateVariants: (input: GenerateVariantsInput, token: string) =>
-      this.request<{ variants: ReviewVariant[] }>(
+      ).then(r => r.data),
+
+    /**
+     * Generate variants seeded by an existing review's body. The backend
+     * route /ai/generate-variants requires a real review_id so the prompt
+     * can use the product context — pass the review you want to vary.
+     */
+    generateFromReview: (reviewId: string, count: number, token: string) =>
+      this.request<{ data: ReviewVariant[] }>(
         '/ai/generate-variants',
-        { method: 'POST', body: JSON.stringify(input) },
+        {
+          method: 'POST',
+          body: JSON.stringify({ review_id: reviewId, count }),
+        },
         token
-      ),
-    autoReply: (reviewId: string, tone: string, token: string) =>
-      this.request<{ reply: string }>(
+      ).then(r => ({ variants: r.data })),
+
+    /**
+     * Free-form generation from a written template + optional product. Maps
+     * 1:1 to POST /ai/generate.
+     */
+    generateVariants: (input: GenerateVariantsInput, token: string) =>
+      this.request<{ data: ReviewVariant[] }>(
+        '/ai/generate',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            template: input.template ?? `${input.product_name} — ${input.tone}, ${input.rating}/5`,
+            count: input.count,
+          }),
+        },
+        token
+      ).then(r => ({ variants: r.data })),
+
+    reply: (reviewId: string, token: string) =>
+      this.request<{ data: { reply: string } }>(
+        '/ai/reply',
+        { method: 'POST', body: JSON.stringify({ review_id: reviewId }) },
+        token
+      ).then(r => r.data),
+
+    autoReply: (reviewId: string, _tone: string, token: string) =>
+      this.request<{ data: { reply: string; reply_id?: string } }>(
         '/ai/auto-reply',
-        { method: 'POST', body: JSON.stringify({ review_id: reviewId, tone }) },
+        { method: 'POST', body: JSON.stringify({ review_id: reviewId }) },
+        token
+      ).then(r => r.data),
+
+    dedup: (reviewId: string, token: string) =>
+      this.request<{ message: string; review_id: string }>(
+        '/ai/dedup',
+        { method: 'POST', body: JSON.stringify({ review_id: reviewId }) },
         token
       ),
+
+    embed: (reviewId: string, token: string) =>
+      this.request<{ message: string; review_id: string }>(
+        '/ai/embed',
+        { method: 'POST', body: JSON.stringify({ review_id: reviewId }) },
+        token
+      ),
+
+    findSimilar: (reviewId: string, token: string) =>
+      this.request<{ data: AiSimilarReview[] }>(
+        '/ai/find-similar',
+        { method: 'POST', body: JSON.stringify({ review_id: reviewId }) },
+        token
+      ).then(r => r.data),
+
     duplicateClusters: (token: string) =>
-      this.request<DuplicateCluster[]>('/ai/duplicate-clusters', {}, token),
-    cleanupDuplicates: (limit: number, token: string) =>
-      this.request<{ job_id: string }>(
+      this.request<{ data: DuplicateCluster[] }>('/ai/duplicate-clusters', {}, token)
+        .then(r => r.data),
+
+    cleanupDuplicates: (clusterIds: string[], token: string) =>
+      this.request<{ message: string }>(
         '/ai/cleanup-duplicates',
-        { method: 'POST', body: JSON.stringify({ limit }) },
+        { method: 'POST', body: JSON.stringify({ cluster_ids: clusterIds }) },
         token
       ),
   }
@@ -283,6 +355,90 @@ class ApiClient {
         '/products/sync',
         { method: 'POST' },
         token
+      ),
+  }
+
+  // ─── Questions ──────────────────────────────────────────────────────────────
+  questions = {
+    list: (
+      params: {
+        page?: number
+        per_page?: number
+        status?: QuestionStatus | ''
+        product_id?: string
+        question_group_id?: string
+      } = {},
+      token: string,
+    ) =>
+      this.request<PaginatedResponse<Question>>(
+        '/questions',
+        { params: params as Record<string, string | number | boolean | undefined> },
+        token,
+      ),
+    answer: (id: string, answer: string, token: string) =>
+      this.request<{ data: Question }>(
+        `/questions/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ question: { answer } }) },
+        token,
+      ),
+    updateStatus: (id: string, status: QuestionStatus, token: string) =>
+      this.request<{ data: Question }>(
+        `/questions/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ question: { status } }) },
+        token,
+      ),
+    delete: (id: string, token: string) =>
+      this.request(`/questions/${id}`, { method: 'DELETE' }, token),
+  }
+
+  // ─── Question Groups ────────────────────────────────────────────────────────
+  questionGroups = {
+    list: (params: { page?: number; per_page?: number; q?: string } = {}, token: string) =>
+      this.request<PaginatedResponse<QuestionGroup>>(
+        '/question_groups',
+        { params: params as Record<string, string | number | boolean | undefined> },
+        token,
+      ),
+    get: (id: string, token: string) =>
+      this.request<{ data: QuestionGroup }>(`/question_groups/${id}`, {}, token).then((r) => r.data),
+    create: (
+      data: { name: string; description?: string; product_ids?: string[] },
+      token: string,
+    ) =>
+      this.request<{ data: QuestionGroup }>(
+        '/question_groups',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            question_group: { name: data.name, description: data.description },
+            product_ids: data.product_ids,
+          }),
+        },
+        token,
+      ).then((r) => r.data),
+    update: (
+      id: string,
+      data: { name?: string; description?: string },
+      token: string,
+    ) =>
+      this.request<{ data: QuestionGroup }>(
+        `/question_groups/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ question_group: data }) },
+        token,
+      ).then((r) => r.data),
+    delete: (id: string, token: string) =>
+      this.request(`/question_groups/${id}`, { method: 'DELETE' }, token),
+    attachProducts: (id: string, productIds: string[], token: string) =>
+      this.request<{ data: QuestionGroup; attached: number }>(
+        `/question_groups/${id}/attach_products`,
+        { method: 'POST', body: JSON.stringify({ product_ids: productIds }) },
+        token,
+      ),
+    detachProducts: (id: string, productIds: string[], token: string) =>
+      this.request<{ data: QuestionGroup; detached: number }>(
+        `/question_groups/${id}/detach_products`,
+        { method: 'POST', body: JSON.stringify({ product_ids: productIds }) },
+        token,
       ),
   }
 

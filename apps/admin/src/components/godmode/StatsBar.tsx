@@ -24,26 +24,31 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
     <div
       className="flex-1 min-w-0 px-5 py-4 relative overflow-hidden transition-all duration-150 group"
       style={{
-        background: '#111113',
-        border: '1px solid #1e1e21',
+        background: 'var(--ur-surface)',
+        border: '1px solid var(--ur-border)',
         borderRadius: 12,
+        boxShadow: 'var(--ur-shadow-sm)',
       }}
     >
       {/* Hover glow */}
       <div
         className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse at 50% 0%, rgba(212,168,80,0.04) 0%, transparent 70%)',
+          background:
+            'radial-gradient(ellipse at 50% 0%, var(--ur-accent-glow) 0%, transparent 70%)',
         }}
       />
 
       <div className="relative">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium uppercase tracking-wider" style={{ color: '#5a5a64' }}>
+          <span
+            className="text-xs font-medium uppercase tracking-wider"
+            style={{ color: 'var(--ur-text-muted)' }}
+          >
             {stat.label}
           </span>
           {stat.icon && (
-            <span style={{ color: '#3a3a3e' }}>{stat.icon}</span>
+            <span style={{ color: 'var(--ur-text-faint)' }}>{stat.icon}</span>
           )}
         </div>
 
@@ -57,12 +62,12 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
             <div className="flex items-baseline gap-1">
               <span
                 className="text-2xl font-bold tracking-tight"
-                style={{ color: '#f0f0f2' }}
+                style={{ color: 'var(--ur-text)' }}
               >
                 {stat.value}
               </span>
               {stat.suffix && (
-                <span className="text-sm" style={{ color: '#8b8b96' }}>
+                <span className="text-sm" style={{ color: 'var(--ur-text-soft)' }}>
                   {stat.suffix}
                 </span>
               )}
@@ -71,22 +76,22 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
             {stat.delta !== undefined && (
               <div className="flex items-center gap-1 mt-1.5">
                 {deltaPositive && (
-                  <TrendingUp className="w-3 h-3" style={{ color: '#22c55e' }} />
+                  <TrendingUp className="w-3 h-3" style={{ color: 'var(--ur-success)' }} />
                 )}
                 {deltaNegative && (
-                  <TrendingDown className="w-3 h-3" style={{ color: '#ef4444' }} />
+                  <TrendingDown className="w-3 h-3" style={{ color: 'var(--ur-danger)' }} />
                 )}
                 {deltaZero && (
-                  <Minus className="w-3 h-3" style={{ color: '#5a5a64' }} />
+                  <Minus className="w-3 h-3" style={{ color: 'var(--ur-text-muted)' }} />
                 )}
                 <span
                   className="text-xs font-medium"
                   style={{
                     color: deltaPositive
-                      ? '#22c55e'
+                      ? 'var(--ur-success)'
                       : deltaNegative
-                      ? '#ef4444'
-                      : '#5a5a64',
+                      ? 'var(--ur-danger)'
+                      : 'var(--ur-text-muted)',
                   }}
                 >
                   {stat.delta > 0 ? '+' : ''}

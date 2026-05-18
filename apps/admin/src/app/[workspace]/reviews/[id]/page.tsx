@@ -84,7 +84,7 @@ export default function ReviewDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#d4a850' }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--ur-accent)' }} />
       </div>
     )
   }
@@ -92,7 +92,7 @@ export default function ReviewDetailPage() {
   if (!review) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p style={{ color: '#5a5a64' }}>Avaliação não encontrada</p>
+        <p style={{ color: 'var(--ur-text-muted)' }}>Avaliação não encontrada</p>
       </div>
     )
   }
@@ -113,9 +113,9 @@ export default function ReviewDetailPage() {
               href={`/${workspace}/reviews`}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
               style={{
-                background: '#0a0a0b',
-                border: '1px solid #1e1e21',
-                color: '#8b8b96',
+                background: 'var(--ur-bg)',
+                border: '1px solid var(--ur-border)',
+                color: 'var(--ur-text-soft)',
               }}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -128,9 +128,9 @@ export default function ReviewDetailPage() {
                 disabled={statusMutation.isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
                 style={{
-                  background: 'rgba(34,197,94,0.1)',
-                  border: '1px solid rgba(34,197,94,0.2)',
-                  color: '#22c55e',
+                  background: 'var(--ur-success-bg)',
+                  border: '1px solid var(--ur-success-bg)',
+                  color: 'var(--ur-success)',
                 }}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -143,9 +143,9 @@ export default function ReviewDetailPage() {
                 disabled={statusMutation.isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
                 style={{
-                  background: 'rgba(239,68,68,0.1)',
-                  border: '1px solid rgba(239,68,68,0.2)',
-                  color: '#ef4444',
+                  background: 'var(--ur-danger-bg)',
+                  border: '1px solid var(--ur-danger-bg)',
+                  color: 'var(--ur-danger)',
                 }}
               >
                 <XCircle className="w-3.5 h-3.5" />
@@ -161,9 +161,9 @@ export default function ReviewDetailPage() {
               disabled={deleteMutation.isPending}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
               style={{
-                background: 'rgba(239,68,68,0.08)',
-                border: '1px solid rgba(239,68,68,0.15)',
-                color: '#ef4444',
+                background: 'var(--ur-danger-bg)',
+                border: '1px solid var(--ur-danger-bg)',
+                color: 'var(--ur-danger)',
               }}
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -182,28 +182,28 @@ export default function ReviewDetailPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               className="rounded-xl p-6"
-              style={{ background: '#111113', border: '1px solid #1e1e21' }}
+              style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
             >
               {/* Author row */}
               <div className="flex items-center gap-3 mb-5">
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
-                  style={{ background: 'rgba(212,168,80,0.1)', color: '#d4a850' }}
+                  style={{ background: 'var(--ur-accent-soft)', color: 'var(--ur-accent)' }}
                 >
                   {getInitials(review.author_name)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-base font-semibold" style={{ color: '#f0f0f2' }}>
+                    <h2 className="text-base font-semibold" style={{ color: 'var(--ur-text)' }}>
                       {review.author_name}
                     </h2>
                     {review.verified_purchase && (
                       <span
                         className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
                         style={{
-                          background: 'rgba(34,197,94,0.1)',
-                          color: '#22c55e',
-                          border: '1px solid rgba(34,197,94,0.2)',
+                          background: 'var(--ur-success-bg)',
+                          color: 'var(--ur-success)',
+                          border: '1px solid var(--ur-success-bg)',
                         }}
                       >
                         <Shield className="w-3 h-3" />
@@ -219,14 +219,14 @@ export default function ReviewDetailPage() {
               </div>
 
               {/* Meta */}
-              <div className="flex flex-wrap gap-4 mb-5 pb-5" style={{ borderBottom: '1px solid #1a1a1d' }}>
+              <div className="flex flex-wrap gap-4 mb-5 pb-5" style={{ borderBottom: '1px solid var(--ur-surface-soft)' }}>
                 {[
                   { icon: Calendar, label: format(new Date(review.created_at), "d 'de' MMM, yyyy", { locale: ptBR }) },
                   { icon: Globe, label: review.source },
                   ...(review.product_name ? [{ icon: ShoppingBag, label: review.product_name }] : []),
                 ].map(({ icon: Icon, label }) => (
-                  <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: '#8b8b96' }}>
-                    <Icon className="w-3.5 h-3.5" style={{ color: '#5a5a64' }} />
+                  <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--ur-text-soft)' }}>
+                    <Icon className="w-3.5 h-3.5" style={{ color: 'var(--ur-text-muted)' }} />
                     {label}
                   </div>
                 ))}
@@ -234,18 +234,18 @@ export default function ReviewDetailPage() {
 
               {/* Content */}
               {review.title && (
-                <h3 className="text-base font-semibold mb-2" style={{ color: '#f0f0f2' }}>
+                <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--ur-text)' }}>
                   {review.title}
                 </h3>
               )}
-              <p className="text-sm leading-relaxed" style={{ color: '#c0c0c8' }}>
+              <p className="text-sm leading-relaxed" style={{ color: 'var(--ur-text)' }}>
                 {review.body}
               </p>
 
               {/* Media */}
               {review.media.length > 0 && (
                 <div className="mt-5">
-                  <p className="text-xs font-medium mb-2" style={{ color: '#5a5a64' }}>
+                  <p className="text-xs font-medium mb-2" style={{ color: 'var(--ur-text-muted)' }}>
                     Mídias ({review.media.length})
                   </p>
                   <div className="flex gap-2 flex-wrap">
@@ -253,7 +253,7 @@ export default function ReviewDetailPage() {
                       <div
                         key={m.id}
                         className="w-20 h-20 rounded-lg overflow-hidden"
-                        style={{ background: '#1a1a1d', border: '1px solid #2a2a2d' }}
+                        style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border-strong)' }}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -274,15 +274,15 @@ export default function ReviewDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.05 }}
               className="rounded-xl overflow-hidden"
-              style={{ background: '#111113', border: '1px solid #1e1e21' }}
+              style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
             >
               <div
                 className="flex items-center justify-between px-5 py-4"
-                style={{ borderBottom: '1px solid #1a1a1d' }}
+                style={{ borderBottom: '1px solid var(--ur-surface-soft)' }}
               >
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" style={{ color: '#d4a850' }} />
-                  <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+                  <MessageSquare className="w-4 h-4" style={{ color: 'var(--ur-accent)' }} />
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
                     Resposta
                   </h3>
                 </div>
@@ -293,9 +293,9 @@ export default function ReviewDetailPage() {
                     onChange={(e) => setReplyTone(e.target.value)}
                     className="text-xs px-2 py-1.5 rounded-lg outline-none"
                     style={{
-                      background: '#0d0d0f',
-                      border: '1px solid #1a1a1d',
-                      color: '#8b8b96',
+                      background: 'var(--ur-bg-soft)',
+                      border: '1px solid var(--ur-surface-soft)',
+                      color: 'var(--ur-text-soft)',
                     }}
                   >
                     {[
@@ -314,9 +314,9 @@ export default function ReviewDetailPage() {
                     disabled={generatingReply}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     style={{
-                      background: 'rgba(212,168,80,0.1)',
-                      border: '1px solid rgba(212,168,80,0.2)',
-                      color: '#d4a850',
+                      background: 'var(--ur-accent-soft)',
+                      border: '1px solid var(--ur-accent-soft-3)',
+                      color: 'var(--ur-accent)',
                     }}
                   >
                     {generatingReply ? (
@@ -337,28 +337,28 @@ export default function ReviewDetailPage() {
                       <div
                         key={reply.id}
                         className="rounded-lg px-4 py-3"
-                        style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
+                        style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
                       >
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-medium" style={{ color: '#f0f0f2' }}>
+                          <span className="text-xs font-medium" style={{ color: 'var(--ur-text)' }}>
                             {reply.author}
                           </span>
                           {reply.ai_generated && (
                             <span
                               className="text-xs px-1.5 py-0.5 rounded flex items-center gap-1"
                               style={{
-                                background: 'rgba(212,168,80,0.1)',
-                                color: '#d4a850',
+                                background: 'var(--ur-accent-soft)',
+                                color: 'var(--ur-accent)',
                               }}
                             >
                               <Sparkles className="w-2.5 h-2.5" /> IA
                             </span>
                           )}
-                          <span className="ml-auto text-xs" style={{ color: '#5a5a64' }}>
+                          <span className="ml-auto text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                             {format(new Date(reply.created_at), "d 'de' MMM", { locale: ptBR })}
                           </span>
                         </div>
-                        <p className="text-sm leading-relaxed" style={{ color: '#8b8b96' }}>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--ur-text-soft)' }}>
                           {reply.body}
                         </p>
                       </div>
@@ -373,15 +373,15 @@ export default function ReviewDetailPage() {
                   rows={4}
                   className="w-full px-4 py-3 rounded-lg text-sm resize-none outline-none transition-all"
                   style={{
-                    background: '#0d0d0f',
-                    border: '1px solid #1a1a1d',
-                    color: '#f0f0f2',
+                    background: 'var(--ur-bg-soft)',
+                    border: '1px solid var(--ur-surface-soft)',
+                    color: 'var(--ur-text)',
                   }}
                   onFocus={(e) => {
-                    e.target.style.border = '1px solid rgba(212,168,80,0.3)'
+                    e.target.style.border = '1px solid var(--ur-accent-soft-3)'
                   }}
                   onBlur={(e) => {
-                    e.target.style.border = '1px solid #1a1a1d'
+                    e.target.style.border = '1px solid var(--ur-surface-soft)'
                   }}
                 />
                 <div className="flex justify-end mt-3">
@@ -390,8 +390,8 @@ export default function ReviewDetailPage() {
                     onClick={() => toast.success('Resposta publicada')}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-40"
                     style={{
-                      background: 'linear-gradient(135deg, #d4a850, #c49040)',
-                      color: '#0a0a0b',
+                      background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
+                      color: 'var(--ur-text-on-accent)',
                     }}
                   >
                     Publicar resposta
@@ -406,9 +406,9 @@ export default function ReviewDetailPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
               className="rounded-xl p-5"
-              style={{ background: '#111113', border: '1px solid #1e1e21' }}
+              style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
             >
-              <h3 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--ur-text)' }}>
                 Histórico de auditoria
               </h3>
               <div className="space-y-3">
@@ -421,11 +421,11 @@ export default function ReviewDetailPage() {
                   <div key={i} className="flex items-center gap-3 text-xs">
                     <div
                       className="w-1.5 h-1.5 rounded-full shrink-0"
-                      style={{ background: '#d4a850' }}
+                      style={{ background: 'var(--ur-accent)' }}
                     />
-                    <span style={{ color: '#8b8b96' }}>{entry.event}</span>
-                    <span style={{ color: '#5a5a64' }}>por {entry.actor}</span>
-                    <span className="ml-auto tabular-nums" style={{ color: '#5a5a64' }}>
+                    <span style={{ color: 'var(--ur-text-soft)' }}>{entry.event}</span>
+                    <span style={{ color: 'var(--ur-text-muted)' }}>por {entry.actor}</span>
+                    <span className="ml-auto tabular-nums" style={{ color: 'var(--ur-text-muted)' }}>
                       {format(new Date(entry.time), "d 'de' MMM, HH:mm", { locale: ptBR })}
                     </span>
                   </div>
@@ -442,11 +442,11 @@ export default function ReviewDetailPage() {
                 initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
                 className="rounded-xl p-5"
-                style={{ background: '#111113', border: '1px solid #1e1e21' }}
+                style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
               >
                 <div className="flex items-center gap-2 mb-4">
-                  <Sparkles className="w-4 h-4" style={{ color: '#d4a850' }} />
-                  <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+                  <Sparkles className="w-4 h-4" style={{ color: 'var(--ur-accent)' }} />
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
                     Análise por IA
                   </h3>
                 </div>
@@ -460,16 +460,16 @@ export default function ReviewDetailPage() {
 
                 <div className="space-y-3">
                   <div className="flex justify-between text-xs">
-                    <span style={{ color: '#5a5a64' }}>Sentimento</span>
+                    <span style={{ color: 'var(--ur-text-muted)' }}>Sentimento</span>
                     <span
                       className="capitalize font-medium"
                       style={{
                         color:
                           review.ai_analysis.sentiment === 'positive'
-                            ? '#22c55e'
+                            ? 'var(--ur-success)'
                             : review.ai_analysis.sentiment === 'negative'
-                            ? '#ef4444'
-                            : '#f59e0b',
+                            ? 'var(--ur-danger)'
+                            : 'var(--ur-warn)',
                       }}
                     >
                       {review.ai_analysis.sentiment}
@@ -478,8 +478,8 @@ export default function ReviewDetailPage() {
 
                   {review.ai_analysis.is_synthetic && (
                     <div className="flex justify-between text-xs">
-                      <span style={{ color: '#5a5a64' }}>Probabilidade de ser sintético</span>
-                      <span className="font-medium" style={{ color: '#ef4444' }}>
+                      <span style={{ color: 'var(--ur-text-muted)' }}>Probabilidade de ser sintético</span>
+                      <span className="font-medium" style={{ color: 'var(--ur-danger)' }}>
                         {Math.round(review.ai_analysis.synthetic_confidence * 100)}%
                       </span>
                     </div>
@@ -487,7 +487,7 @@ export default function ReviewDetailPage() {
 
                   {review.ai_analysis.moderation_flags.length > 0 && (
                     <div>
-                      <p className="text-xs mb-1.5" style={{ color: '#5a5a64' }}>
+                      <p className="text-xs mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                         Sinalizações
                       </p>
                       <div className="flex flex-wrap gap-1">
@@ -496,9 +496,9 @@ export default function ReviewDetailPage() {
                             key={f}
                             className="text-xs px-2 py-0.5 rounded-full"
                             style={{
-                              background: 'rgba(239,68,68,0.1)',
-                              color: '#ef4444',
-                              border: '1px solid rgba(239,68,68,0.15)',
+                              background: 'var(--ur-danger-bg)',
+                              color: 'var(--ur-danger)',
+                              border: '1px solid var(--ur-danger-bg)',
                             }}
                           >
                             {f}
@@ -510,7 +510,7 @@ export default function ReviewDetailPage() {
 
                   {review.ai_analysis.topics.length > 0 && (
                     <div>
-                      <p className="text-xs mb-1.5" style={{ color: '#5a5a64' }}>
+                      <p className="text-xs mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                         Tópicos
                       </p>
                       <div className="flex flex-wrap gap-1">
@@ -519,9 +519,9 @@ export default function ReviewDetailPage() {
                             key={t}
                             className="text-xs px-2 py-0.5 rounded-full"
                             style={{
-                              background: 'rgba(212,168,80,0.08)',
-                              color: '#d4a850',
-                              border: '1px solid rgba(212,168,80,0.15)',
+                              background: 'var(--ur-accent-glow)',
+                              color: 'var(--ur-accent)',
+                              border: '1px solid var(--ur-accent-soft-2)',
                             }}
                           >
                             {t}
@@ -540,9 +540,9 @@ export default function ReviewDetailPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.05 }}
               className="rounded-xl p-5"
-              style={{ background: '#111113', border: '1px solid #1e1e21' }}
+              style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
             >
-              <h3 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--ur-text)' }}>
                 Detalhes
               </h3>
 
@@ -558,8 +558,8 @@ export default function ReviewDetailPage() {
                   { label: 'Anexos de mídia', value: String(review.media.length) },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-xs">
-                    <span style={{ color: '#5a5a64' }}>{label}</span>
-                    <span className="font-medium" style={{ color: '#8b8b96' }}>
+                    <span style={{ color: 'var(--ur-text-muted)' }}>{label}</span>
+                    <span className="font-medium" style={{ color: 'var(--ur-text-soft)' }}>
                       {value}
                     </span>
                   </div>

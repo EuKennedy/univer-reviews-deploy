@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
   Star,
+  HelpCircle,
   Copy,
   FlaskConical,
   Package,
@@ -25,6 +26,7 @@ import {
 import { cn } from '@/lib/utils'
 import { getInitials } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 interface NavItem {
   label: string
@@ -36,6 +38,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: 'dashboard', icon: LayoutDashboard },
   { label: 'Avaliações', href: 'reviews', icon: Star },
+  { label: 'Perguntas e Respostas', href: 'qa', icon: HelpCircle },
   { label: 'Duplicatas', href: 'duplicates', icon: Copy },
   { label: 'Lab de IA', href: 'ai-lab', icon: FlaskConical },
   { label: 'Produtos', href: 'products', icon: Package },
@@ -79,30 +82,29 @@ function NavLink({
         collapsed && 'justify-center px-2'
       )}
       style={{
-        background: isActive ? 'rgba(212,168,80,0.1)' : 'transparent',
-        color: isActive ? '#d4a850' : '#8b8b96',
+        background: isActive ? 'var(--ur-accent-soft)' : 'transparent',
+        color: isActive ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
         border: isActive
-          ? '1px solid rgba(212,168,80,0.15)'
+          ? '1px solid var(--ur-accent-soft-2)'
           : '1px solid transparent',
       }}
       onMouseEnter={(e) => {
         if (!isActive) {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
-          e.currentTarget.style.color = '#f0f0f2'
+          e.currentTarget.style.background = 'var(--ur-surface-soft)'
+          e.currentTarget.style.color = 'var(--ur-text)'
         }
       }}
       onMouseLeave={(e) => {
         if (!isActive) {
           e.currentTarget.style.background = 'transparent'
-          e.currentTarget.style.color = '#8b8b96'
+          e.currentTarget.style.color = 'var(--ur-text-soft)'
         }
       }}
     >
-      {/* Active indicator */}
       {isActive && (
         <div
           className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full"
-          style={{ background: '#d4a850' }}
+          style={{ background: 'var(--ur-accent)' }}
         />
       )}
 
@@ -116,22 +118,22 @@ function NavLink({
         <span
           className="text-xs px-1.5 py-0.5 rounded-full font-medium"
           style={{
-            background: 'rgba(212,168,80,0.15)',
-            color: '#d4a850',
+            background: 'var(--ur-accent-soft-2)',
+            color: 'var(--ur-accent)',
           }}
         >
           {item.badge}
         </span>
       )}
 
-      {/* Tooltip when collapsed */}
       {collapsed && (
         <div
           className="absolute left-full ml-2 px-2 py-1 rounded text-xs whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50"
           style={{
-            background: '#1e1e21',
-            border: '1px solid #2a2a2d',
-            color: '#f0f0f2',
+            background: 'var(--ur-surface)',
+            border: '1px solid var(--ur-border-strong)',
+            color: 'var(--ur-text)',
+            boxShadow: 'var(--ur-shadow-md)',
           }}
         >
           {item.label}
@@ -146,7 +148,6 @@ export function Shell({ children, workspace }: ShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { user, logout } = useAuth()
 
-  // Close mobile on resize
   useEffect(() => {
     const handler = () => {
       if (window.innerWidth >= 1024) setMobileOpen(false)
@@ -162,11 +163,14 @@ export function Shell({ children, workspace }: ShellProps) {
       {/* Logo */}
       <div
         className="flex items-center gap-2.5 px-3 py-4 shrink-0"
-        style={{ borderBottom: '1px solid #1e1e21' }}
+        style={{ borderBottom: '1px solid var(--ur-border)' }}
       >
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #d4a850, #a07830)' }}
+          style={{
+            background:
+              'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-dim))',
+          }}
         >
           <Sparkles className="w-3.5 h-3.5 text-white" />
         </div>
@@ -174,11 +178,14 @@ export function Shell({ children, workspace }: ShellProps) {
           <div className="min-w-0">
             <p
               className="text-sm font-semibold truncate leading-none"
-              style={{ color: '#f0f0f2' }}
+              style={{ color: 'var(--ur-text)' }}
             >
               UniverReviews
             </p>
-            <p className="text-xs mt-0.5 truncate" style={{ color: '#5a5a64' }}>
+            <p
+              className="text-xs mt-0.5 truncate"
+              style={{ color: 'var(--ur-text-muted)' }}
+            >
               {workspace}
             </p>
           </div>
@@ -201,7 +208,7 @@ export function Shell({ children, workspace }: ShellProps) {
       {/* Bottom nav */}
       <div
         className="px-2 py-2 space-y-0.5"
-        style={{ borderTop: '1px solid #1e1e21' }}
+        style={{ borderTop: '1px solid var(--ur-border)' }}
       >
         {bottomNavItems.map((item) => (
           <NavLink
@@ -217,12 +224,15 @@ export function Shell({ children, workspace }: ShellProps) {
       {/* User */}
       <div
         className="px-3 py-3 shrink-0"
-        style={{ borderTop: '1px solid #1e1e21' }}
+        style={{ borderTop: '1px solid var(--ur-border)' }}
       >
         <div className="flex items-center gap-2.5">
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ background: 'rgba(212,168,80,0.2)', color: '#d4a850' }}
+            style={{
+              background: 'var(--ur-accent-soft-3)',
+              color: 'var(--ur-accent)',
+            }}
           >
             {user?.name ? getInitials(user.name) : 'U'}
           </div>
@@ -231,23 +241,31 @@ export function Shell({ children, workspace }: ShellProps) {
               <div className="flex-1 min-w-0">
                 <p
                   className="text-xs font-medium truncate leading-none"
-                  style={{ color: '#f0f0f2' }}
+                  style={{ color: 'var(--ur-text)' }}
                 >
                   {user?.name ?? 'Admin'}
                 </p>
                 <p
                   className="text-xs mt-0.5 truncate"
-                  style={{ color: '#5a5a64' }}
+                  style={{ color: 'var(--ur-text-muted)' }}
                 >
                   {user?.role ?? 'admin'}
                 </p>
               </div>
+
+              {/* Theme toggle next to avatar */}
+              <ThemeToggle />
+
               <button
                 onClick={logout}
                 className="p-1.5 rounded-md transition-colors"
-                style={{ color: '#5a5a64' }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5a64' }}
+                style={{ color: 'var(--ur-text-muted)' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'var(--ur-danger)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--ur-text-muted)'
+                }}
                 title="Sair"
               >
                 <LogOut className="w-3.5 h-3.5" />
@@ -260,15 +278,18 @@ export function Shell({ children, workspace }: ShellProps) {
   )
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#0a0a0b' }}>
+    <div
+      className="flex h-screen overflow-hidden"
+      style={{ background: 'var(--ur-bg)' }}
+    >
       {/* Desktop sidebar */}
       <motion.aside
         animate={{ width: sidebarWidth }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
         className="hidden lg:flex flex-col shrink-0 relative"
         style={{
-          background: '#0d0d0f',
-          borderRight: '1px solid #1e1e21',
+          background: 'var(--ur-bg-soft)',
+          borderRight: '1px solid var(--ur-border)',
           overflow: 'hidden',
         }}
       >
@@ -279,9 +300,10 @@ export function Shell({ children, workspace }: ShellProps) {
           onClick={() => setCollapsed((v) => !v)}
           className="absolute top-4 -right-3 w-6 h-6 rounded-full flex items-center justify-center transition-all z-10"
           style={{
-            background: '#1a1a1d',
-            border: '1px solid #2a2a2d',
-            color: '#5a5a64',
+            background: 'var(--ur-surface)',
+            border: '1px solid var(--ur-border-strong)',
+            color: 'var(--ur-text-muted)',
+            boxShadow: 'var(--ur-shadow-sm)',
           }}
         >
           {collapsed ? (
@@ -302,7 +324,7 @@ export function Shell({ children, workspace }: ShellProps) {
               exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
               className="fixed inset-0 z-40 lg:hidden"
-              style={{ background: 'rgba(0,0,0,0.7)' }}
+              style={{ background: 'var(--ur-overlay)' }}
             />
             <motion.aside
               initial={{ x: -220 }}
@@ -311,8 +333,8 @@ export function Shell({ children, workspace }: ShellProps) {
               transition={{ duration: 0.2, ease: 'easeInOut' }}
               className="fixed left-0 top-0 bottom-0 w-[220px] z-50 lg:hidden"
               style={{
-                background: '#0d0d0f',
-                borderRight: '1px solid #1e1e21',
+                background: 'var(--ur-bg-soft)',
+                borderRight: '1px solid var(--ur-border)',
               }}
             >
               <SidebarContent onItemClick={() => setMobileOpen(false)} />
@@ -326,25 +348,37 @@ export function Shell({ children, workspace }: ShellProps) {
         {/* Mobile header */}
         <div
           className="lg:hidden flex items-center gap-3 px-4 py-3 shrink-0"
-          style={{ borderBottom: '1px solid #1e1e21', background: '#0d0d0f' }}
+          style={{
+            borderBottom: '1px solid var(--ur-border)',
+            background: 'var(--ur-bg-soft)',
+          }}
         >
           <button
             onClick={() => setMobileOpen(true)}
             className="p-1.5 rounded-lg"
-            style={{ color: '#8b8b96' }}
+            style={{ color: 'var(--ur-text-soft)' }}
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <div className="flex items-center gap-2">
             <div
               className="w-6 h-6 rounded-md flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #d4a850, #a07830)' }}
+              style={{
+                background:
+                  'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-dim))',
+              }}
             >
               <Sparkles className="w-3 h-3 text-white" />
             </div>
-            <span className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+            <span
+              className="text-sm font-semibold"
+              style={{ color: 'var(--ur-text)' }}
+            >
               UniverReviews
             </span>
+          </div>
+          <div className="ml-auto">
+            <ThemeToggle />
           </div>
         </div>
 

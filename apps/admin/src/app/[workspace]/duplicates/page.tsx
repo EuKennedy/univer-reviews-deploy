@@ -39,13 +39,13 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
     <motion.div
       layout
       className="rounded-xl overflow-hidden"
-      style={{ background: '#111113', border: '1px solid #1e1e21' }}
+      style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
     >
       {/* Header */}
       <div
         className="flex items-center gap-3 px-5 py-4 cursor-pointer transition-colors"
         onClick={() => setExpanded((v) => !v)}
-        style={{ borderBottom: expanded ? '1px solid #1a1a1d' : 'none' }}
+        style={{ borderBottom: expanded ? '1px solid var(--ur-surface-soft)' : 'none' }}
       >
         {/* Cluster badge */}
         <div
@@ -53,11 +53,11 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
           style={{
             background:
               cluster.similarity_score >= 0.9
-                ? 'rgba(239,68,68,0.1)'
-                : 'rgba(245,158,11,0.1)',
+                ? 'var(--ur-danger-bg)'
+                : 'var(--ur-warn-bg)',
             color:
-              cluster.similarity_score >= 0.9 ? '#ef4444' : '#f59e0b',
-            border: `1px solid ${cluster.similarity_score >= 0.9 ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`,
+              cluster.similarity_score >= 0.9 ? 'var(--ur-danger)' : 'var(--ur-warn)',
+            border: `1px solid ${cluster.similarity_score >= 0.9 ? 'var(--ur-danger-bg)' : 'var(--ur-warn-bg)'}`,
           }}
         >
           {cluster.count}
@@ -65,21 +65,21 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
               {cluster.product_name ?? `Cluster ${cluster.id.slice(0, 6)}`}
             </p>
             <span
               className="text-xs px-2 py-0.5 rounded-full"
               style={{
-                background: 'rgba(212,168,80,0.08)',
-                color: '#d4a850',
-                border: '1px solid rgba(212,168,80,0.15)',
+                background: 'var(--ur-accent-glow)',
+                color: 'var(--ur-accent)',
+                border: '1px solid var(--ur-accent-soft-2)',
               }}
             >
               {Math.round(cluster.similarity_score * 100)}% similares
             </span>
           </div>
-          <p className="text-xs mt-0.5" style={{ color: '#5a5a64' }}>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--ur-text-muted)' }}>
             {cluster.count} avaliações no cluster •{' '}
             {cluster.product_name ? `Produto: ${cluster.product_name}` : 'Sem produto'}
           </p>
@@ -94,9 +94,9 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
             disabled={rewriting}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{
-              background: 'rgba(212,168,80,0.08)',
-              border: '1px solid rgba(212,168,80,0.15)',
-              color: '#d4a850',
+              background: 'var(--ur-accent-glow)',
+              border: '1px solid var(--ur-accent-soft-2)',
+              color: 'var(--ur-accent)',
             }}
           >
             {rewriting ? (
@@ -108,9 +108,9 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
           </button>
 
           {expanded ? (
-            <ChevronUp className="w-4 h-4" style={{ color: '#5a5a64' }} />
+            <ChevronUp className="w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
           ) : (
-            <ChevronDown className="w-4 h-4" style={{ color: '#5a5a64' }} />
+            <ChevronDown className="w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
           )}
         </div>
       </div>
@@ -129,22 +129,22 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
                 <div
                   key={review.id}
                   className="flex items-start gap-3 px-4 py-3 rounded-lg"
-                  style={{ background: '#0d0d0f', border: '1px solid #1a1a1d' }}
+                  style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
                 >
                   <span
                     className="text-xs font-mono shrink-0 mt-0.5"
-                    style={{ color: '#5a5a64' }}
+                    style={{ color: 'var(--ur-text-muted)' }}
                   >
                     #{i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium" style={{ color: '#8b8b96' }}>
+                      <span className="text-xs font-medium" style={{ color: 'var(--ur-text-soft)' }}>
                         {review.author_name}
                       </span>
                       <RatingStars rating={review.rating} size="xs" />
                     </div>
-                    <p className="text-xs leading-relaxed" style={{ color: '#5a5a64' }}>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--ur-text-muted)' }}>
                       {truncate(review.body, 120)}
                     </p>
                   </div>
@@ -152,7 +152,7 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
               ))}
 
               {cluster.count > cluster.sample_reviews.length && (
-                <p className="text-xs text-center" style={{ color: '#5a5a64' }}>
+                <p className="text-xs text-center" style={{ color: 'var(--ur-text-muted)' }}>
                   +{cluster.count - cluster.sample_reviews.length} avaliações adicionais
                 </p>
               )}
@@ -179,9 +179,10 @@ export default function DuplicatesPage() {
   })
 
   const cleanupMutation = useMutation({
-    mutationFn: (limit: number) => api.ai.cleanupDuplicates(limit, getToken()),
+    mutationFn: (clusterIds: string[]) =>
+      api.ai.cleanupDuplicates(clusterIds, getToken()),
     onSuccess: (data) => {
-      toast.success(`Limpeza iniciada: ${data.job_id}`)
+      toast.success(data.message ?? 'Limpeza enfileirada')
       queryClient.invalidateQueries({ queryKey: ['duplicate-clusters'] })
       setCleaning(false)
     },
@@ -233,13 +234,14 @@ export default function DuplicatesPage() {
           <button
             onClick={() => {
               setCleaning(true)
-              cleanupMutation.mutate(100)
+              const ids = (clusters ?? []).map((c) => String(c.id))
+              cleanupMutation.mutate(ids)
             }}
             disabled={cleaning || cleanupMutation.isPending}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
             style={{
-              background: 'linear-gradient(135deg, #d4a850, #c49040)',
-              color: '#0a0a0b',
+              background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
+              color: 'var(--ur-text-on-accent)',
             }}
           >
             {cleaning ? (
@@ -263,7 +265,7 @@ export default function DuplicatesPage() {
           />
         }
         right={
-          <span className="text-xs" style={{ color: '#5a5a64' }}>
+          <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
             {filtered.length} clusters
           </span>
         }
@@ -283,15 +285,15 @@ export default function DuplicatesPage() {
           <div className="flex flex-col items-center gap-4 py-20">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)' }}
+              style={{ background: 'var(--ur-success-bg)', border: '1px solid var(--ur-success-bg)' }}
             >
-              <AlertCircle className="w-8 h-8" style={{ color: '#22c55e' }} />
+              <AlertCircle className="w-8 h-8" style={{ color: 'var(--ur-success)' }} />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
                 Nenhuma duplicata encontrada
               </p>
-              <p className="text-xs mt-1" style={{ color: '#5a5a64' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--ur-text-muted)' }}>
                 {search
                   ? 'Tente outro termo de busca'
                   : 'Seu catálogo de avaliações está limpo'}

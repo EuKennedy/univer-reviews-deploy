@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import {
@@ -39,15 +39,15 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
 
 const inputClass = 'w-full px-4 py-2.5 rounded-lg text-sm outline-none transition-all'
 const inputStyle: React.CSSProperties = {
-  background: '#0d0d0f',
-  border: '1px solid #1a1a1d',
-  color: '#f0f0f2',
+  background: 'var(--ur-bg-soft)',
+  border: '1px solid var(--ur-surface-soft)',
+  color: 'var(--ur-text)',
 }
 const inputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-  e.target.style.border = '1px solid rgba(212,168,80,0.3)'
+  e.target.style.border = '1px solid var(--ur-accent-soft-3)'
 }
 const inputBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-  e.target.style.border = '1px solid #1a1a1d'
+  e.target.style.border = '1px solid var(--ur-surface-soft)'
 }
 
 function GeneralTab({ workspace }: { workspace: Workspace }) {
@@ -77,20 +77,20 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
       {/* Identidade — Workspace ID copiável para integrações (plugin WP, API, etc) */}
       <div
         className="rounded-xl p-4"
-        style={{ background: '#111113', border: '1px solid #1e1e21' }}
+        style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
       >
-        <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#5a5a64' }}>
+        <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ur-text-muted)' }}>
           Identidade do workspace
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
-              Workspace ID <span style={{ color: '#d4a850' }}>(use no plugin WP)</span>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+              Workspace ID <span style={{ color: 'var(--ur-accent)' }}>(use no plugin WP)</span>
             </label>
             <div className="flex gap-2">
               <code
                 className="flex-1 px-3 py-2 rounded-lg text-xs font-mono select-all break-all"
-                style={{ background: '#0a0a0b', border: '1px solid #1a1a1d', color: '#f0f0f2' }}
+                style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-surface-soft)', color: 'var(--ur-text)' }}
               >
                 {workspace.id}
               </code>
@@ -101,20 +101,20 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
                   toast.success('Workspace ID copiado')
                 }}
                 className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
-                style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
+                style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
               >
                 Copiar
               </button>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
               URL da API
             </label>
             <div className="flex gap-2">
               <code
                 className="flex-1 px-3 py-2 rounded-lg text-xs font-mono select-all"
-                style={{ background: '#0a0a0b', border: '1px solid #1a1a1d', color: '#f0f0f2' }}
+                style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-surface-soft)', color: 'var(--ur-text)' }}
               >
                 https://api.univerreviews.com
               </code>
@@ -125,7 +125,7 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
                   toast.success('URL copiada')
                 }}
                 className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
-                style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
+                style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
               >
                 Copiar
               </button>
@@ -142,7 +142,7 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
         { label: 'Moeda', key: 'currency', placeholder: 'BRL' },
       ].map(({ label, key, placeholder }) => (
         <div key={key}>
-          <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+          <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
             {label}
           </label>
           <input
@@ -160,7 +160,7 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
         type="submit"
         disabled={!isDirty || mutation.isPending}
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
-        style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
+        style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
       >
         {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
         Salvar alterações
@@ -173,7 +173,7 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
 function BrandingTab({ workspace }: { workspace: Workspace }) {
   const { getToken } = useAuth()
   const queryClient = useQueryClient()
-  const [brandColor, setBrandColor] = useState(workspace.branding?.brand_color ?? '#d4a850')
+  const [brandColor, setBrandColor] = useState(workspace.branding?.brand_color ?? 'var(--ur-accent)')
   const [ratingIcon, setRatingIcon] = useState<'star' | 'heart' | 'flame' | 'thumb' | 'diamond'>(workspace.branding?.rating_icon ?? 'star')
   const [brandVoice, setBrandVoice] = useState(workspace.branding?.brand_voice ?? '')
 
@@ -197,7 +197,7 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
   return (
     <div className="max-w-lg space-y-6">
       <div>
-        <label className="block text-xs font-medium mb-2" style={{ color: '#5a5a64' }}>
+        <label className="block text-xs font-medium mb-2" style={{ color: 'var(--ur-text-muted)' }}>
           Cor da marca
         </label>
         <div className="flex items-center gap-3">
@@ -206,12 +206,12 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
             value={brandColor}
             onChange={(e) => setBrandColor(e.target.value)}
             className="w-12 h-10 rounded-lg cursor-pointer"
-            style={{ background: 'none', border: '1px solid #1a1a1d', padding: '2px' }}
+            style={{ background: 'none', border: '1px solid var(--ur-surface-soft)', padding: '2px' }}
           />
           <input
             value={brandColor}
             onChange={(e) => setBrandColor(e.target.value)}
-            placeholder="#d4a850"
+            placeholder="var(--ur-accent)"
             className={inputClass}
             style={{ ...inputStyle, flex: 1 }}
             onFocus={inputFocus}
@@ -225,7 +225,7 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-2" style={{ color: '#5a5a64' }}>
+        <label className="block text-xs font-medium mb-2" style={{ color: 'var(--ur-text-muted)' }}>
           Ícone da nota
         </label>
         <div className="flex gap-2">
@@ -235,8 +235,8 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
               onClick={() => setRatingIcon(icon.id as 'star' | 'heart' | 'flame' | 'thumb' | 'diamond')}
               className="w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all"
               style={{
-                background: ratingIcon === icon.id ? 'rgba(212,168,80,0.1)' : '#0d0d0f',
-                border: `2px solid ${ratingIcon === icon.id ? '#d4a850' : '#1a1a1d'}`,
+                background: ratingIcon === icon.id ? 'var(--ur-accent-soft)' : 'var(--ur-bg-soft)',
+                border: `2px solid ${ratingIcon === icon.id ? 'var(--ur-accent)' : 'var(--ur-surface-soft)'}`,
               }}
             >
               {icon.label}
@@ -246,10 +246,10 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
           Tom de marca
         </label>
-        <p className="text-xs mb-2" style={{ color: '#3a3a3e' }}>
+        <p className="text-xs mb-2" style={{ color: 'var(--ur-text-faint)' }}>
           Descreva o tom de voz da sua marca para respostas geradas por IA.
         </p>
         <textarea
@@ -277,7 +277,7 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
         }
         disabled={mutation.isPending}
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
-        style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
+        style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
       >
         {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
         Salvar marca
@@ -308,10 +308,10 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
   })
 
   const roleColors: Record<UserRole, string> = {
-    owner: '#d4a850',
+    owner: 'var(--ur-accent)',
     admin: '#a78bfa',
-    moderator: '#60a5fa',
-    viewer: '#5a5a64',
+    moderator: 'var(--ur-info)',
+    viewer: 'var(--ur-text-muted)',
   }
 
   return (
@@ -319,34 +319,34 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
       {/* Current members */}
       <div
         className="rounded-xl overflow-hidden"
-        style={{ border: '1px solid #1e1e21' }}
+        style={{ border: '1px solid var(--ur-border)' }}
       >
         <div
           className="px-4 py-3"
-          style={{ background: '#0d0d0f', borderBottom: '1px solid #1a1a1d' }}
+          style={{ background: 'var(--ur-bg-soft)', borderBottom: '1px solid var(--ur-surface-soft)' }}
         >
-          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#5a5a64' }}>
+          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--ur-text-muted)' }}>
             Membros ({workspace.users?.length ?? 0})
           </h3>
         </div>
-        <div className="divide-y" style={{ borderColor: '#1a1a1d' }}>
+        <div className="divide-y" style={{ borderColor: 'var(--ur-surface-soft)' }}>
           {workspace.users?.map((user) => (
             <div
               key={user.id}
               className="flex items-center gap-3 px-4 py-3"
-              style={{ background: '#111113' }}
+              style={{ background: 'var(--ur-surface)' }}
             >
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                style={{ background: 'rgba(212,168,80,0.1)', color: '#d4a850' }}
+                style={{ background: 'var(--ur-accent-soft)', color: 'var(--ur-accent)' }}
               >
                 {user.name[0]?.toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: '#f0f0f2' }}>
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--ur-text)' }}>
                   {user.name}
                 </p>
-                <p className="text-xs truncate" style={{ color: '#5a5a64' }}>
+                <p className="text-xs truncate" style={{ color: 'var(--ur-text-muted)' }}>
                   {user.email}
                 </p>
               </div>
@@ -363,9 +363,9 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
                 <button
                   onClick={() => removeMutation.mutate(user.id)}
                   className="p-1 rounded transition-colors ml-1"
-                  style={{ color: '#5a5a64' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5a64' }}
+                  style={{ color: 'var(--ur-text-muted)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ur-danger)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ur-text-muted)' }}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -378,9 +378,9 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
       {/* Invite */}
       <div
         className="rounded-xl p-4"
-        style={{ background: '#111113', border: '1px solid #1e1e21' }}
+        style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
       >
-        <h3 className="text-sm font-semibold mb-3" style={{ color: '#f0f0f2' }}>
+        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--ur-text)' }}>
           Convidar membro do time
         </h3>
         <div className="flex gap-2 mb-2">
@@ -412,7 +412,7 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
           onClick={() => mutation.mutate({ email: inviteEmail, role: inviteRole })}
           disabled={!inviteEmail.trim() || mutation.isPending}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
-          style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
+          style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
         >
           <Plus className="w-3.5 h-3.5" />
           Enviar convite
@@ -434,6 +434,16 @@ function ApiKeysTab() {
     queryFn: () => api.workspace.listApiKeys(getToken()),
   })
   const apiKeys: ApiKey[] = apiKeysResp?.data ?? []
+
+  // AI provider (Anthropic) health — drives the "Configurar Claude" card.
+  // This card is read-only because the key is env-scoped at the server
+  // level today; we show status, the model versions in use, and a copyable
+  // setup snippet so ops know exactly what to edit.
+  const { data: aiHealth } = useQuery({
+    queryKey: ['ai-health'],
+    queryFn: () => api.ai.health(getToken()),
+    staleTime: 30_000,
+  })
 
   const createMutation = useMutation({
     mutationFn: (name: string) => api.workspace.createApiKey(name, getToken()),
@@ -462,14 +472,88 @@ function ApiKeysTab() {
     onError: () => toast.error('Falha ao revogar chave'),
   })
 
+  const aiOk = aiHealth?.configured ?? false
+  const aiReason = aiHealth?.reason ?? ''
+
   return (
-    <div className="max-w-lg space-y-5">
+    <div className="max-w-lg space-y-5" id="api-keys">
+      {/* Anthropic / Claude provider status — server-side env var, read-only. */}
+      <div
+        className="rounded-xl p-4"
+        style={{
+          background: aiOk ? 'var(--ur-surface)' : 'var(--ur-danger-bg)',
+          border: `1px solid ${aiOk ? 'var(--ur-border)' : 'var(--ur-danger-bg)'}`,
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{
+              background: aiOk ? 'var(--ur-success-bg)' : 'var(--ur-danger-bg)',
+              border: `1px solid ${aiOk ? 'var(--ur-success-bg)' : 'var(--ur-danger-bg)'}`,
+            }}
+          >
+            <Key
+              className="w-4 h-4"
+              style={{ color: aiOk ? 'var(--ur-success)' : 'var(--ur-danger)' }}
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
+                Anthropic Claude
+              </h3>
+              <span
+                className="text-xs px-2 py-0.5 rounded-full font-medium"
+                style={{
+                  background: aiOk ? 'var(--ur-success-bg)' : 'var(--ur-danger-bg)',
+                  color: aiOk ? 'var(--ur-success)' : 'var(--ur-danger)',
+                  border: `1px solid ${aiOk ? 'var(--ur-success-bg)' : 'var(--ur-danger-bg)'}`,
+                }}
+              >
+                {aiOk ? 'Configurada' : aiReason === 'placeholder' ? 'Placeholder' : 'Faltando'}
+              </span>
+            </div>
+            <p className="text-xs mt-1" style={{ color: 'var(--ur-text-soft)' }}>
+              Provedor de IA usado pelo Lab de IA, moderação automática e
+              respostas geradas. A chave é lida do servidor — para alterá-la,
+              edite <code style={{ color: 'var(--ur-accent)' }}>ANTHROPIC_API_KEY</code>{' '}
+              no <code style={{ color: 'var(--ur-accent)' }}>apps/api/.env</code> e reinicie a API.
+            </p>
+            {aiHealth && (
+              <div className="flex flex-wrap gap-3 mt-2.5 text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+                <span>
+                  Sonnet:{' '}
+                  <code style={{ color: 'var(--ur-text)' }}>{aiHealth.models.sonnet}</code>
+                </span>
+                <span>
+                  Haiku:{' '}
+                  <code style={{ color: 'var(--ur-text)' }}>{aiHealth.models.haiku}</code>
+                </span>
+              </div>
+            )}
+            {!aiOk && (
+              <div
+                className="mt-3 p-2 rounded font-mono text-xs"
+                style={{
+                  background: 'var(--ur-bg)',
+                  border: '1px solid var(--ur-surface-soft)',
+                  color: 'var(--ur-accent)',
+                }}
+              >
+                ANTHROPIC_API_KEY=sk-ant-…
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Create key */}
       <div
         className="rounded-xl p-4"
-        style={{ background: '#111113', border: '1px solid #1e1e21' }}
+        style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
       >
-        <h3 className="text-sm font-semibold mb-3" style={{ color: '#f0f0f2' }}>
+        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--ur-text)' }}>
           Criar chave de API
         </h3>
         <div className="flex gap-2">
@@ -486,7 +570,7 @@ function ApiKeysTab() {
             onClick={() => createMutation.mutate(newKeyName)}
             disabled={!newKeyName.trim() || createMutation.isPending}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-all whitespace-nowrap"
-            style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
+            style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
           >
             <Plus className="w-3.5 h-3.5" />
             Criar
@@ -499,19 +583,19 @@ function ApiKeysTab() {
         <div
           className="rounded-xl p-4"
           style={{
-            background: 'rgba(212,168,80,0.08)',
-            border: '1px solid rgba(212,168,80,0.3)',
+            background: 'var(--ur-accent-glow)',
+            border: '1px solid var(--ur-accent-soft-3)',
           }}
         >
           <div className="flex items-start gap-3">
-            <Key className="w-4 h-4 mt-0.5 shrink-0" style={{ color: '#d4a850' }} />
+            <Key className="w-4 h-4 mt-0.5 shrink-0" style={{ color: 'var(--ur-accent)' }} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold mb-1" style={{ color: '#d4a850' }}>
+              <p className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-accent)' }}>
                 Copie agora — esta chave não será mostrada de novo
               </p>
               <code
                 className="block text-xs font-mono break-all p-2 rounded mt-2"
-                style={{ background: '#0a0a0b', color: '#f0f0f2', border: '1px solid #1a1a1d' }}
+                style={{ background: 'var(--ur-bg)', color: 'var(--ur-text)', border: '1px solid var(--ur-surface-soft)' }}
               >
                 {showKey}
               </code>
@@ -522,14 +606,14 @@ function ApiKeysTab() {
                     toast.success('Chave copiada')
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium"
-                  style={{ background: '#d4a850', color: '#0a0a0b' }}
+                  style={{ background: 'var(--ur-accent)', color: 'var(--ur-text-on-accent)' }}
                 >
                   Copiar
                 </button>
                 <button
                   onClick={() => setShowKey(null)}
                   className="px-3 py-1.5 rounded text-xs font-medium"
-                  style={{ background: '#1a1a1d', color: '#8b8b96', border: '1px solid #2a2a2d' }}
+                  style={{ background: 'var(--ur-surface-soft)', color: 'var(--ur-text-soft)', border: '1px solid var(--ur-border-strong)' }}
                 >
                   Fechar
                 </button>
@@ -542,13 +626,13 @@ function ApiKeysTab() {
       {/* Key list */}
       <div
         className="rounded-xl overflow-hidden"
-        style={{ border: '1px solid #1e1e21' }}
+        style={{ border: '1px solid var(--ur-border)' }}
       >
         <div
           className="px-4 py-3"
-          style={{ background: '#0d0d0f', borderBottom: '1px solid #1a1a1d' }}
+          style={{ background: 'var(--ur-bg-soft)', borderBottom: '1px solid var(--ur-surface-soft)' }}
         >
-          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#5a5a64' }}>
+          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--ur-text-muted)' }}>
             Chaves ativas
           </h3>
         </div>
@@ -561,26 +645,26 @@ function ApiKeysTab() {
           </div>
         ) : !apiKeys?.length ? (
           <div className="py-8 text-center">
-            <p className="text-sm" style={{ color: '#5a5a64' }}>Ainda não há chaves de API</p>
+            <p className="text-sm" style={{ color: 'var(--ur-text-muted)' }}>Ainda não há chaves de API</p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: '#1a1a1d' }}>
+          <div className="divide-y" style={{ borderColor: 'var(--ur-surface-soft)' }}>
             {apiKeys.map((key) => (
               <div
                 key={key.id}
                 className="flex items-center gap-3 px-4 py-3"
-                style={{ background: '#111113' }}
+                style={{ background: 'var(--ur-surface)' }}
               >
-                <Key className="w-4 h-4 shrink-0" style={{ color: '#5a5a64' }} />
+                <Key className="w-4 h-4 shrink-0" style={{ color: 'var(--ur-text-muted)' }} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+                  <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
                     {key.name}
                   </p>
                   <div className="flex items-center gap-2">
-                    <code className="text-xs font-mono" style={{ color: '#8b8b96' }}>
+                    <code className="text-xs font-mono" style={{ color: 'var(--ur-text-soft)' }}>
                       {key.prefix}••••••••
                     </code>
-                    <span className="text-xs" style={{ color: '#5a5a64' }}>
+                    <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                       Criada em {format(new Date(key.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
                     </span>
                   </div>
@@ -592,10 +676,10 @@ function ApiKeysTab() {
                     setTimeout(() => setCopiedKey(null), 2000)
                   }}
                   className="p-1.5 rounded transition-colors"
-                  style={{ color: '#5a5a64' }}
+                  style={{ color: 'var(--ur-text-muted)' }}
                 >
                   {copiedKey === key.id ? (
-                    <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#22c55e' }} />
+                    <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-success)' }} />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
@@ -605,9 +689,9 @@ function ApiKeysTab() {
                     if (confirm('Revogar esta chave de API?')) revokeMutation.mutate(key.id)
                   }}
                   className="p-1.5 rounded transition-colors"
-                  style={{ color: '#5a5a64' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5a64' }}
+                  style={{ color: 'var(--ur-text-muted)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ur-danger)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ur-text-muted)' }}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -655,12 +739,12 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
     <div className="max-w-lg space-y-5">
       <div
         className="rounded-xl p-4"
-        style={{ background: '#111113', border: '1px solid #1e1e21' }}
+        style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
       >
-        <h3 className="text-sm font-semibold mb-1" style={{ color: '#f0f0f2' }}>
+        <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
           Domínios autorizados
         </h3>
-        <p className="text-xs mb-4" style={{ color: '#5a5a64' }}>
+        <p className="text-xs mb-4" style={{ color: 'var(--ur-text-muted)' }}>
           Domínios em que o widget de avaliações pode ser incorporado.
         </p>
         <div className="flex gap-2">
@@ -677,7 +761,7 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
             onClick={() => addMutation.mutate(newDomain)}
             disabled={!newDomain.trim() || addMutation.isPending}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
-            style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
+            style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
           >
             <Plus className="w-3.5 h-3.5" />
             Adicionar
@@ -690,18 +774,18 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
           <div
             key={d.id}
             className="flex items-center gap-3 px-4 py-3 rounded-xl"
-            style={{ background: '#111113', border: '1px solid #1e1e21' }}
+            style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
           >
-            <Globe className="w-4 h-4 shrink-0" style={{ color: '#5a5a64' }} />
-            <span className="flex-1 text-sm font-mono" style={{ color: '#f0f0f2' }}>
+            <Globe className="w-4 h-4 shrink-0" style={{ color: 'var(--ur-text-muted)' }} />
+            <span className="flex-1 text-sm font-mono" style={{ color: 'var(--ur-text)' }}>
               {d.domain}
             </span>
             <span
               className="text-xs px-2 py-0.5 rounded-full"
               style={{
-                background: d.verified ? 'rgba(34,197,94,0.1)' : 'rgba(212,168,80,0.1)',
-                color: d.verified ? '#22c55e' : '#d4a850',
-                border: `1px solid ${d.verified ? 'rgba(34,197,94,0.2)' : 'rgba(212,168,80,0.2)'}`,
+                background: d.verified ? 'var(--ur-success-bg)' : 'var(--ur-accent-soft)',
+                color: d.verified ? 'var(--ur-success)' : 'var(--ur-accent)',
+                border: `1px solid ${d.verified ? 'var(--ur-success-bg)' : 'var(--ur-accent-soft-3)'}`,
               }}
             >
               {d.verified ? 'Verificado' : 'Pendente'}
@@ -709,9 +793,9 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
             <button
               onClick={() => removeMutation.mutate(d.id)}
               className="p-1 rounded transition-colors"
-              style={{ color: '#5a5a64' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#5a5a64' }}
+              style={{ color: 'var(--ur-text-muted)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ur-danger)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ur-text-muted)' }}
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -720,7 +804,7 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
 
         {(!workspace.domains || workspace.domains.length === 0) && (
           <div className="py-8 text-center">
-            <p className="text-sm" style={{ color: '#5a5a64' }}>
+            <p className="text-sm" style={{ color: 'var(--ur-text-muted)' }}>
               Nenhum domínio adicionado ainda
             </p>
           </div>
@@ -736,6 +820,17 @@ export default function SettingsPage() {
   const { getToken } = useAuth()
   const [activeTab, setActiveTab] = useState<Tab>('general')
 
+  // Deep-link support: /settings#api-keys (used by the AI Lab "Configurar"
+  // banner) lands directly on the API keys tab.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hash = window.location.hash.replace('#', '')
+    const validTabs: Tab[] = ['general', 'branding', 'team', 'api-keys', 'domains']
+    if (hash && (validTabs as string[]).includes(hash)) {
+      setActiveTab(hash as Tab)
+    }
+  }, [])
+
   const { data: workspaceData, isLoading } = useQuery<Workspace>({
     queryKey: ['workspace', workspace],
     queryFn: () => api.workspace.get(getToken()),
@@ -744,7 +839,7 @@ export default function SettingsPage() {
   if (isLoading || !workspaceData) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#d4a850' }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--ur-accent)' }} />
       </div>
     )
   }
@@ -767,7 +862,7 @@ export default function SettingsPage() {
 
       <div
         className="flex items-center gap-1 px-5 py-3 overflow-x-auto"
-        style={{ borderBottom: '1px solid #1e1e21' }}
+        style={{ borderBottom: '1px solid var(--ur-border)' }}
       >
         {tabs.map((tab) => (
           <button
@@ -775,9 +870,9 @@ export default function SettingsPage() {
             onClick={() => setActiveTab(tab.id)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
             style={{
-              background: activeTab === tab.id ? 'rgba(212,168,80,0.1)' : 'transparent',
-              border: `1px solid ${activeTab === tab.id ? 'rgba(212,168,80,0.2)' : 'transparent'}`,
-              color: activeTab === tab.id ? '#d4a850' : '#8b8b96',
+              background: activeTab === tab.id ? 'var(--ur-accent-soft)' : 'transparent',
+              border: `1px solid ${activeTab === tab.id ? 'var(--ur-accent-soft-3)' : 'transparent'}`,
+              color: activeTab === tab.id ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
             }}
           >
             <tab.icon className="w-3.5 h-3.5" />

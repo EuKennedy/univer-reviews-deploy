@@ -41,13 +41,13 @@ function StepIndicator({
               style={{
                 background:
                   i < current
-                    ? '#22c55e'
+                    ? 'var(--ur-success)'
                     : i === current
-                    ? 'rgba(212,168,80,0.2)'
-                    : '#1a1a1d',
-                border: `2px solid ${i < current ? '#22c55e' : i === current ? '#d4a850' : '#2a2a2d'}`,
+                    ? 'var(--ur-accent-soft-3)'
+                    : 'var(--ur-surface-soft)',
+                border: `2px solid ${i < current ? 'var(--ur-success)' : i === current ? 'var(--ur-accent)' : 'var(--ur-border-strong)'}`,
                 color:
-                  i < current ? '#fff' : i === current ? '#d4a850' : '#5a5a64',
+                  i < current ? '#fff' : i === current ? 'var(--ur-accent)' : 'var(--ur-text-muted)',
               }}
             >
               {i < current ? '✓' : i + 1}
@@ -56,7 +56,7 @@ function StepIndicator({
               className="text-xs mt-1 whitespace-nowrap"
               style={{
                 color:
-                  i < current ? '#22c55e' : i === current ? '#d4a850' : '#5a5a64',
+                  i < current ? 'var(--ur-success)' : i === current ? 'var(--ur-accent)' : 'var(--ur-text-muted)',
               }}
             >
               {step}
@@ -67,7 +67,7 @@ function StepIndicator({
               className="h-px mx-2 mb-4 transition-all duration-300"
               style={{
                 width: 40,
-                background: i < current ? '#22c55e' : '#2a2a2d',
+                background: i < current ? 'var(--ur-success)' : 'var(--ur-border-strong)',
               }}
             />
           )}
@@ -170,9 +170,9 @@ export default function WooCommercePage() {
   })
 
   const inputStyle: React.CSSProperties = {
-    background: '#0d0d0f',
-    border: '1px solid #1a1a1d',
-    color: '#f0f0f2',
+    background: 'var(--ur-bg-soft)',
+    border: '1px solid var(--ur-surface-soft)',
+    color: 'var(--ur-text)',
   }
 
   const inputClass =
@@ -181,7 +181,7 @@ export default function WooCommercePage() {
   if (authLoading || isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: '#d4a850' }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--ur-accent)' }} />
       </div>
     )
   }
@@ -205,20 +205,20 @@ export default function WooCommercePage() {
             {/* Status card */}
             <div
               className="rounded-xl p-5"
-              style={{ background: '#111113', border: '1px solid rgba(34,197,94,0.2)' }}
+              style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-success-bg)' }}
             >
               <div className="flex items-center gap-3 mb-4">
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(34,197,94,0.1)' }}
+                  style={{ background: 'var(--ur-success-bg)' }}
                 >
-                  <CheckCircle2 className="w-5 h-5" style={{ color: '#22c55e' }} />
+                  <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--ur-success)' }} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+                  <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
                     Conectado
                   </h3>
-                  <p className="text-xs" style={{ color: '#5a5a64' }}>
+                  <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                     {config.store_url}
                   </p>
                 </div>
@@ -242,10 +242,10 @@ export default function WooCommercePage() {
                   },
                 ].map(({ label, value }) => (
                   <div key={label}>
-                    <p className="text-xs" style={{ color: '#5a5a64' }}>
+                    <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                       {label}
                     </p>
-                    <p className="text-lg font-bold" style={{ color: '#f0f0f2' }}>
+                    <p className="text-lg font-bold" style={{ color: 'var(--ur-text)' }}>
                       {value}
                     </p>
                   </div>
@@ -256,9 +256,9 @@ export default function WooCommercePage() {
             {/* Actions */}
             <div
               className="rounded-xl p-5"
-              style={{ background: '#111113', border: '1px solid #1e1e21' }}
+              style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
             >
-              <h3 className="text-sm font-semibold mb-4" style={{ color: '#f0f0f2' }}>
+              <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--ur-text)' }}>
                 Sincronização
               </h3>
               <div className="flex gap-3">
@@ -267,9 +267,9 @@ export default function WooCommercePage() {
                   disabled={syncMutation.isPending}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{
-                    background: 'rgba(212,168,80,0.1)',
-                    border: '1px solid rgba(212,168,80,0.2)',
-                    color: '#d4a850',
+                    background: 'var(--ur-accent-soft)',
+                    border: '1px solid var(--ur-accent-soft-3)',
+                    color: 'var(--ur-accent)',
                   }}
                 >
                   {syncMutation.isPending ? (
@@ -285,9 +285,9 @@ export default function WooCommercePage() {
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{
-                    background: '#0a0a0b',
-                    border: '1px solid #1e1e21',
-                    color: '#8b8b96',
+                    background: 'var(--ur-bg)',
+                    border: '1px solid var(--ur-border)',
+                    color: 'var(--ur-text-soft)',
                   }}
                 >
                   <ExternalLink className="w-4 h-4" />
@@ -300,17 +300,17 @@ export default function WooCommercePage() {
             <div
               className="rounded-xl p-5"
               style={{
-                background: 'rgba(239,68,68,0.04)',
-                border: '1px solid rgba(239,68,68,0.15)',
+                background: 'var(--ur-danger-bg)',
+                border: '1px solid var(--ur-danger-bg)',
               }}
             >
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="w-4 h-4" style={{ color: '#ef4444' }} />
-                <h3 className="text-sm font-semibold" style={{ color: '#ef4444' }}>
+                <AlertTriangle className="w-4 h-4" style={{ color: 'var(--ur-danger)' }} />
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-danger)' }}>
                   Zona de perigo
                 </h3>
               </div>
-              <p className="text-xs mb-4" style={{ color: '#8b8b96' }}>
+              <p className="text-xs mb-4" style={{ color: 'var(--ur-text-soft)' }}>
                 Desconectar irá interromper todas as sincronizações. As avaliações
                 já importadas serão mantidas.
               </p>
@@ -327,9 +327,9 @@ export default function WooCommercePage() {
                 disabled={disconnectMutation.isPending}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
                 style={{
-                  background: 'rgba(239,68,68,0.1)',
-                  border: '1px solid rgba(239,68,68,0.2)',
-                  color: '#ef4444',
+                  background: 'var(--ur-danger-bg)',
+                  border: '1px solid var(--ur-danger-bg)',
+                  color: 'var(--ur-danger)',
                 }}
               >
                 <Trash2 className="w-4 h-4" />
@@ -370,15 +370,15 @@ export default function WooCommercePage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className="rounded-xl p-6"
-                style={{ background: '#111113', border: '1px solid #1e1e21' }}
+                style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
               >
-                <h3 className="text-base font-semibold mb-1" style={{ color: '#f0f0f2' }}>
+                <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
                   Informe a URL da sua loja
                 </h3>
-                <p className="text-sm mb-5" style={{ color: '#5a5a64' }}>
+                <p className="text-sm mb-5" style={{ color: 'var(--ur-text-muted)' }}>
                   Esta é a URL da sua loja WooCommerce.
                 </p>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                   URL da loja
                 </label>
                 <input
@@ -386,8 +386,8 @@ export default function WooCommercePage() {
                   placeholder="https://sualoja.com"
                   className={inputClass}
                   style={inputStyle}
-                  onFocus={(e) => { e.target.style.border = '1px solid rgba(212,168,80,0.3)' }}
-                  onBlur={(e) => { e.target.style.border = '1px solid #1a1a1d' }}
+                  onFocus={(e) => { e.target.style.border = '1px solid var(--ur-accent-soft-3)' }}
+                  onBlur={(e) => { e.target.style.border = '1px solid var(--ur-surface-soft)' }}
                 />
                 <button
                   onClick={() => {
@@ -405,7 +405,7 @@ export default function WooCommercePage() {
                   }}
                   disabled={!form.store_url?.trim()}
                   className="mt-4 w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
-                  style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
+                  style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
                 >
                   Avançar →
                 </button>
@@ -420,12 +420,12 @@ export default function WooCommercePage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className="rounded-xl p-6"
-                style={{ background: '#111113', border: '1px solid #1e1e21' }}
+                style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
               >
-                <h3 className="text-base font-semibold mb-1" style={{ color: '#f0f0f2' }}>
+                <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
                   Chaves de API do WooCommerce
                 </h3>
-                <p className="text-sm mb-2" style={{ color: '#5a5a64' }}>
+                <p className="text-sm mb-2" style={{ color: 'var(--ur-text-muted)' }}>
                   Vá em WooCommerce → Configurações → Avançado → API REST para gerar as chaves.
                 </p>
                 <a
@@ -433,14 +433,14 @@ export default function WooCommercePage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs mb-5"
-                  style={{ color: '#d4a850' }}
+                  style={{ color: 'var(--ur-accent)' }}
                 >
                   Abrir configurações da API do WooCommerce <ExternalLink className="w-3 h-3" />
                 </a>
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                       Consumer Key
                     </label>
                     <input
@@ -448,12 +448,12 @@ export default function WooCommercePage() {
                       placeholder="ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                       className={inputClass}
                       style={inputStyle}
-                      onFocus={(e) => { e.target.style.border = '1px solid rgba(212,168,80,0.3)' }}
-                      onBlur={(e) => { e.target.style.border = '1px solid #1a1a1d' }}
+                      onFocus={(e) => { e.target.style.border = '1px solid var(--ur-accent-soft-3)' }}
+                      onBlur={(e) => { e.target.style.border = '1px solid var(--ur-surface-soft)' }}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                       Consumer Secret
                     </label>
                     <input
@@ -462,8 +462,8 @@ export default function WooCommercePage() {
                       placeholder="cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                       className={inputClass}
                       style={inputStyle}
-                      onFocus={(e) => { e.target.style.border = '1px solid rgba(212,168,80,0.3)' }}
-                      onBlur={(e) => { e.target.style.border = '1px solid #1a1a1d' }}
+                      onFocus={(e) => { e.target.style.border = '1px solid var(--ur-accent-soft-3)' }}
+                      onBlur={(e) => { e.target.style.border = '1px solid var(--ur-surface-soft)' }}
                     />
                   </div>
                 </div>
@@ -472,7 +472,7 @@ export default function WooCommercePage() {
                   <button
                     onClick={() => setStep(0)}
                     className="px-4 py-2.5 rounded-lg text-sm font-medium"
-                    style={{ background: '#0a0a0b', border: '1px solid #1e1e21', color: '#8b8b96' }}
+                    style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}
                   >
                     ← Voltar
                   </button>
@@ -480,7 +480,7 @@ export default function WooCommercePage() {
                     onClick={() => setStep(2)}
                     disabled={!form.consumer_key?.trim() || !form.consumer_secret?.trim()}
                     className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
-                    style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
+                    style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
                   >
                     Avançar →
                   </button>
@@ -496,12 +496,12 @@ export default function WooCommercePage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className="rounded-xl p-6"
-                style={{ background: '#111113', border: '1px solid #1e1e21' }}
+                style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
               >
-                <h3 className="text-base font-semibold mb-1" style={{ color: '#f0f0f2' }}>
+                <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
                   Testar conexão
                 </h3>
-                <p className="text-sm mb-5" style={{ color: '#5a5a64' }}>
+                <p className="text-sm mb-5" style={{ color: 'var(--ur-text-muted)' }}>
                   Verifique se as credenciais da API funcionam corretamente.
                 </p>
 
@@ -510,19 +510,19 @@ export default function WooCommercePage() {
                     className="flex items-center gap-3 px-4 py-3 rounded-lg mb-4"
                     style={{
                       background: testResult.success
-                        ? 'rgba(34,197,94,0.08)'
-                        : 'rgba(239,68,68,0.08)',
-                      border: `1px solid ${testResult.success ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                        ? 'var(--ur-success-bg)'
+                        : 'var(--ur-danger-bg)',
+                      border: `1px solid ${testResult.success ? 'var(--ur-success-bg)' : 'var(--ur-danger-bg)'}`,
                     }}
                   >
                     {testResult.success ? (
-                      <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: '#22c55e' }} />
+                      <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: 'var(--ur-success)' }} />
                     ) : (
-                      <XCircle className="w-4 h-4 shrink-0" style={{ color: '#ef4444' }} />
+                      <XCircle className="w-4 h-4 shrink-0" style={{ color: 'var(--ur-danger)' }} />
                     )}
                     <p
                       className="text-sm"
-                      style={{ color: testResult.success ? '#22c55e' : '#ef4444' }}
+                      style={{ color: testResult.success ? 'var(--ur-success)' : 'var(--ur-danger)' }}
                     >
                       {testResult.success
                         ? (testResult.message || `Conectado${(testResult as { store_name?: string }).store_name ? ` a ${(testResult as { store_name?: string }).store_name}` : ''}`)
@@ -535,7 +535,7 @@ export default function WooCommercePage() {
                   <button
                     onClick={() => setStep(1)}
                     className="px-4 py-2.5 rounded-lg text-sm font-medium"
-                    style={{ background: '#0a0a0b', border: '1px solid #1e1e21', color: '#8b8b96' }}
+                    style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}
                   >
                     ← Voltar
                   </button>
@@ -543,7 +543,7 @@ export default function WooCommercePage() {
                     onClick={handleTest}
                     disabled={testing}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium disabled:opacity-60 transition-all"
-                    style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
+                    style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
                   >
                     {testing ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -564,12 +564,12 @@ export default function WooCommercePage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 className="rounded-xl p-6"
-                style={{ background: '#111113', border: '1px solid #1e1e21' }}
+                style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
               >
-                <h3 className="text-base font-semibold mb-1" style={{ color: '#f0f0f2' }}>
+                <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
                   Configurar sincronização
                 </h3>
-                <p className="text-sm mb-5" style={{ color: '#5a5a64' }}>
+                <p className="text-sm mb-5" style={{ color: 'var(--ur-text-muted)' }}>
                   Escolha o que sincronizar e com qual frequência.
                 </p>
 
@@ -587,13 +587,13 @@ export default function WooCommercePage() {
                         checked={form[key as keyof typeof form] as boolean}
                         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.checked }))}
                         className="mt-0.5"
-                        style={{ accentColor: '#d4a850' }}
+                        style={{ accentColor: 'var(--ur-accent)' }}
                       />
                       <div>
-                        <p className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+                        <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
                           {label}
                         </p>
-                        <p className="text-xs" style={{ color: '#5a5a64' }}>
+                        <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                           {desc}
                         </p>
                       </div>
@@ -601,7 +601,7 @@ export default function WooCommercePage() {
                   ))}
 
                   <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                       Intervalo de sincronização automática
                     </label>
                     <select
@@ -613,7 +613,7 @@ export default function WooCommercePage() {
                         }))
                       }
                       className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-                      style={{ background: '#0d0d0f', border: '1px solid #1a1a1d', color: '#f0f0f2' }}
+                      style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)', color: 'var(--ur-text)' }}
                     >
                       <option value={900}>A cada 15 minutos</option>
                       <option value={1800}>A cada 30 minutos</option>
@@ -628,7 +628,7 @@ export default function WooCommercePage() {
                   <button
                     onClick={() => setStep(2)}
                     className="px-4 py-2.5 rounded-lg text-sm font-medium"
-                    style={{ background: '#0a0a0b', border: '1px solid #1e1e21', color: '#8b8b96' }}
+                    style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}
                   >
                     ← Voltar
                   </button>
@@ -636,7 +636,7 @@ export default function WooCommercePage() {
                     onClick={() => saveMutation.mutate(form as WooCommerceConfig)}
                     disabled={saveMutation.isPending}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium disabled:opacity-60 transition-all"
-                    style={{ background: 'linear-gradient(135deg, #d4a850, #c49040)', color: '#0a0a0b' }}
+                    style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
                   >
                     {saveMutation.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -654,18 +654,18 @@ export default function WooCommercePage() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="rounded-xl p-8 text-center"
-                style={{ background: '#111113', border: '1px solid rgba(34,197,94,0.2)' }}
+                style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-success-bg)' }}
               >
                 <div
                   className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                  style={{ background: 'rgba(34,197,94,0.1)' }}
+                  style={{ background: 'var(--ur-success-bg)' }}
                 >
-                  <CheckCircle2 className="w-8 h-8" style={{ color: '#22c55e' }} />
+                  <CheckCircle2 className="w-8 h-8" style={{ color: 'var(--ur-success)' }} />
                 </div>
-                <h3 className="text-lg font-bold mb-2" style={{ color: '#f0f0f2' }}>
+                <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--ur-text)' }}>
                   WooCommerce conectado!
                 </h3>
-                <p className="text-sm" style={{ color: '#8b8b96' }}>
+                <p className="text-sm" style={{ color: 'var(--ur-text-soft)' }}>
                   Sua loja está sincronizando. Produtos e avaliações aparecerão
                   em instantes.
                 </p>

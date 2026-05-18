@@ -13,9 +13,9 @@ export interface IntegrationCardProps {
 const statusConfig = {
   connected: {
     label: 'Conectado',
-    bg: 'rgba(34,197,94,0.1)',
-    color: '#22c55e',
-    border: 'rgba(34,197,94,0.2)',
+    bg: 'var(--ur-success-bg)',
+    color: 'var(--ur-success)',
+    border: 'var(--ur-success-bg)',
     icon: CheckCircle2,
   },
   not_connected: {
@@ -27,9 +27,9 @@ const statusConfig = {
   },
   coming_soon: {
     label: 'Em breve',
-    bg: 'rgba(212,168,80,0.08)',
-    color: '#d4a850',
-    border: 'rgba(212,168,80,0.15)',
+    bg: 'var(--ur-accent-glow)',
+    color: 'var(--ur-accent)',
+    border: 'var(--ur-accent-soft-2)',
     icon: Clock,
   },
 }
@@ -49,8 +49,8 @@ export function IntegrationCard({
     <div
       className="rounded-xl p-5 transition-all duration-150 group relative overflow-hidden"
       style={{
-        background: '#111113',
-        border: '1px solid #1e1e21',
+        background: 'var(--ur-surface)',
+        border: '1px solid var(--ur-border)',
         opacity: status === 'coming_soon' ? 0.7 : 1,
       }}
     >
@@ -59,7 +59,7 @@ export function IntegrationCard({
         <div
           className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
           style={{
-            background: 'radial-gradient(ellipse at 50% 0%, rgba(212,168,80,0.04) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse at 50% 0%, var(--ur-accent-glow) 0%, transparent 70%)',
           }}
         />
       )}
@@ -67,7 +67,7 @@ export function IntegrationCard({
       <div className="relative flex items-start justify-between gap-3 mb-4">
         <div
           className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: '#1a1a1d', border: '1px solid #2a2a2d' }}
+          style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border-strong)' }}
         >
           {logo}
         </div>
@@ -87,25 +87,25 @@ export function IntegrationCard({
 
       <h3
         className="text-sm font-semibold mb-1"
-        style={{ color: '#f0f0f2' }}
+        style={{ color: 'var(--ur-text)' }}
       >
         {name}
       </h3>
-      <p className="text-xs leading-relaxed" style={{ color: '#8b8b96' }}>
+      <p className="text-xs leading-relaxed" style={{ color: 'var(--ur-text-soft)' }}>
         {description}
       </p>
 
       {stats && stats.length > 0 && (
         <div
           className="flex gap-4 mt-4 pt-4"
-          style={{ borderTop: '1px solid #1a1a1d' }}
+          style={{ borderTop: '1px solid var(--ur-surface-soft)' }}
         >
           {stats.map((s) => (
             <div key={s.label}>
-              <p className="text-xs" style={{ color: '#5a5a64' }}>
+              <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                 {s.label}
               </p>
-              <p className="text-sm font-semibold" style={{ color: '#f0f0f2' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
                 {s.value}
               </p>
             </div>
@@ -116,14 +116,14 @@ export function IntegrationCard({
       {status !== 'coming_soon' && (
         <div className="mt-4 flex items-center justify-between">
           <span
-            className="text-xs font-medium transition-colors group-hover:text-[#d4a850]"
-            style={{ color: '#5a5a64' }}
+            className="text-xs font-medium transition-colors group-hover:text-[var(--ur-accent)]"
+            style={{ color: 'var(--ur-text-muted)' }}
           >
             {status === 'connected' ? 'Configurar' : 'Conectar'}
           </span>
           <ArrowRight
-            className="w-3.5 h-3.5 transition-all group-hover:translate-x-0.5 group-hover:text-[#d4a850]"
-            style={{ color: '#3a3a3e' }}
+            className="w-3.5 h-3.5 transition-all group-hover:translate-x-0.5 group-hover:text-[var(--ur-accent)]"
+            style={{ color: 'var(--ur-text-faint)' }}
           />
         </div>
       )}

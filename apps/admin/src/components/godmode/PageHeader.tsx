@@ -27,8 +27,8 @@ export function PageHeader({
       className={cn('relative overflow-hidden', className)}
       style={{
         background:
-          'linear-gradient(180deg, rgba(212,168,80,0.06) 0%, rgba(212,168,80,0.02) 50%, transparent 100%)',
-        borderBottom: '1px solid #1e1e21',
+          'linear-gradient(180deg, var(--ur-accent-glow) 0%, transparent 100%)',
+        borderBottom: '1px solid var(--ur-border)',
       }}
     >
       {/* Ambient glow */}
@@ -36,7 +36,7 @@ export function PageHeader({
         className="absolute top-0 left-0 w-96 h-full pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse at -10% 50%, rgba(212,168,80,0.08) 0%, transparent 60%)',
+            'radial-gradient(ellipse at -10% 50%, var(--ur-accent-glow) 0%, transparent 60%)',
         }}
       />
 
@@ -47,20 +47,26 @@ export function PageHeader({
             {breadcrumbs.map((crumb, i) => (
               <span key={i} className="flex items-center gap-1">
                 {i > 0 && (
-                  <span className="text-xs" style={{ color: '#2e2e32' }}>
+                  <span className="text-xs" style={{ color: 'var(--ur-text-faint)' }}>
                     /
                   </span>
                 )}
                 {crumb.href ? (
                   <a
                     href={crumb.href}
-                    className="text-xs transition-colors hover:text-[#f0f0f2]"
-                    style={{ color: '#5a5a64' }}
+                    className="text-xs transition-colors"
+                    style={{ color: 'var(--ur-text-muted)' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--ur-text)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = 'var(--ur-text-muted)'
+                    }}
                   >
                     {crumb.label}
                   </a>
                 ) : (
-                  <span className="text-xs" style={{ color: '#8b8b96' }}>
+                  <span className="text-xs" style={{ color: 'var(--ur-text-soft)' }}>
                     {crumb.label}
                   </span>
                 )}
@@ -76,23 +82,23 @@ export function PageHeader({
               className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
               style={{
                 background:
-                  'linear-gradient(135deg, rgba(212,168,80,0.2), rgba(212,168,80,0.06))',
-                border: '1px solid rgba(212,168,80,0.2)',
-                boxShadow: '0 0 20px rgba(212,168,80,0.08)',
+                  'linear-gradient(135deg, var(--ur-accent-soft-3), var(--ur-accent-glow))',
+                border: '1px solid var(--ur-accent-soft-3)',
+                boxShadow: '0 0 20px var(--ur-accent-glow)',
               }}
             >
-              <span style={{ color: '#d4a850' }}>{icon}</span>
+              <span style={{ color: 'var(--ur-accent)' }}>{icon}</span>
             </div>
 
             <div>
               <h1
                 className="text-xl font-bold tracking-tight leading-none"
-                style={{ color: '#f0f0f2' }}
+                style={{ color: 'var(--ur-text)' }}
               >
                 {title}
               </h1>
               {subtitle && (
-                <p className="mt-1 text-sm" style={{ color: '#8b8b96' }}>
+                <p className="mt-1 text-sm" style={{ color: 'var(--ur-text-soft)' }}>
                   {subtitle}
                 </p>
               )}

@@ -25,16 +25,16 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
       onClick={onClick}
       className="rounded-xl p-4 transition-all duration-150 cursor-pointer group relative"
       style={{
-        background: '#111113',
-        border: '1px solid #1e1e21',
+        background: 'var(--ur-surface)',
+        border: '1px solid var(--ur-border)',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.border = '1px solid rgba(212,168,80,0.2)'
-        e.currentTarget.style.background = '#131316'
+        e.currentTarget.style.border = '1px solid var(--ur-accent-soft-3)'
+        e.currentTarget.style.background = 'var(--ur-surface)'
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.border = '1px solid #1e1e21'
-        e.currentTarget.style.background = '#111113'
+        e.currentTarget.style.border = '1px solid var(--ur-border)'
+        e.currentTarget.style.background = 'var(--ur-surface)'
       }}
     >
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -42,7 +42,7 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
           {/* Avatar */}
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ background: 'rgba(212,168,80,0.15)', color: '#d4a850' }}
+            style={{ background: 'var(--ur-accent-soft-2)', color: 'var(--ur-accent)' }}
           >
             {review.author_avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -57,19 +57,19 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium" style={{ color: '#f0f0f2' }}>
+              <span className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
                 {review.author_name}
               </span>
               {review.verified_purchase && (
                 <CheckCircle2
                   className="w-3.5 h-3.5"
-                  style={{ color: '#22c55e' }}
+                  style={{ color: 'var(--ur-success)' }}
                 />
               )}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <RatingStars rating={review.rating} size="xs" />
-              <span className="text-xs" style={{ color: '#5a5a64' }}>
+              <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
                 {format(new Date(review.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
               </span>
             </div>
@@ -80,9 +80,9 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
           <span
             className="text-xs px-2 py-0.5 rounded-full"
             style={{
-              background: '#1a1a1d',
-              color: '#5a5a64',
-              border: '1px solid #2a2a2d',
+              background: 'var(--ur-surface-soft)',
+              color: 'var(--ur-text-muted)',
+              border: '1px solid var(--ur-border-strong)',
             }}
           >
             {sourceLabel[review.source] ?? review.source}
@@ -91,7 +91,7 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
       </div>
 
       {review.product_name && (
-        <p className="text-xs mb-2" style={{ color: '#5a5a64' }}>
+        <p className="text-xs mb-2" style={{ color: 'var(--ur-text-muted)' }}>
           {review.product_name}
         </p>
       )}
@@ -102,32 +102,32 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
         </p>
       )}
 
-      <p className="text-sm leading-relaxed" style={{ color: '#8b8b96' }}>
+      <p className="text-sm leading-relaxed" style={{ color: 'var(--ur-text-soft)' }}>
         {truncate(review.body, 180)}
       </p>
 
       {/* Footer */}
-      <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid #1a1a1d' }}>
+      <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--ur-surface-soft)' }}>
         <div className="flex items-center gap-3">
           {review.media.length > 0 && (
-            <span className="text-xs" style={{ color: '#5a5a64' }}>
+            <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
               {review.media.length} {review.media.length === 1 ? 'mídia' : 'mídias'}
             </span>
           )}
           {review.replies.length > 0 && (
-            <span className="text-xs" style={{ color: '#5a5a64' }}>
+            <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
               {review.replies.length} {review.replies.length === 1 ? 'resposta' : 'respostas'}
             </span>
           )}
           {review.helpful_count > 0 && (
-            <span className="text-xs" style={{ color: '#5a5a64' }}>
+            <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
               {review.helpful_count} {review.helpful_count === 1 ? 'útil' : 'úteis'}
             </span>
           )}
         </div>
         <ExternalLink
           className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ color: '#5a5a64' }}
+          style={{ color: 'var(--ur-text-muted)' }}
         />
       </div>
     </div>

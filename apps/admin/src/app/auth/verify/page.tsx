@@ -29,9 +29,9 @@ export default function VerifyPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center"
-      style={{ background: '#0a0a0b' }}
+      style={{ background: 'var(--ur-bg)' }}
     >
-      <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#d4a850' }} />
+      <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--ur-accent)' }} />
       <Suspense fallback={null}>
         <Redirector />
       </Suspense>

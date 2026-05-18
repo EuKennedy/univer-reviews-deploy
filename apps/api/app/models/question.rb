@@ -3,6 +3,7 @@ class Question < ApplicationRecord
   belongs_to :product, optional: true
   belongs_to :answered_by, class_name: "WorkspaceUser",
              foreign_key: :answered_by_user_id, optional: true
+  belongs_to :question_group, optional: true
 
   STATUSES = %w[pending published rejected].freeze
 

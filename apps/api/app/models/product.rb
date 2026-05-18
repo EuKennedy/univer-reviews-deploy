@@ -3,6 +3,18 @@ class Product < ApplicationRecord
   has_many :reviews,   dependent: :nullify
   has_many :questions, dependent: :nullify
 
+  has_many :question_group_products, dependent: :destroy
+  has_many :question_groups, through: :question_group_products
+
+  # Union of questions linked directly to this product OR via any group it belongs to.
+  # Returns an ActiveRecord::Relation scoped to the workspace, deduped.
+  def all_questions
+    direct_ids   = questions.pluck(:id)
+    group_qids   = Question.where(question_group_id: question_groups.select(:id)).pluck(:id)
+    ids          = (direct_ids + group_qids).uniq
+    workspace.questions.where(id: ids)
+  end
+
   validates :title,        presence: true
   validates :workspace_id, presence: true
   validates :platform_product_id,
