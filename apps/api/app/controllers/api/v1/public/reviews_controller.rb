@@ -149,7 +149,8 @@ module Api
           end
 
           product_id = params.require(:product_id)
-          product    = @workspace.products.find(product_id)
+          product    = resolve_product(product_id)
+          raise ActiveRecord::RecordNotFound unless product
 
           review = @workspace.reviews.new(
             product: product,
