@@ -28,6 +28,10 @@ module Api
       # Accepts the raw Ryviu admin payload (POST /ajax/data/load-all-reviews)
       # and maps it onto our review schema. The Ryviu app does not expose a
       # bulk export, so this is how we onboard stores already on Ryviu.
+      #
+      # Pass ?inline=true to run the import synchronously inside the request
+      # instead of enqueuing — useful when diagnosing why a queued job didn't
+      # fire (Sidekiq down, queue misconfigured, etc.).
       def ryviu
         payload = parse_body_as_json
         return unless payload
@@ -38,6 +42,11 @@ module Api
         end
 
         mapped = rows.map { |r| map_ryviu_row(r.is_a?(Hash) ? r.deep_symbolize_keys : {}) }.compact
+
+        if ActiveModel::Type::Boolean.new.cast(params[:inline])
+          render json: run_inline_bulk_import(mapped)
+          return
+        end
 
         import = current_workspace.imports.create!(
           source: "ryviu",
@@ -102,6 +111,58 @@ module Api
       end
 
       private
+
+      # Sync version of BulkImportJob — runs in the HTTP request so the caller
+      # gets the actual per-row outcome (counts + first 20 errors) instead of
+      # an opaque import_id that may never get processed.
+      def run_inline_bulk_import(rows)
+        workspace = current_workspace
+        ws_id     = workspace.id
+        ok        = 0
+        failed    = 0
+        errors    = []
+        has_ai    = ENV["ANTHROPIC_API_KEY"].present? && ENV["ANTHROPIC_API_KEY"] != "SET_ME_LATER"
+
+        # 200-row batches, each in its own transaction so SET LOCAL RLS persists.
+        rows.each_slice(200) do |batch|
+          ActiveRecord::Base.transaction do
+            ActiveRecord::Base.connection.execute(
+              ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", ws_id.to_s])
+            )
+            batch.each do |raw|
+              begin
+                data = raw.with_indifferent_access
+                review = workspace.reviews.new(
+                  rating:              data[:rating].to_i,
+                  title:               data[:title],
+                  body:                data[:body].to_s,
+                  author_name:         data[:author_name].presence || "Anônimo",
+                  author_email:        data[:author_email]&.downcase,
+                  author_country:      data[:author_country],
+                  source:              data[:source] || "api",
+                  status:              %w[pending approved rejected hidden spam].include?(data[:status].to_s) ? data[:status].to_s : "pending",
+                  is_verified_purchase: data[:is_verified_purchase] || false,
+                  language:            data[:language] || workspace.default_locale,
+                  external_id:         data[:external_id],
+                  imported_at:         Time.current
+                )
+                review.created_at = Time.zone.parse(data[:created_at].to_s) rescue nil if data[:created_at].present?
+                if data[:product_handle].present?
+                  review.product = workspace.products.find_by(handle: data[:product_handle])
+                end
+                review.save!
+                ok += 1
+                AiModerateJob.perform_later(review.id) if has_ai && review.status == "pending"
+              rescue => e
+                failed += 1
+                errors << { external_id: data[:external_id], error: "#{e.class}: #{e.message}" } if errors.length < 20
+              end
+            end
+          end
+        end
+
+        { ok: failed.zero?, total: rows.length, synced: ok, failed: failed, errors: errors }
+      end
 
       def map_ryviu_row(row)
         data = row[:data] || {}
