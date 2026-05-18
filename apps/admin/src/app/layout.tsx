@@ -22,6 +22,13 @@ export const metadata: Metadata = {
   },
   description: 'Painel de gestão da equipe UniverReviews',
   robots: { index: false, follow: false },
+  icons: {
+    icon: [
+      { url: '/favicon.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.png',
+    apple: '/favicon.png',
+  },
 }
 
 export default function RootLayout({

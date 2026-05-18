@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { motion } from 'framer-motion'
-import { Mail, Sparkles, Lock, ArrowRight, Loader2, Wand2, Chrome } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Loader2, Wand2, Chrome } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { authClient } from '@/lib/auth-client'
@@ -133,17 +133,16 @@ function LoginContent() {
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-center gap-2 mb-10"
+          className="flex flex-col items-center justify-center gap-2 mb-10"
         >
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-dim))' }}
-          >
-            <Sparkles className="w-4 h-4 text-white" />
-          </div>
-          <span className="text-lg font-semibold" style={{ color: 'var(--ur-text)' }}>
-            UniverReviews
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="UniverReviews"
+            className="h-20 w-auto object-contain"
+            width={120}
+            height={110}
+          />
         </motion.div>
 
         <motion.div

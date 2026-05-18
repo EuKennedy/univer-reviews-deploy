@@ -18,7 +18,6 @@ import {
   CreditCard,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   LogOut,
   Menu,
   X,
@@ -165,15 +164,14 @@ export function Shell({ children, workspace }: ShellProps) {
         className="flex items-center gap-2.5 px-3 py-4 shrink-0"
         style={{ borderBottom: '1px solid var(--ur-border)' }}
       >
-        <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{
-            background:
-              'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-dim))',
-          }}
-        >
-          <Sparkles className="w-3.5 h-3.5 text-white" />
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/favicon.png"
+          alt="UniverReviews"
+          className="w-8 h-8 shrink-0 object-contain"
+          width={32}
+          height={32}
+        />
         {!collapsed && (
           <div className="min-w-0">
             <p
@@ -361,15 +359,14 @@ export function Shell({ children, workspace }: ShellProps) {
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <div className="flex items-center gap-2">
-            <div
-              className="w-6 h-6 rounded-md flex items-center justify-center"
-              style={{
-                background:
-                  'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-dim))',
-              }}
-            >
-              <Sparkles className="w-3 h-3 text-white" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/favicon.png"
+              alt="UniverReviews"
+              className="w-7 h-7 object-contain"
+              width={28}
+              height={28}
+            />
             <span
               className="text-sm font-semibold"
               style={{ color: 'var(--ur-text)' }}
