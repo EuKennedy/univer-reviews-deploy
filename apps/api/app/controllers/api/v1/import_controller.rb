@@ -188,7 +188,10 @@ module Api
           # Pre-set status: respect Ryviu's published flag so historical
           # reviews skip moderation if they were already vetted there.
           status: active ? 'approved' : 'pending',
-          external_id: row[:data_id]&.to_s,
+          # Use Ryviu's per-review key, not data_id (which is the product). Was
+          # the source of a nasty bug: dedup-by-data_id collapsed thousands of
+          # unique reviews into a single row.
+          external_id: "ryviu:#{row[:key] || row[:review_key] || row[:data_id]}",
           created_at: row[:created_at],
         }
       end
