@@ -73,7 +73,68 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
   })
 
   return (
-    <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="max-w-lg space-y-4">
+    <div className="max-w-lg space-y-5">
+      {/* Identidade — Workspace ID copiável para integrações (plugin WP, API, etc) */}
+      <div
+        className="rounded-xl p-4"
+        style={{ background: '#111113', border: '1px solid #1e1e21' }}
+      >
+        <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#5a5a64' }}>
+          Identidade do workspace
+        </h3>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+              Workspace ID <span style={{ color: '#d4a850' }}>(use no plugin WP)</span>
+            </label>
+            <div className="flex gap-2">
+              <code
+                className="flex-1 px-3 py-2 rounded-lg text-xs font-mono select-all break-all"
+                style={{ background: '#0a0a0b', border: '1px solid #1a1a1d', color: '#f0f0f2' }}
+              >
+                {workspace.id}
+              </code>
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(workspace.id)
+                  toast.success('Workspace ID copiado')
+                }}
+                className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
+              >
+                Copiar
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: '#5a5a64' }}>
+              URL da API
+            </label>
+            <div className="flex gap-2">
+              <code
+                className="flex-1 px-3 py-2 rounded-lg text-xs font-mono select-all"
+                style={{ background: '#0a0a0b', border: '1px solid #1a1a1d', color: '#f0f0f2' }}
+              >
+                https://api.univerreviews.com
+              </code>
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText('https://api.univerreviews.com')
+                  toast.success('URL copiada')
+                }}
+                className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                style={{ background: 'rgba(212,168,80,0.1)', border: '1px solid rgba(212,168,80,0.2)', color: '#d4a850' }}
+              >
+                Copiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
       {[
         { label: 'Nome do workspace', key: 'name', placeholder: 'Minha Loja' },
         { label: 'Slug', key: 'slug', placeholder: 'minha-loja' },
@@ -104,7 +165,8 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
         {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
         Salvar alterações
       </button>
-    </form>
+      </form>
+    </div>
   )
 }
 
