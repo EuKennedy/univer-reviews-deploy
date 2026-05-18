@@ -150,13 +150,17 @@ class ApiClient {
 
   // ─── Workspace ──────────────────────────────────────────────────────────────
   workspace = {
-    get: (token: string) => this.request<Workspace>('/workspace', {}, token),
+    // Backend wraps the workspace payload in { data: ... } — unwrap so callers
+    // see a plain Workspace object (fixes settings page reading workspace.domains
+    // as undefined because it was reaching into the envelope).
+    get: (token: string) =>
+      this.request<{ data: Workspace }>('/workspace', {}, token).then(r => r.data),
     update: (data: Partial<Workspace>, token: string) =>
-      this.request<Workspace>(
+      this.request<{ data: Workspace }>(
         '/workspace',
         { method: 'PATCH', body: JSON.stringify(data) },
         token
-      ),
+      ).then(r => r.data),
     stats: (token: string) =>
       this.request<WorkspaceStats>('/workspace/stats', {}, token),
     inviteUser: (email: string, role: string, token: string) =>
