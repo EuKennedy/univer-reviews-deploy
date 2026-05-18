@@ -67,6 +67,8 @@ const i18n: Record<string, Record<string, string>> = {
     review_body_ph: 'Conte sua experiência…',
     submit: 'Enviar avaliação',
     cancel: 'Cancelar',
+    add_photos: 'Adicionar fotos ou vídeo',
+    file_hint: 'Até 5 arquivos · imagem ou vídeo',
     question_ph: 'Sua pergunta',
     sending: 'Enviando…',
     thank_review: 'Obrigado! Sua avaliação foi enviada e está em moderação.',
@@ -118,6 +120,8 @@ const i18n: Record<string, Record<string, string>> = {
     review_body_ph: 'Share your experience…',
     submit: 'Submit review',
     cancel: 'Cancel',
+    add_photos: 'Add photos or video',
+    file_hint: 'Up to 5 files · image or video',
     question_ph: 'Your question',
     sending: 'Sending…',
     thank_review: 'Thank you! Your review was submitted and is in moderation.',
@@ -532,6 +536,15 @@ button { font-family: inherit; cursor: pointer; }
   box-shadow: 0 0 0 3px var(--ur-accent-soft);
 }
 .ur-textarea { min-height: 100px; resize: vertical; }
+
+.ur-file-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px; border: 1px dashed var(--ur-border);
+  border-radius: 8px; cursor: pointer; transition: all 0.15s;
+}
+.ur-file-trigger:hover { border-color: var(--ur-accent); background: var(--ur-surface-soft); }
+.ur-file-cta { font-size: 13px; font-weight: 600; color: var(--ur-accent); }
+.ur-file-hint { font-size: 11px; color: var(--ur-text-muted); }
 
 .ur-rating-picker { display: flex; gap: 4px; margin-bottom: 6px; }
 .ur-rating-picker button {
@@ -1030,6 +1043,15 @@ class UniverReviewsWidget extends HTMLElement {
     <div class="ur-field">
       <textarea class="ur-textarea" name="body" placeholder="${this.t('review_body_ph')}" required minlength="10"></textarea>
     </div>
+    <div class="ur-field">
+      <label class="ur-label">${this.t('add_photos')}</label>
+      <label class="ur-file-trigger">
+        <input type="file" name="media" accept="image/*,video/*" multiple hidden />
+        <span class="ur-file-cta">📎 ${this.t('add_photos')}</span>
+        <span class="ur-file-hint">${this.t('file_hint')}</span>
+      </label>
+      <div class="ur-media-row" data-preview></div>
+    </div>
     <div class="ur-form-actions">
       <button type="button" class="ur-btn" data-action="close-form">${this.t('cancel')}</button>
       <button type="submit" class="ur-btn primary">${this.t('submit')}</button>
@@ -1105,9 +1127,15 @@ class UniverReviewsWidget extends HTMLElement {
       this.render()
     })
 
+    // Form close: only when user clicks the overlay backdrop or the
+    // explicit Cancel button. Star picker / inputs / submit no longer trigger
+    // close because we check data-action instead of tagName.
     root.querySelectorAll('[data-action="close-form"]').forEach(el => {
       el.addEventListener('click', (e) => {
-        if (e.target !== e.currentTarget && (e.target as HTMLElement).tagName !== 'BUTTON') return
+        const target = e.target as HTMLElement
+        const isOverlay = target === el
+        const isCancelBtn = target.dataset?.action === 'close-form'
+        if (!isOverlay && !isCancelBtn) return
         this.showReviewForm = false
         this.render()
       })
@@ -1115,40 +1143,62 @@ class UniverReviewsWidget extends HTMLElement {
 
     const form = root.querySelector<HTMLFormElement>('#ur-form')
     if (form) {
+      // Stop any click inside form from bubbling up to the overlay close handler.
+      form.addEventListener('click', (e) => e.stopPropagation())
+
       const picker = form.querySelector<HTMLElement>('[data-picker="rating"]')
       const ratingInput = form.querySelector<HTMLInputElement>('input[name="rating"]')
       picker?.querySelectorAll<HTMLButtonElement>('button').forEach((btn, idx) => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault()
+          e.stopPropagation()
           const v = idx + 1
           ratingInput!.value = String(v)
           picker.querySelectorAll('button').forEach((b, i) => b.classList.toggle('lit', i < v))
         })
       })
 
+      // Media preview thumbnails as user picks files
+      const fileInput = form.querySelector<HTMLInputElement>('input[name="media"]')
+      const previewRow = form.querySelector<HTMLElement>('[data-preview]')
+      fileInput?.addEventListener('change', () => {
+        if (!previewRow || !fileInput.files) return
+        previewRow.innerHTML = ''
+        Array.from(fileInput.files).forEach((f) => {
+          const url = URL.createObjectURL(f)
+          const isVideo = f.type.startsWith('video/')
+          previewRow.insertAdjacentHTML(
+            'beforeend',
+            isVideo
+              ? `<div class="ur-media-thumb video" style="background:#1f2937"></div>`
+              : `<img class="ur-media-thumb" src="${url}" alt="" />`
+          )
+        })
+      })
+
       form.addEventListener('submit', async (e) => {
         e.preventDefault()
+        const rating = Number(ratingInput?.value || 0)
+        if (rating < 1) { alert(this.t('rating_required')); return }
+
         const fd = new FormData(form)
-        const payload = {
-          product_id: this.productId,
-          rating: Number(fd.get('rating')),
-          title: fd.get('title') || null,
-          body: fd.get('body'),
-          author_name: fd.get('author_name'),
-          author_email: fd.get('author_email'),
+        fd.set('product_id', this.productId)
+        fd.set('rating', String(rating))
+        // Remove the hidden helper field so backend reads the right key
+        fd.delete('media') // re-append below as media[]
+        const files = fileInput?.files
+        if (files && files.length > 0) {
+          Array.from(files).slice(0, 5).forEach(f => fd.append('media[]', f, f.name))
         }
-        if (payload.rating < 1) { alert(this.t('rating_required')); return }
         const r = await fetch(`${this.apiUrl}/api/v1/public/submit`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Univer-Domain': window.location.hostname,
-          },
-          body: JSON.stringify(payload),
+          headers: { 'X-Univer-Domain': window.location.hostname },
+          body: fd,
         })
         if (r.ok) {
           this.formSuccess = this.t('thank_review')
           this.render()
-          setTimeout(() => { this.showReviewForm = false; this.render() }, 2200)
+          setTimeout(() => { this.showReviewForm = false; this.render(); void this.fetchAll() }, 2200)
         } else {
           const err = await r.json().catch(() => ({}))
           alert(err.message || this.t('error'))

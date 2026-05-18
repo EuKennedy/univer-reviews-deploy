@@ -163,6 +163,7 @@ module Api
 
           if review.save
             set_rls_workspace(@workspace.id)
+            attach_media!(review)
             AiModerateJob.perform_later(review.id)
 
             render json: {
@@ -180,6 +181,40 @@ module Api
 
         private
 
+        # Persist uploaded photos / videos onto MinIO via StorageService and
+        # link them to the just-created review. Silently skips failures so a
+        # bad file does not lose the review itself.
+        def attach_media!(review)
+          uploads = Array(params[:media])
+          return if uploads.empty?
+
+          storage = StorageService.new
+          uploads.first(5).each do |file|
+            next unless file.respond_to?(:tempfile) && file.respond_to?(:content_type)
+            kind = file.content_type.to_s.start_with?("video/") ? "video" : "image"
+            next if file.size.to_i > 25 * 1024 * 1024 # 25 MB ceiling
+
+            key = storage.review_media_key(@workspace.id, review.id, file.original_filename)
+            url = storage.upload(
+              key: key,
+              body: file.tempfile,
+              content_type: file.content_type,
+              public: true,
+            )
+
+            ReviewMedium.create!(
+              workspace: @workspace,
+              review: review,
+              type: kind,
+              storage_key: key,
+              url: url,
+              thumb_url: url,
+            )
+          rescue => e
+            Rails.logger.warn("[review-media] upload failed: #{e.class}: #{e.message}")
+          end
+        end
+
         def resolve_workspace
           domain_header = request.headers["X-Univer-Domain"] ||
                           request.headers["Origin"]&.gsub(/https?:\/\//, "")&.split("/")&.first
@@ -189,10 +224,11 @@ module Api
             return
           end
 
-          domain_record = WorkspaceDomain.find_by(domain: domain_header.downcase.strip)
+          domain_record = find_workspace_domain(domain_header)
 
           unless domain_record
-            render json: { error: "workspace_not_found" }, status: :not_found
+            render json: { error: "workspace_not_found", host: domain_header },
+                   status: :not_found
             return
           end
 
@@ -201,6 +237,32 @@ module Api
           raise UnauthorizedError if @workspace.suspended?
 
           set_rls_workspace(@workspace.id)
+        end
+
+        # Look up a workspace domain with progressive fallbacks:
+        #   exact → strip port → strip www. → strip leading subdomains.
+        # Lets a single registered apex (lizzon.com.br) cover staging.lizzon.com.br,
+        # www.lizzon.com.br, etc. without forcing the admin to register every variant.
+        def find_workspace_domain(raw)
+          host = raw.to_s.downcase.strip.sub(/^https?:\/\//, "").split("/").first.to_s
+          host = host.split(":").first # strip port
+
+          candidates = []
+          candidates << host
+          candidates << host.sub(/^www\./, "") if host.start_with?("www.")
+
+          # Walk up subdomains: staging.lizzon.com.br → lizzon.com.br
+          parts = host.split(".")
+          while parts.length > 2
+            parts.shift
+            candidates << parts.join(".")
+          end
+
+          candidates.uniq.each do |c|
+            d = WorkspaceDomain.find_by(domain: c)
+            return d if d
+          end
+          nil
         end
 
         def rate_limited?
