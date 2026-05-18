@@ -89,13 +89,10 @@ function EmptyState() {
             />
           </svg>
           <div>
-            <p
-              className="text-sm font-medium"
-              style={{ color: 'var(--ur-text-soft)' }}
-            >
+            <p className="ur-h3" style={{ color: 'var(--ur-text-secondary)' }}>
               Nenhum resultado encontrado
             </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--ur-text-muted)' }}>
+            <p className="mt-1 ur-caption">
               Tente ajustar os filtros ou a busca
             </p>
           </div>
@@ -161,11 +158,10 @@ export function DataTable<TData>({
                   {header.isPlaceholder ? null : (
                     <div
                       className={cn(
-                        'flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider',
+                        'ur-overline flex items-center gap-1.5',
                         header.column.getCanSort() &&
                           'cursor-pointer select-none transition-colors'
                       )}
-                      style={{ color: 'var(--ur-text-muted)' }}
                       onClick={header.column.getToggleSortingHandler()}
                       onMouseEnter={(e) => {
                         if (header.column.getCanSort()) {
@@ -174,7 +170,7 @@ export function DataTable<TData>({
                       }}
                       onMouseLeave={(e) => {
                         if (header.column.getCanSort()) {
-                          e.currentTarget.style.color = 'var(--ur-text-muted)'
+                          e.currentTarget.style.color = ''
                         }
                       }}
                     >
@@ -183,7 +179,7 @@ export function DataTable<TData>({
                         header.getContext()
                       )}
                       {header.column.getCanSort() && (
-                        <span style={{ color: 'var(--ur-text-faint)' }}>
+                        <span style={{ color: 'var(--ur-text-muted)' }}>
                           {header.column.getIsSorted() === 'asc' ? (
                             <ChevronUp className="w-3 h-3" />
                           ) : header.column.getIsSorted() === 'desc' ? (

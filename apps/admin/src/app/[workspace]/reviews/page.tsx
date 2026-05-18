@@ -169,11 +169,11 @@ export default function ReviewsPage() {
               {getInitials(info.getValue())}
             </div>
             <div>
-              <p className="text-xs font-medium" style={{ color: 'var(--ur-text)' }}>
+              <p className="ur-label" style={{ color: 'var(--ur-text)' }}>
                 {info.getValue()}
               </p>
               {review.verified_purchase && (
-                <p className="text-xs" style={{ color: 'var(--ur-success)' }}>
+                <p className="ur-caption" style={{ color: 'var(--ur-success)' }}>
                   Verificado
                 </p>
               )}
@@ -192,15 +192,13 @@ export default function ReviewsPage() {
     columnHelper.accessor('product_name', {
       header: 'Produto',
       cell: (info) => (
-        <span className="text-xs" style={{ color: 'var(--ur-text-soft)' }}>
-          {info.getValue() ?? '—'}
-        </span>
+        <span className="ur-body-soft">{info.getValue() ?? '—'}</span>
       ),
     }),
     columnHelper.accessor('body', {
       header: 'Avaliação',
       cell: (info) => (
-        <p className="text-xs max-w-xs" style={{ color: 'var(--ur-text-soft)' }}>
+        <p className="ur-body-soft max-w-xs">
           {truncate(info.getValue(), 80)}
         </p>
       ),
@@ -215,11 +213,10 @@ export default function ReviewsPage() {
       header: 'Origem',
       cell: (info) => (
         <span
-          className="text-xs px-2 py-0.5 rounded-full"
+          className="ur-caption px-2 py-0.5 rounded-full"
           style={{
             background: 'var(--ur-surface-soft)',
-            color: 'var(--ur-text-muted)',
-            border: '1px solid var(--ur-border-strong)',
+            border: '1px solid var(--ur-border)',
           }}
         >
           {info.getValue()}
@@ -230,7 +227,7 @@ export default function ReviewsPage() {
     columnHelper.accessor('created_at', {
       header: 'Data',
       cell: (info) => (
-        <span className="text-xs tabular-nums" style={{ color: 'var(--ur-text-muted)' }}>
+        <span className="ur-meta">
           {format(new Date(info.getValue()), "d 'de' MMM, yyyy", { locale: ptBR })}
         </span>
       ),
@@ -355,7 +352,7 @@ export default function ReviewsPage() {
               borderBottom: '1px solid var(--ur-accent-soft-2)',
             }}
           >
-            <span className="text-xs font-medium" style={{ color: 'var(--ur-accent)' }}>
+            <span className="ur-caption" style={{ color: 'var(--ur-accent)' }}>
               {selectedIds.length} selecionadas
             </span>
             <div className="h-3 w-px" style={{ background: 'var(--ur-border-strong)' }} />
@@ -430,7 +427,7 @@ export default function ReviewsPage() {
           </>
         }
         right={
-          <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+          <span className="ur-meta">
             {data?.meta.total_count ?? 0} resultados
           </span>
         }
@@ -494,8 +491,8 @@ export default function ReviewsPage() {
                 <div className="flex items-center gap-2">
                   <Link
                     href={`/${workspace}/reviews/${slidePanel.id}`}
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors"
-                    style={{ color: 'var(--ur-text-soft)', border: '1px solid var(--ur-border)' }}
+                    className="ur-caption flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
+                    style={{ border: '1px solid var(--ur-border)' }}
                   >
                     Página completa <ChevronRight className="w-3 h-3" />
                   </Link>
@@ -520,10 +517,8 @@ export default function ReviewsPage() {
                     {getInitials(slidePanel.author_name)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
-                      {slidePanel.author_name}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+                    <p className="ur-h3">{slidePanel.author_name}</p>
+                    <p className="ur-meta">
                       {slidePanel.author_email ?? '—'} •{' '}
                       {format(new Date(slidePanel.created_at), "d 'de' MMM, yyyy", { locale: ptBR })}
                     </p>
@@ -533,10 +528,10 @@ export default function ReviewsPage() {
                 {/* Product */}
                 {slidePanel.product_name && (
                   <div
-                    className="px-3 py-2 rounded-lg text-xs"
-                    style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
+                    className="px-3 py-2 rounded-lg ur-caption"
+                    style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border-soft)' }}
                   >
-                    <span style={{ color: 'var(--ur-text-muted)' }}>Produto: </span>
+                    <span style={{ color: 'var(--ur-text-soft)' }}>Produto: </span>
                     <span style={{ color: 'var(--ur-text)' }}>{slidePanel.product_name}</span>
                   </div>
                 )}
@@ -544,16 +539,9 @@ export default function ReviewsPage() {
                 {/* Review body */}
                 <div>
                   {slidePanel.title && (
-                    <h3
-                      className="text-sm font-semibold mb-2"
-                      style={{ color: 'var(--ur-text)' }}
-                    >
-                      {slidePanel.title}
-                    </h3>
+                    <h3 className="ur-h3 mb-2">{slidePanel.title}</h3>
                   )}
-                  <p className="text-sm leading-relaxed" style={{ color: 'var(--ur-text-soft)' }}>
-                    {slidePanel.body}
-                  </p>
+                  <p className="ur-body-soft">{slidePanel.body}</p>
                 </div>
 
                 {/* AI Analysis */}
@@ -562,19 +550,12 @@ export default function ReviewsPage() {
                     className="rounded-xl p-4"
                     style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
                   >
-                    <p
-                      className="text-xs font-semibold mb-3 uppercase tracking-wider"
-                      style={{ color: 'var(--ur-text-muted)' }}
-                    >
-                      Análise por IA
-                    </p>
+                    <p className="ur-overline mb-3">Análise por IA</p>
                     <div className="flex items-center gap-4 mb-3">
                       <div>
-                        <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-                          Qualidade
-                        </p>
+                        <p className="ur-caption">Qualidade</p>
                         <p
-                          className="text-lg font-bold"
+                          className="text-lg font-bold tracking-tight"
                           style={{
                             color:
                               slidePanel.ai_analysis.quality_score >= 70
@@ -585,25 +566,19 @@ export default function ReviewsPage() {
                           }}
                         >
                           {slidePanel.ai_analysis.quality_score}
-                          <span className="text-xs font-normal ml-0.5" style={{ color: 'var(--ur-text-muted)' }}>
-                            /100
-                          </span>
+                          <span className="ur-meta ml-0.5">/100</span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-                          Sentimento
-                        </p>
-                        <p className="text-sm font-medium capitalize" style={{ color: 'var(--ur-text)' }}>
+                        <p className="ur-caption">Sentimento</p>
+                        <p className="ur-label capitalize">
                           {slidePanel.ai_analysis.sentiment}
                         </p>
                       </div>
                       {slidePanel.ai_analysis.is_synthetic && (
                         <div>
-                          <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-                            Sintético
-                          </p>
-                          <p className="text-sm font-medium" style={{ color: 'var(--ur-danger)' }}>
+                          <p className="ur-caption">Sintético</p>
+                          <p className="ur-label" style={{ color: 'var(--ur-danger)' }}>
                             {Math.round(slidePanel.ai_analysis.synthetic_confidence * 100)}%
                           </p>
                         </div>
@@ -614,7 +589,7 @@ export default function ReviewsPage() {
                         {slidePanel.ai_analysis.topics.map((t) => (
                           <span
                             key={t}
-                            className="text-xs px-2 py-0.5 rounded-full"
+                            className="ur-caption px-2 py-0.5 rounded-full"
                             style={{
                               background: 'var(--ur-accent-glow)',
                               border: '1px solid var(--ur-accent-soft-2)',
@@ -632,24 +607,19 @@ export default function ReviewsPage() {
                 {/* Replies */}
                 {slidePanel.replies.length > 0 && (
                   <div>
-                    <p
-                      className="text-xs font-semibold mb-2 uppercase tracking-wider"
-                      style={{ color: 'var(--ur-text-muted)' }}
-                    >
-                      Respostas
-                    </p>
+                    <p className="ur-overline mb-2">Respostas</p>
                     <div className="space-y-2">
                       {slidePanel.replies.map((reply) => (
                         <div
                           key={reply.id}
-                          className="px-3 py-2 rounded-lg text-xs"
-                          style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
+                          className="px-3 py-2 rounded-lg"
+                          style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border-soft)' }}
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <span style={{ color: 'var(--ur-text)' }}>{reply.author}</span>
+                            <span className="ur-label">{reply.author}</span>
                             {reply.ai_generated && (
                               <span
-                                className="px-1.5 py-0.5 rounded text-xs"
+                                className="px-1.5 py-0.5 rounded ur-caption"
                                 style={{
                                   background: 'var(--ur-accent-glow)',
                                   color: 'var(--ur-accent)',
@@ -659,7 +629,7 @@ export default function ReviewsPage() {
                               </span>
                             )}
                           </div>
-                          <p style={{ color: 'var(--ur-text-soft)' }}>{reply.body}</p>
+                          <p className="ur-body-soft">{reply.body}</p>
                         </div>
                       ))}
                     </div>

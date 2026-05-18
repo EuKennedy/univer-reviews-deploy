@@ -41,8 +41,8 @@ export function SearchInput({
   return (
     <div className={cn('relative', className)}>
       <svg
-        className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
-        style={{ color: 'var(--ur-text-muted)' }}
+        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+        style={{ color: 'var(--ur-text-soft)' }}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -56,7 +56,7 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="pl-9 pr-3 py-1.5 text-sm rounded-lg outline-none transition-all duration-150 w-56"
+        className="pl-9 pr-3 py-2 text-sm font-medium rounded-lg outline-none transition-all duration-150 w-64"
         style={{
           background: 'var(--ur-bg)',
           border: '1px solid var(--ur-border)',
@@ -95,13 +95,13 @@ export function FilterSelect({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={cn(
-        'px-3 py-1.5 text-sm rounded-lg outline-none transition-all duration-150 cursor-pointer',
+        'px-3 py-2 text-sm font-medium rounded-lg outline-none transition-all duration-150 cursor-pointer',
         className
       )}
       style={{
         background: 'var(--ur-bg)',
         border: '1px solid var(--ur-border)',
-        color: value ? 'var(--ur-text)' : 'var(--ur-text-muted)',
+        color: value ? 'var(--ur-text)' : 'var(--ur-text-soft)',
         appearance: 'none',
         paddingRight: '2rem',
         backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
@@ -138,7 +138,7 @@ export function ActionButton({
     default: {
       background: 'var(--ur-bg)',
       border: '1px solid var(--ur-border)',
-      color: 'var(--ur-text-soft)',
+      color: 'var(--ur-text-secondary)',
     },
     primary: {
       background:
@@ -154,7 +154,7 @@ export function ActionButton({
     ghost: {
       background: 'transparent',
       border: '1px solid transparent',
-      color: 'var(--ur-text-soft)',
+      color: 'var(--ur-text-secondary)',
     },
   }
 
@@ -163,7 +163,7 @@ export function ActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed',
+        'flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed',
         className
       )}
       style={styles[variant]}

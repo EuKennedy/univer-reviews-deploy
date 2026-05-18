@@ -40,7 +40,7 @@ const columns = [
             <Package className="w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
           </div>
         )}
-        <span className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
+        <span className="ur-label" style={{ color: 'var(--ur-text)' }}>
           {info.getValue()}
         </span>
       </div>
@@ -49,7 +49,7 @@ const columns = [
   col.accessor('review_count', {
     header: 'Avaliações',
     cell: (info) => (
-      <span className="text-sm tabular-nums" style={{ color: 'var(--ur-text)' }}>
+      <span className="ur-body tabular-nums">
         {formatNumber(info.getValue())}
       </span>
     ),
@@ -74,7 +74,7 @@ const columns = [
         return <span style={{ color: 'var(--ur-text-muted)' }}>—</span>
       }
       return (
-        <span className="text-sm tabular-nums" style={{ color: 'var(--ur-text-soft)' }}>
+        <span className="ur-body-soft tabular-nums">
           {info.row.original.currency} {num.toFixed(2)}
         </span>
       )
@@ -84,8 +84,8 @@ const columns = [
     header: 'Origem',
     cell: (info) => (
       <span
-        className="text-xs px-2 py-0.5 rounded-full"
-        style={{ background: 'var(--ur-surface-soft)', color: 'var(--ur-text-muted)', border: '1px solid var(--ur-border-strong)' }}
+        className="ur-caption px-2 py-0.5 rounded-full"
+        style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border)' }}
       >
         {info.getValue()}
       </span>
@@ -152,7 +152,7 @@ export default function ProductsPage() {
           <button
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
             style={{
               background: 'var(--ur-accent-soft)',
               border: '1px solid var(--ur-accent-soft-3)',
@@ -180,7 +180,7 @@ export default function ProductsPage() {
           />
         }
         right={
-          <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+          <span className="ur-meta">
             {data?.meta.total_count ?? 0} produtos
           </span>
         }

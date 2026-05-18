@@ -44,11 +44,11 @@ function CustomTooltip({ active, payload, label }: {
   if (!active || !payload?.length) return null
   return (
     <div
-      className="px-3 py-2 rounded-lg text-xs"
+      className="px-3 py-2 rounded-lg"
       style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border-strong)' }}
     >
-      <p style={{ color: 'var(--ur-text-soft)' }}>{label}</p>
-      <p style={{ color: 'var(--ur-accent)' }} className="font-semibold">
+      <p className="ur-meta">{label}</p>
+      <p className="ur-label" style={{ color: 'var(--ur-accent)' }}>
         {payload[0].value} avaliações
       </p>
     </div>
@@ -150,12 +150,8 @@ export default function DashboardPage() {
         >
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
-                Avaliações ao longo do tempo
-              </h3>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--ur-text-muted)' }}>
-                Últimos 30 dias
-              </p>
+              <h3 className="ur-h2">Avaliações ao longo do tempo</h3>
+              <p className="mt-0.5 ur-caption">Últimos 30 dias</p>
             </div>
           </div>
 
@@ -171,12 +167,12 @@ export default function DashboardPage() {
                 <XAxis
                   dataKey="date"
                   tickFormatter={(v) => format(new Date(v), "d 'de' MMM", { locale: ptBR })}
-                  tick={{ fill: 'var(--ur-text-muted)', fontSize: 11 }}
+                  tick={{ fill: 'var(--ur-text-soft)', fontSize: 12, fontWeight: 500 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: 'var(--ur-text-muted)', fontSize: 11 }}
+                  tick={{ fill: 'var(--ur-text-soft)', fontSize: 12, fontWeight: 500 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -199,9 +195,7 @@ export default function DashboardPage() {
           className="rounded-xl p-5"
           style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
         >
-          <h3 className="text-sm font-semibold mb-5" style={{ color: 'var(--ur-text)' }}>
-            Distribuição de notas
-          </h3>
+          <h3 className="ur-h2 mb-5">Distribuição de notas</h3>
 
           {isLoading ? (
             <div className="space-y-3">
@@ -225,10 +219,7 @@ export default function DashboardPage() {
 
                 return (
                   <div key={rating} className="flex items-center gap-2">
-                    <span
-                      className="text-xs w-4 text-right tabular-nums"
-                      style={{ color: 'var(--ur-text-soft)' }}
-                    >
+                    <span className="ur-caption w-4 text-right tabular-nums">
                       {rating}
                     </span>
                     <div
@@ -243,10 +234,7 @@ export default function DashboardPage() {
                         }}
                       />
                     </div>
-                    <span
-                      className="text-xs w-8 text-right tabular-nums"
-                      style={{ color: 'var(--ur-text-muted)' }}
-                    >
+                    <span className="ur-meta w-10 text-right">
                       {pct}%
                     </span>
                   </div>
@@ -293,13 +281,10 @@ export default function DashboardPage() {
             className="flex items-center justify-between px-5 py-4"
             style={{ borderBottom: '1px solid var(--ur-surface-soft)' }}
           >
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
-              Avaliações recentes
-            </h3>
+            <h3 className="ur-h2">Avaliações recentes</h3>
             <Link
               href={`/${workspace}/reviews`}
-              className="flex items-center gap-1 text-xs transition-colors"
-              style={{ color: 'var(--ur-text-muted)' }}
+              className="ur-caption flex items-center gap-1 transition-colors hover:text-[var(--ur-text)]"
             >
               Ver todas <ArrowRight className="w-3 h-3" />
             </Link>
@@ -341,18 +326,12 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span
-                          className="text-xs font-medium truncate"
-                          style={{ color: 'var(--ur-text)' }}
-                        >
+                        <span className="ur-label truncate" style={{ color: 'var(--ur-text)' }}>
                           {review.author_name}
                         </span>
                         <RatingStars rating={review.rating} size="xs" />
                       </div>
-                      <p
-                        className="text-xs truncate"
-                        style={{ color: 'var(--ur-text-muted)' }}
-                      >
+                      <p className="ur-caption truncate">
                         {truncate(review.body, 80)}
                       </p>
                     </div>
@@ -367,9 +346,7 @@ export default function DashboardPage() {
           className="rounded-xl p-5"
           style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
         >
-          <h3 className="text-sm font-semibold mb-4" style={{ color: 'var(--ur-text)' }}>
-            Ações rápidas
-          </h3>
+          <h3 className="ur-h2 mb-4">Ações rápidas</h3>
 
           <div className="space-y-2">
             {[
@@ -414,12 +391,10 @@ export default function DashboardPage() {
               >
                 <span className="text-lg">{qa.icon}</span>
                 <div>
-                  <p className="text-xs font-medium" style={{ color: 'var(--ur-text)' }}>
+                  <p className="ur-label" style={{ color: 'var(--ur-text)' }}>
                     {qa.label}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--ur-text-muted)' }}>
-                    {qa.desc}
-                  </p>
+                  <p className="mt-0.5 ur-caption">{qa.desc}</p>
                 </div>
               </button>
             ))}

@@ -43,30 +43,20 @@ export function PageHeader({
       <div className="relative px-6 py-5">
         {/* Breadcrumb */}
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1 mb-3">
+          <nav className="flex items-center gap-1.5 mb-3">
             {breadcrumbs.map((crumb, i) => (
-              <span key={i} className="flex items-center gap-1">
+              <span key={i} className="flex items-center gap-1.5">
                 {i > 0 && (
-                  <span className="text-xs" style={{ color: 'var(--ur-text-faint)' }}>
+                  <span aria-hidden className="ur-meta" style={{ color: 'var(--ur-text-faint)' }}>
                     /
                   </span>
                 )}
                 {crumb.href ? (
-                  <a
-                    href={crumb.href}
-                    className="text-xs transition-colors"
-                    style={{ color: 'var(--ur-text-muted)' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = 'var(--ur-text)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = 'var(--ur-text-muted)'
-                    }}
-                  >
+                  <a href={crumb.href} className="ur-breadcrumb">
                     {crumb.label}
                   </a>
                 ) : (
-                  <span className="text-xs" style={{ color: 'var(--ur-text-soft)' }}>
+                  <span className="ur-breadcrumb" aria-current="page" style={{ color: 'var(--ur-text)' }}>
                     {crumb.label}
                   </span>
                 )}
@@ -91,17 +81,8 @@ export function PageHeader({
             </div>
 
             <div>
-              <h1
-                className="text-xl font-bold tracking-tight leading-none"
-                style={{ color: 'var(--ur-text)' }}
-              >
-                {title}
-              </h1>
-              {subtitle && (
-                <p className="mt-1 text-sm" style={{ color: 'var(--ur-text-soft)' }}>
-                  {subtitle}
-                </p>
-              )}
+              <h1 className="ur-h1">{title}</h1>
+              {subtitle && <p className="mt-1 ur-body-soft">{subtitle}</p>}
             </div>
           </div>
 

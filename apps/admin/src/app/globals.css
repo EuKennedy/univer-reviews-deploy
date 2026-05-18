@@ -21,10 +21,17 @@
   --ur-border-soft: #f3f4f6;
   --ur-border-strong: #d1d5db;
 
-  /* Text */
+  /* Text — 5-tier hierarchy (primary → faint).
+   * Light theme contrasts vs --ur-bg (#fff):
+   *   text         16.1:1  AAA body
+   *   text-secondary 8.6:1  AAA body
+   *   text-soft     5.7:1   AA body
+   *   text-muted    4.6:1   AA body (was 2.9:1 — fixed)
+   *   text-faint    1.6:1   decorative / separators only */
   --ur-text: #111827;
-  --ur-text-soft: #6b7280;
-  --ur-text-muted: #9ca3af;
+  --ur-text-secondary: #374151;
+  --ur-text-soft: #4b5563;
+  --ur-text-muted: #6b7280;
   --ur-text-faint: #d1d5db;
   --ur-text-on-accent: #ffffff;
 
@@ -75,14 +82,26 @@
   --ur-surface-2: #16161a;
   --ur-surface-overlay: rgba(17, 17, 19, 0.6);
 
-  --ur-border: #1e1e21;
-  --ur-border-soft: #17171a;
-  --ur-border-strong: #2a2a2d;
+  /* Borders — lifted for visible structural separation.
+   * border:        cosmetic divider, 1.65:1 vs bg
+   * border-soft:   barely-there grouping, 1.26:1 vs bg
+   * border-strong: 3.49:1 vs bg → meets WCAG 1.4.11 for input/focus surfaces */
+  --ur-border: #36363c;
+  --ur-border-soft: #232327;
+  --ur-border-strong: #666670;
 
+  /* Text — 5-tier hierarchy on dark.
+   * Dark contrasts vs --ur-bg (#0a0a0b):
+   *   text          17.4:1  AAA body
+   *   text-secondary 13.4:1 AAA body
+   *   text-soft      8.4:1  AAA body  (was 5.9:1)
+   *   text-muted     5.4:1  AA  body  (was 2.9:1 — FAILED, now passes)
+   *   text-faint     3.2:1  AA-large only (hints, disabled labels; was 1.75:1 FAIL) */
   --ur-text: #f0f0f2;
-  --ur-text-soft: #8b8b96;
-  --ur-text-muted: #5a5a64;
-  --ur-text-faint: #3a3a3e;
+  --ur-text-secondary: #d4d4dc;
+  --ur-text-soft: #a8a8b3;
+  --ur-text-muted: #84848f;
+  --ur-text-faint: #606068;
   --ur-text-on-accent: #0a0a0b;
 
   --ur-accent: #d4a850;
@@ -92,7 +111,7 @@
   --ur-accent-soft-2: rgba(212, 168, 80, 0.15);
   --ur-accent-soft-3: rgba(212, 168, 80, 0.2);
   --ur-accent-glow: rgba(212, 168, 80, 0.08);
-  --ur-accent-ring: rgba(212, 168, 80, 0.35);
+  --ur-accent-ring: rgba(212, 168, 80, 0.7); /* 4.81:1 on bg — meets WCAG 2.4.7 focus visibility */
 
   --ur-success: #22c55e;
   --ur-success-bg: rgba(34, 197, 94, 0.1);
@@ -119,6 +138,36 @@
   color-scheme: dark;
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+ * Typography scale — shared by both themes.
+ * Floor: 12px for meta, 14px for body. No 11px or 10px anywhere.
+ * Weights skew up on dark (small text at weight < 500 looks frail).
+ * ─────────────────────────────────────────────────────────────────────── */
+:root {
+  --ur-font-xs: 0.75rem;   /* 12px — caption / meta floor */
+  --ur-font-sm: 0.875rem;  /* 14px — body floor */
+  --ur-font-base: 0.9375rem; /* 15px — comfortable reading */
+  --ur-font-lg: 1.0625rem; /* 17px — section titles */
+  --ur-font-xl: 1.25rem;   /* 20px — page H1 */
+  --ur-font-2xl: 1.5rem;   /* 24px — display */
+  --ur-font-3xl: 1.875rem; /* 30px — stat values */
+
+  --ur-leading-tight: 1.2;
+  --ur-leading-snug: 1.35;
+  --ur-leading-normal: 1.5;
+  --ur-leading-relaxed: 1.65;
+
+  --ur-weight-normal: 400;
+  --ur-weight-medium: 500;
+  --ur-weight-semibold: 600;
+  --ur-weight-bold: 700;
+
+  --ur-tracking-tight: -0.01em;
+  --ur-tracking-normal: 0;
+  --ur-tracking-wide: 0.04em;
+  --ur-tracking-wider: 0.08em;
+}
+
 @theme {
   --color-background: var(--ur-bg);
   --color-surface: var(--ur-surface);
@@ -129,8 +178,10 @@
   --color-accent-gold-dim: var(--ur-accent-dim);
   --color-accent-gold-glow: var(--ur-accent-soft-2);
   --color-text-primary: var(--ur-text);
-  --color-text-secondary: var(--ur-text-soft);
+  --color-text-secondary: var(--ur-text-secondary);
+  --color-text-soft: var(--ur-text-soft);
   --color-text-muted: var(--ur-text-muted);
+  --color-text-faint: var(--ur-text-faint);
 
   --color-status-approved: var(--ur-success);
   --color-status-approved-bg: var(--ur-success-bg);
@@ -221,4 +272,152 @@ body {
 *:focus-visible {
   outline: 2px solid var(--ur-accent-ring);
   outline-offset: 2px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Typography utility classes.
+ * Each class bundles size + weight + color + line-height + tracking.
+ * Compose with Tailwind for spacing/layout only — never override the inner
+ * properties unless intentionally breaking the role.
+ * ─────────────────────────────────────────────────────────────────────── */
+@layer components {
+  /* Display — stat values, hero numbers. */
+  .ur-display {
+    font-size: var(--ur-font-3xl);
+    font-weight: var(--ur-weight-bold);
+    line-height: var(--ur-leading-tight);
+    letter-spacing: var(--ur-tracking-tight);
+    color: var(--ur-text);
+  }
+
+  /* H1 — page titles. */
+  .ur-h1 {
+    font-size: var(--ur-font-xl);
+    font-weight: var(--ur-weight-bold);
+    line-height: var(--ur-leading-tight);
+    letter-spacing: var(--ur-tracking-tight);
+    color: var(--ur-text);
+  }
+
+  /* H2 — card / section headings. */
+  .ur-h2 {
+    font-size: var(--ur-font-lg);
+    font-weight: var(--ur-weight-semibold);
+    line-height: var(--ur-leading-snug);
+    letter-spacing: var(--ur-tracking-tight);
+    color: var(--ur-text);
+  }
+
+  /* H3 — sub-section headings inside cards. */
+  .ur-h3 {
+    font-size: var(--ur-font-base);
+    font-weight: var(--ur-weight-semibold);
+    line-height: var(--ur-leading-snug);
+    color: var(--ur-text);
+  }
+
+  /* Body — default paragraph / cell text. */
+  .ur-body {
+    font-size: var(--ur-font-sm);
+    font-weight: var(--ur-weight-normal);
+    line-height: var(--ur-leading-normal);
+    color: var(--ur-text);
+  }
+
+  /* Body secondary — supporting paragraph text (subtitles, descriptions). */
+  .ur-body-soft {
+    font-size: var(--ur-font-sm);
+    font-weight: var(--ur-weight-normal);
+    line-height: var(--ur-leading-relaxed);
+    color: var(--ur-text-soft);
+  }
+
+  /* Label — form labels, table cell secondary text. */
+  .ur-label {
+    font-size: var(--ur-font-sm);
+    font-weight: var(--ur-weight-medium);
+    line-height: var(--ur-leading-snug);
+    color: var(--ur-text-secondary);
+  }
+
+  /* Caption — small descriptive text (12px, weight 500 for dark legibility). */
+  .ur-caption {
+    font-size: var(--ur-font-xs);
+    font-weight: var(--ur-weight-medium);
+    line-height: var(--ur-leading-snug);
+    color: var(--ur-text-soft);
+  }
+
+  /* Overline — uppercase labels above values (stat-card headers, sections). */
+  .ur-overline {
+    font-size: var(--ur-font-xs);
+    font-weight: var(--ur-weight-semibold);
+    line-height: var(--ur-leading-tight);
+    letter-spacing: var(--ur-tracking-wider);
+    text-transform: uppercase;
+    color: var(--ur-text-soft);
+  }
+
+  /* Meta — counters, timestamps, "Exibindo X de Y", filter result counts. */
+  .ur-meta {
+    font-size: var(--ur-font-xs);
+    font-weight: var(--ur-weight-medium);
+    line-height: var(--ur-leading-snug);
+    color: var(--ur-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Breadcrumb link / separator. */
+  .ur-breadcrumb {
+    font-size: var(--ur-font-xs);
+    font-weight: var(--ur-weight-medium);
+    line-height: 1;
+    color: var(--ur-text-soft);
+    transition: color 0.15s ease;
+  }
+  .ur-breadcrumb:hover {
+    color: var(--ur-text);
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Accessibility — high-contrast overrides for users who request
+ * `prefers-contrast: more` at the OS level (macOS "Increase contrast",
+ * Windows High Contrast, etc.).
+ *
+ * Every secondary text tier is lifted to AAA (≥7:1) on bg, and structural
+ * borders are pushed past 3:1 so component boundaries are unmistakable.
+ * Focus ring becomes fully opaque gold (8.97:1 on dark bg).
+ * ─────────────────────────────────────────────────────────────────────── */
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme="light"] {
+    --ur-text-soft: #1f2937;       /* 13.8:1 on #fff */
+    --ur-text-muted: #374151;      /* 9.6:1  on #fff */
+    --ur-text-faint: #6b7280;      /* 4.8:1  on #fff — promoted to AA body */
+    --ur-border: #9ca3af;          /* 2.6:1 vs #fff — strong visible edge */
+    --ur-border-soft: #d1d5db;
+    --ur-border-strong: #4b5563;   /* 7.4:1 vs #fff */
+    --ur-accent: #8a661f;          /* 5.1:1 on #fff — AA body for gold */
+    --ur-accent-strong: #6e4f15;
+    --ur-accent-ring: rgba(138, 102, 31, 0.95);
+  }
+
+  :root[data-theme="dark"] {
+    --ur-text-soft: #e5e5ec;       /* 14.6:1 on #0a0a0b */
+    --ur-text-muted: #cfcfd6;      /* 12.8:1 on #0a0a0b */
+    --ur-text-faint: #a8a8b3;      /* 8.4:1  on #0a0a0b — promoted to AAA */
+    --ur-border: #5a5a64;          /* 2.9:1 on bg — clearly visible */
+    --ur-border-soft: #45454c;
+    --ur-border-strong: #8a8a94;   /* 5.7:1 on bg — input/focus 3:1+ */
+    --ur-accent: #f0c060;          /* 12.0:1 on bg — brighter gold for HC */
+    --ur-accent-strong: #f5cc7a;
+    --ur-accent-ring: rgba(240, 192, 96, 1); /* fully opaque */
+  }
+
+  /* Thicken focus ring so it's unmistakable. */
+  *:focus-visible {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
 }

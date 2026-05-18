@@ -41,14 +41,9 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
 
       <div className="relative">
         <div className="flex items-center justify-between mb-2">
-          <span
-            className="text-xs font-medium uppercase tracking-wider"
-            style={{ color: 'var(--ur-text-muted)' }}
-          >
-            {stat.label}
-          </span>
+          <span className="ur-overline">{stat.label}</span>
           {stat.icon && (
-            <span style={{ color: 'var(--ur-text-faint)' }}>{stat.icon}</span>
+            <span style={{ color: 'var(--ur-text-muted)' }}>{stat.icon}</span>
           )}
         </div>
 
@@ -60,16 +55,9 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
         ) : (
           <>
             <div className="flex items-baseline gap-1">
-              <span
-                className="text-2xl font-bold tracking-tight"
-                style={{ color: 'var(--ur-text)' }}
-              >
-                {stat.value}
-              </span>
+              <span className="ur-display tabular-nums">{stat.value}</span>
               {stat.suffix && (
-                <span className="text-sm" style={{ color: 'var(--ur-text-soft)' }}>
-                  {stat.suffix}
-                </span>
+                <span className="ur-caption">{stat.suffix}</span>
               )}
             </div>
 
@@ -85,13 +73,13 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
                   <Minus className="w-3 h-3" style={{ color: 'var(--ur-text-muted)' }} />
                 )}
                 <span
-                  className="text-xs font-medium"
+                  className="ur-caption"
                   style={{
                     color: deltaPositive
                       ? 'var(--ur-success)'
                       : deltaNegative
                       ? 'var(--ur-danger)'
-                      : 'var(--ur-text-muted)',
+                      : 'var(--ur-text-soft)',
                   }}
                 >
                   {stat.delta > 0 ? '+' : ''}

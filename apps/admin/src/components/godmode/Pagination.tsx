@@ -27,7 +27,7 @@ export function Pagination({
       className="flex items-center justify-between px-4 py-3"
       style={{ borderTop: '1px solid var(--ur-border)' }}
     >
-      <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+      <span className="ur-meta">
         Exibindo {start}–{end} de {totalCount} resultados
       </span>
 
@@ -43,8 +43,7 @@ export function Pagination({
           p === '…' ? (
             <span
               key={`ellipsis-${i}`}
-              className="w-8 h-7 flex items-center justify-center text-xs"
-              style={{ color: 'var(--ur-text-muted)' }}
+              className="w-8 h-8 flex items-center justify-center ur-meta"
             >
               …
             </span>
