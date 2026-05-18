@@ -8,9 +8,12 @@ module Api
         RATE_LIMIT_SUBMIT = 5 # submissions per IP per hour
 
         # GET /api/v1/public/reviews/:product_id
+        # `:product_id` accepts our internal UUID, the product handle/slug,
+        # OR the storefront's native platform_product_id (e.g. WooCommerce
+        # numeric ID) — covers the three ways shortcode authors might pass it.
         def index
-          product = @workspace.products.find_by!(id: params[:product_id]) rescue
-                    @workspace.products.find_by!(handle: params[:product_id])
+          product = resolve_product(params[:product_id])
+          raise ActiveRecord::RecordNotFound unless product
 
           scope = product.reviews.approved
                          .includes(:review_media, :replies)
@@ -50,7 +53,8 @@ module Api
 
         # GET /api/v1/public/summary/:product_id
         def summary
-          product = @workspace.products.find(params[:product_id])
+          product = resolve_product(params[:product_id])
+          raise ActiveRecord::RecordNotFound unless product
           approved = product.reviews.approved
 
           total = approved.count
@@ -213,6 +217,23 @@ module Api
           rescue => e
             Rails.logger.warn("[review-media] upload failed: #{e.class}: #{e.message}")
           end
+        end
+
+        # Lookup a product by UUID, handle/slug, or platform_product_id.
+        def resolve_product(identifier)
+          ident = identifier.to_s
+          return nil if ident.blank?
+
+          # UUID first (cheapest; only attempts lookup if format matches)
+          if ident.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+            p = @workspace.products.find_by(id: ident)
+            return p if p
+          end
+          # Then handle / slug
+          p = @workspace.products.find_by(handle: ident)
+          return p if p
+          # Finally platform-native id (WC numeric id, Shopify gid, etc.)
+          @workspace.products.find_by(platform_product_id: ident)
         end
 
         def resolve_workspace
