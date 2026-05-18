@@ -367,19 +367,28 @@ function ApiKeysTab() {
   const [showKey, setShowKey] = useState<string | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
-  const { data: apiKeys, isLoading } = useQuery<ApiKey[]>({
+  const { data: apiKeysResp, isLoading } = useQuery({
     queryKey: ['api-keys'],
     queryFn: () => api.workspace.listApiKeys(getToken()),
   })
+  const apiKeys: ApiKey[] = apiKeysResp?.data ?? []
 
   const createMutation = useMutation({
     mutationFn: (name: string) => api.workspace.createApiKey(name, getToken()),
-    onSuccess: () => {
+    onSuccess: (resp) => {
       queryClient.invalidateQueries({ queryKey: ['api-keys'] })
       setNewKeyName('')
-      toast.success('Chave de API criada')
+      // Show the raw key exactly once — backend never returns it again.
+      if (resp?.key) {
+        setShowKey(resp.key)
+      }
+      toast.success('Chave criada — copie agora, não será mostrada de novo')
     },
-    onError: () => toast.error('Falha ao criar chave de API'),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha ao criar chave de API'
+      const issues = (err as { issues?: string[] })?.issues
+      toast.error(issues?.length ? `${msg}: ${issues.join(', ')}` : msg)
+    },
   })
 
   const revokeMutation = useMutation({
@@ -422,6 +431,51 @@ function ApiKeysTab() {
           </button>
         </div>
       </div>
+
+      {/* One-time key reveal */}
+      {showKey && (
+        <div
+          className="rounded-xl p-4"
+          style={{
+            background: 'rgba(212,168,80,0.08)',
+            border: '1px solid rgba(212,168,80,0.3)',
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <Key className="w-4 h-4 mt-0.5 shrink-0" style={{ color: '#d4a850' }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold mb-1" style={{ color: '#d4a850' }}>
+                Copie agora — esta chave não será mostrada de novo
+              </p>
+              <code
+                className="block text-xs font-mono break-all p-2 rounded mt-2"
+                style={{ background: '#0a0a0b', color: '#f0f0f2', border: '1px solid #1a1a1d' }}
+              >
+                {showKey}
+              </code>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(showKey)
+                    toast.success('Chave copiada')
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium"
+                  style={{ background: '#d4a850', color: '#0a0a0b' }}
+                >
+                  Copiar
+                </button>
+                <button
+                  onClick={() => setShowKey(null)}
+                  className="px-3 py-1.5 rounded text-xs font-medium"
+                  style={{ background: '#1a1a1d', color: '#8b8b96', border: '1px solid #2a2a2d' }}
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Key list */}
       <div

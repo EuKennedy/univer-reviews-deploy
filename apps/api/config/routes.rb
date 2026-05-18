@@ -46,7 +46,9 @@ Rails.application.routes.draw do
       resource :workspace, controller: "workspace", only: %i[show update] do
         get :stats
         resources :users, controller: "workspace_users", only: %i[index create update destroy]
-        resources :api_keys, controller: "workspace_api_keys", only: %i[index create destroy]
+        resources :api_keys, controller: "workspace_api_keys", only: %i[index create destroy], path: "api_keys"
+        # Hyphen alias so callers using /api-keys keep working.
+        resources :api_keys, controller: "workspace_api_keys", only: %i[index create destroy], path: "api-keys", as: :api_keys_hyphen
         resources :domains, controller: "workspace_domains", only: %i[index create destroy]
       end
 

@@ -168,15 +168,15 @@ class ApiClient {
     removeUser: (userId: string, token: string) =>
       this.request(`/workspace/users/${userId}`, { method: 'DELETE' }, token),
     createApiKey: (name: string, token: string) =>
-      this.request<ApiKey & { key: string }>(
-        '/workspace/api-keys',
-        { method: 'POST', body: JSON.stringify({ name }) },
+      this.request<{ data: ApiKey; key: string }>(
+        '/workspace/api_keys',
+        { method: 'POST', body: JSON.stringify({ name, scopes: 'read,write' }) },
         token
       ),
     listApiKeys: (token: string) =>
-      this.request<ApiKey[]>('/workspace/api-keys', {}, token),
+      this.request<{ data: ApiKey[] }>('/workspace/api_keys', {}, token),
     revokeApiKey: (keyId: string, token: string) =>
-      this.request(`/workspace/api-keys/${keyId}`, { method: 'DELETE' }, token),
+      this.request(`/workspace/api_keys/${keyId}`, { method: 'DELETE' }, token),
     addDomain: (domain: string, token: string) =>
       this.request<Workspace>(
         '/workspace/domains',
