@@ -77,6 +77,7 @@ Rails.application.routes.draw do
       # Imports
       namespace :import do
         post :bulk
+        post :ryviu
         post :woocommerce
         post :judge_me,   path: "judge-me"
         post :yotpo
