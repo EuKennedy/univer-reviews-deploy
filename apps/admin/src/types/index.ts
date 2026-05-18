@@ -135,6 +135,13 @@ export interface WorkspaceBranding {
   brand_voice: string | null
 }
 
+export interface WorkspaceDomain {
+  id: string
+  domain: string
+  platform: 'woocommerce' | 'shopify' | 'generic'
+  verified: boolean
+}
+
 export interface Workspace {
   id: string
   name: string
@@ -144,7 +151,7 @@ export interface Workspace {
   branding: WorkspaceBranding
   plan: 'free' | 'starter' | 'pro' | 'enterprise'
   users: WorkspaceUser[]
-  domains: string[]
+  domains: WorkspaceDomain[]
   created_at: string
 }
 

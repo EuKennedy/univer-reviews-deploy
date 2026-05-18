@@ -177,15 +177,19 @@ class ApiClient {
       this.request<{ data: ApiKey[] }>('/workspace/api_keys', {}, token),
     revokeApiKey: (keyId: string, token: string) =>
       this.request(`/workspace/api_keys/${keyId}`, { method: 'DELETE' }, token),
-    addDomain: (domain: string, token: string) =>
-      this.request<Workspace>(
+    addDomain: (domain: string, token: string, platform: 'woocommerce' | 'shopify' | 'generic' = 'generic') =>
+      this.request<{ data: { id: string; domain: string; platform: string; verified: boolean } }>(
         '/workspace/domains',
-        { method: 'POST', body: JSON.stringify({ domain }) },
+        { method: 'POST', body: JSON.stringify({ domain, platform }) },
         token
       ),
-    removeDomain: (domain: string, token: string) =>
+    /**
+     * Removes a workspace domain by its row id (preferred). Backend also
+     * accepts the raw domain string as a fallback identifier.
+     */
+    removeDomain: (idOrDomain: string, token: string) =>
       this.request(
-        `/workspace/domains/${encodeURIComponent(domain)}`,
+        `/workspace/domains/${encodeURIComponent(idOrDomain)}`,
         { method: 'DELETE' },
         token
       ),

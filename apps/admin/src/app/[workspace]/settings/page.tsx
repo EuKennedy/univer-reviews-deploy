@@ -632,16 +632,23 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
       setNewDomain('')
       toast.success('Domínio adicionado')
     },
-    onError: () => toast.error('Falha ao adicionar domínio'),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha ao adicionar domínio'
+      const issues = (err as { issues?: string[] })?.issues
+      toast.error(issues?.length ? `${msg}: ${issues.join(', ')}` : msg)
+    },
   })
 
   const removeMutation = useMutation({
-    mutationFn: (domain: string) => api.workspace.removeDomain(domain, getToken()),
+    mutationFn: (idOrDomain: string) => api.workspace.removeDomain(idOrDomain, getToken()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workspace'] })
       toast.success('Domínio removido')
     },
-    onError: () => toast.error('Falha ao remover domínio'),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha ao remover domínio'
+      toast.error(msg)
+    },
   })
 
   return (
@@ -679,28 +686,28 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
       </div>
 
       <div className="space-y-2">
-        {(workspace.domains ?? []).map((domain) => (
+        {(workspace.domains ?? []).map((d) => (
           <div
-            key={domain}
+            key={d.id}
             className="flex items-center gap-3 px-4 py-3 rounded-xl"
             style={{ background: '#111113', border: '1px solid #1e1e21' }}
           >
             <Globe className="w-4 h-4 shrink-0" style={{ color: '#5a5a64' }} />
             <span className="flex-1 text-sm font-mono" style={{ color: '#f0f0f2' }}>
-              {domain}
+              {d.domain}
             </span>
             <span
               className="text-xs px-2 py-0.5 rounded-full"
               style={{
-                background: 'rgba(34,197,94,0.1)',
-                color: '#22c55e',
-                border: '1px solid rgba(34,197,94,0.2)',
+                background: d.verified ? 'rgba(34,197,94,0.1)' : 'rgba(212,168,80,0.1)',
+                color: d.verified ? '#22c55e' : '#d4a850',
+                border: `1px solid ${d.verified ? 'rgba(34,197,94,0.2)' : 'rgba(212,168,80,0.2)'}`,
               }}
             >
-              Ativo
+              {d.verified ? 'Verificado' : 'Pendente'}
             </span>
             <button
-              onClick={() => removeMutation.mutate(domain)}
+              onClick={() => removeMutation.mutate(d.id)}
               className="p-1 rounded transition-colors"
               style={{ color: '#5a5a64' }}
               onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444' }}
