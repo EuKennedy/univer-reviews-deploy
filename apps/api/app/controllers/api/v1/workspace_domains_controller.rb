@@ -8,19 +8,27 @@ module Api
       end
 
       # POST /api/v1/workspace/domains
-      # Accepts either:
-      #   { "domain": "lizzon.com.br", "platform": "generic" }   ← flat
-      #   { "domain": { "domain": "lizzon.com.br", ... } }       ← nested
+      #
+      # Accepts every shape we have ever shipped a client with — backend
+      # never explodes on parameter shape because clients in the wild are
+      # mixed (the admin posts flat, older callers post nested):
+      #
+      #   { "domain": "lizzon.com.br", "platform": "generic" }    ← flat
+      #   { "domain": { "domain": "lizzon.com.br", ... } }        ← nested
+      #   { "host": "lizzon.com.br" }                             ← legacy
       def create
         require_write!
 
-        host, platform, meta = extract_domain_input
+        host = pick_host
         if host.blank?
           render json: { error: "bad_request", message: "domain required" }, status: :bad_request
           return
         end
 
-        # Idempotent — if the same host already exists for THIS workspace, return it.
+        host = normalize_host(host)
+        platform = pick_platform
+
+        # Idempotent for THIS workspace.
         existing = current_workspace.workspace_domains.find_by(domain: host)
         if existing
           render json: { data: serialize_domain(existing) }, status: :ok
@@ -29,8 +37,8 @@ module Api
 
         domain = current_workspace.workspace_domains.new(
           domain: host,
-          platform: platform.presence || "generic",
-          platform_meta: meta || {}
+          platform: platform,
+          platform_meta: {}
         )
 
         if domain.save
@@ -45,6 +53,18 @@ module Api
           render json: { error: "unprocessable_entity", issues: domain.errors.full_messages },
                  status: :unprocessable_entity
         end
+      rescue ActiveRecord::RecordNotUnique => e
+        # Global uniqueness index on workspace_domains.domain — host attached
+        # to another workspace already.
+        Rails.logger.warn("[domains#create] unique violation host=#{host} err=#{e.message}")
+        render json: {
+          error: "conflict",
+          message: "Esse domínio já está vinculado a outro workspace. Remova de lá antes."
+        }, status: :conflict
+      rescue => e
+        Rails.logger.error("[domains#create] #{e.class}: #{e.message}\n#{e.backtrace.first(8).join("\n")}")
+        render json: { error: "server_error", class: e.class.to_s, message: e.message },
+               status: :internal_server_error
       end
 
       # DELETE /api/v1/workspace/domains/:id
@@ -75,24 +95,31 @@ module Api
 
       private
 
-      def extract_domain_input
-        raw_domain = params[:domain]
-        case raw_domain
-        when ActionController::Parameters, Hash
-          permitted = raw_domain.is_a?(ActionController::Parameters) ?
-            raw_domain.permit(:domain, :platform, platform_meta: {}) :
-            ActionController::Parameters.new(raw_domain).permit(:domain, :platform, platform_meta: {})
-          [normalize_host(permitted[:domain]), permitted[:platform], permitted[:platform_meta]]
-        else
-          [normalize_host(raw_domain || params[:host]), params[:platform], params[:platform_meta]]
+      def pick_host
+        raw = params[:domain]
+        return raw if raw.is_a?(String) && raw.present?
+        if raw.respond_to?(:[]) && !raw.is_a?(String)
+          inner = raw[:domain] || raw["domain"]
+          return inner if inner.is_a?(String) && inner.present?
         end
+        params[:host].to_s.presence
+      end
+
+      def pick_platform
+        raw = params[:domain]
+        if raw.respond_to?(:[]) && !raw.is_a?(String)
+          val = raw[:platform] || raw["platform"]
+          return val.to_s if val.present?
+        end
+        v = params[:platform].to_s
+        valid = %w[woocommerce shopify generic]
+        valid.include?(v) ? v : "generic"
       end
 
       def normalize_host(raw)
-        return nil if raw.blank?
         host = raw.to_s.strip.downcase
         host = host.sub(/^https?:\/\//, "").split("/").first.to_s
-        host.split(":").first.presence
+        host.split(":").first.to_s
       end
 
       def serialize_domain(d)
