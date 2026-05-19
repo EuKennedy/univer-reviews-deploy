@@ -18,6 +18,7 @@ import {
   EyeOff,
   Mail,
   Send,
+  Wand2,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -25,15 +26,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PageHeader } from '@/components/godmode/PageHeader'
+import { AppearanceTab } from '@/components/settings/AppearanceTab'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import type { Workspace, ApiKey, UserRole } from '@/types'
 
-type Tab = 'general' | 'branding' | 'team' | 'api-keys' | 'domains' | 'email'
+type Tab = 'general' | 'branding' | 'appearance' | 'team' | 'api-keys' | 'domains' | 'email'
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'general', label: 'Geral', icon: Settings },
   { id: 'branding', label: 'Marca', icon: Palette },
+  { id: 'appearance', label: 'Aparência do Widget', icon: Wand2 },
   { id: 'team', label: 'Time', icon: Users },
   { id: 'email', label: 'Email', icon: Mail },
   { id: 'api-keys', label: 'Chaves de API', icon: Key },
@@ -76,7 +79,7 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
   })
 
   return (
-    <div className="max-w-lg space-y-5">
+    <div className="max-w-lg space-y-5 mx-4 sm:mx-0">
       {/* Identidade — Workspace ID copiável para integrações (plugin WP, API, etc) */}
       <div
         className="rounded-xl p-4"
@@ -87,11 +90,12 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
         </h3>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+            <label htmlFor="settings-workspace-id" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
               Workspace ID <span style={{ color: 'var(--ur-accent)' }}>(use no plugin WP)</span>
             </label>
             <div className="flex gap-2">
               <code
+                id="settings-workspace-id"
                 className="flex-1 px-3 py-2 rounded-lg text-xs font-mono select-all break-all"
                 style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-surface-soft)', color: 'var(--ur-text)' }}
               >
@@ -103,7 +107,8 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
                   await navigator.clipboard.writeText(workspace.id)
                   toast.success('Workspace ID copiado')
                 }}
-                className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                aria-label="Copiar Workspace ID"
+                className="px-3 py-2 rounded-lg text-xs font-medium transition-all min-h-[40px] sm:min-h-0"
                 style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
               >
                 Copiar
@@ -111,11 +116,12 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+            <label htmlFor="settings-api-url" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
               URL da API
             </label>
             <div className="flex gap-2">
               <code
+                id="settings-api-url"
                 className="flex-1 px-3 py-2 rounded-lg text-xs font-mono select-all"
                 style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-surface-soft)', color: 'var(--ur-text)' }}
               >
@@ -127,7 +133,8 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
                   await navigator.clipboard.writeText('https://api.univerreviews.com')
                   toast.success('URL copiada')
                 }}
-                className="px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                aria-label="Copiar URL da API"
+                className="px-3 py-2 rounded-lg text-xs font-medium transition-all min-h-[40px] sm:min-h-0"
                 style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
               >
                 Copiar
@@ -143,21 +150,25 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
         { label: 'Slug', key: 'slug', placeholder: 'minha-loja' },
         { label: 'Idioma padrão', key: 'default_locale', placeholder: 'pt-BR' },
         { label: 'Moeda', key: 'currency', placeholder: 'BRL' },
-      ].map(({ label, key, placeholder }) => (
-        <div key={key}>
-          <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
-            {label}
-          </label>
-          <input
-            {...register(key as 'name' | 'slug' | 'default_locale' | 'currency')}
-            placeholder={placeholder}
-            className={inputClass}
-            style={inputStyle}
-            onFocus={inputFocus}
-            onBlur={inputBlur}
-          />
-        </div>
-      ))}
+      ].map(({ label, key, placeholder }) => {
+        const inputId = `settings-general-${key}`
+        return (
+          <div key={key}>
+            <label htmlFor={inputId} className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+              {label}
+            </label>
+            <input
+              id={inputId}
+              {...register(key as 'name' | 'slug' | 'default_locale' | 'currency')}
+              placeholder={placeholder}
+              className={inputClass}
+              style={inputStyle}
+              onFocus={inputFocus}
+              onBlur={inputBlur}
+            />
+          </div>
+        )
+      })}
 
       <button
         type="submit"
@@ -165,7 +176,12 @@ function GeneralTab({ workspace }: { workspace: Workspace }) {
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
         style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
       >
-        {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+        {mutation.isPending && (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            <span className="sr-only" role="status">Salvando…</span>
+          </>
+        )}
         Salvar alterações
       </button>
       </form>
@@ -198,16 +214,18 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
   ]
 
   return (
-    <div className="max-w-lg space-y-6">
+    <div className="max-w-lg space-y-6 mx-4 sm:mx-0">
       <div>
-        <label className="block text-xs font-medium mb-2" style={{ color: 'var(--ur-text-muted)' }}>
+        <label htmlFor="branding-color-picker" className="block text-xs font-medium mb-2" style={{ color: 'var(--ur-text-muted)' }}>
           Cor da marca
         </label>
         <div className="flex items-center gap-3">
           <input
+            id="branding-color-picker"
             type="color"
             value={brandColor}
             onChange={(e) => setBrandColor(e.target.value)}
+            aria-label="Selecionar cor da marca"
             className="w-12 h-10 rounded-lg cursor-pointer"
             style={{ background: 'none', border: '1px solid var(--ur-surface-soft)', padding: '2px' }}
           />
@@ -215,6 +233,7 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
             value={brandColor}
             onChange={(e) => setBrandColor(e.target.value)}
             placeholder="var(--ur-accent)"
+            aria-label="Valor hexadecimal da cor da marca"
             className={inputClass}
             style={{ ...inputStyle, flex: 1 }}
             onFocus={inputFocus}
@@ -222,40 +241,50 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
           />
         </div>
         <div
+          aria-hidden="true"
           className="mt-2 h-2 rounded-full"
           style={{ background: brandColor, opacity: 0.8 }}
         />
       </div>
 
-      <div>
-        <label className="block text-xs font-medium mb-2" style={{ color: 'var(--ur-text-muted)' }}>
+      <div role="radiogroup" aria-label="Ícone da nota">
+        <span className="block text-xs font-medium mb-2" style={{ color: 'var(--ur-text-muted)' }}>
           Ícone da nota
-        </label>
+        </span>
         <div className="flex gap-2">
-          {icons.map((icon) => (
-            <button
-              key={icon.id}
-              onClick={() => setRatingIcon(icon.id as 'star' | 'heart' | 'flame' | 'thumb' | 'diamond')}
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all"
-              style={{
-                background: ratingIcon === icon.id ? 'var(--ur-accent-soft)' : 'var(--ur-bg-soft)',
-                border: `2px solid ${ratingIcon === icon.id ? 'var(--ur-accent)' : 'var(--ur-surface-soft)'}`,
-              }}
-            >
-              {icon.label}
-            </button>
-          ))}
+          {icons.map((icon) => {
+            const selected = ratingIcon === icon.id
+            return (
+              <button
+                key={icon.id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={`Ícone ${icon.id}`}
+                onClick={() => setRatingIcon(icon.id as 'star' | 'heart' | 'flame' | 'thumb' | 'diamond')}
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-xl transition-all"
+                style={{
+                  background: selected ? 'var(--ur-accent-soft)' : 'var(--ur-bg-soft)',
+                  border: `2px solid ${selected ? 'var(--ur-accent)' : 'var(--ur-surface-soft)'}`,
+                }}
+              >
+                <span aria-hidden="true">{icon.label}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+        <label htmlFor="branding-brand-voice" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
           Tom de marca
         </label>
-        <p className="text-xs mb-2" style={{ color: 'var(--ur-text-faint)' }}>
+        <p id="branding-brand-voice-help" className="text-xs mb-2" style={{ color: 'var(--ur-text-faint)' }}>
           Descreva o tom de voz da sua marca para respostas geradas por IA.
         </p>
         <textarea
+          id="branding-brand-voice"
+          aria-describedby="branding-brand-voice-help"
           value={brandVoice}
           onChange={(e) => setBrandVoice(e.target.value)}
           rows={4}
@@ -268,6 +297,7 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
       </div>
 
       <button
+        type="button"
         onClick={() =>
           mutation.mutate({
             branding: {
@@ -282,7 +312,12 @@ function BrandingTab({ workspace }: { workspace: Workspace }) {
         className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
         style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
       >
-        {mutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+        {mutation.isPending && (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+            <span className="sr-only" role="status">Salvando…</span>
+          </>
+        )}
         Salvar marca
       </button>
     </div>
@@ -318,7 +353,7 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
   }
 
   return (
-    <div className="max-w-lg space-y-5">
+    <div className="max-w-lg space-y-5 mx-4 sm:mx-0">
       {/* Current members */}
       <div
         className="rounded-xl overflow-hidden"
@@ -364,13 +399,16 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
               </span>
               {user.role !== 'owner' && (
                 <button
+                  type="button"
                   onClick={() => removeMutation.mutate(user.id)}
+                  aria-label={`Remover ${user.name} do workspace`}
+                  title={`Remover ${user.name}`}
                   className="p-1 rounded transition-colors ml-1"
                   style={{ color: 'var(--ur-text-muted)' }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ur-danger)' }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ur-text-muted)' }}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -383,20 +421,31 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
         className="rounded-xl p-4"
         style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
       >
-        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--ur-text)' }}>
+        <h3 id="settings-invite-heading" className="text-sm font-semibold mb-3" style={{ color: 'var(--ur-text)' }}>
           Convidar membro do time
         </h3>
         <div className="flex gap-2 mb-2">
-          <input
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="colega@empresa.com"
-            className={inputClass}
-            style={{ ...inputStyle, flex: 1 }}
-            onFocus={inputFocus}
-            onBlur={inputBlur}
-          />
+          <div className="flex-1">
+            <label htmlFor="settings-invite-email" className="sr-only">
+              Email do convidado
+            </label>
+            <input
+              id="settings-invite-email"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="colega@empresa.com"
+              className={inputClass}
+              style={{ ...inputStyle }}
+              onFocus={inputFocus}
+              onBlur={inputBlur}
+            />
+          </div>
+          <label htmlFor="settings-invite-role" className="sr-only">
+            Papel do convidado
+          </label>
           <select
+            id="settings-invite-role"
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value as UserRole)}
             className="px-3 py-2.5 rounded-lg text-sm outline-none"
@@ -412,12 +461,13 @@ function TeamTab({ workspace }: { workspace: Workspace }) {
           </select>
         </div>
         <button
+          type="button"
           onClick={() => mutation.mutate({ email: inviteEmail, role: inviteRole })}
           disabled={!inviteEmail.trim() || mutation.isPending}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
           style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-3.5 h-3.5" aria-hidden="true" />
           Enviar convite
         </button>
       </div>
@@ -479,7 +529,7 @@ function ApiKeysTab() {
   const aiReason = aiHealth?.reason ?? ''
 
   return (
-    <div className="max-w-lg space-y-5" id="api-keys">
+    <div className="max-w-lg space-y-5 mx-4 sm:mx-0" id="api-keys">
       {/* Anthropic / Claude provider status — server-side env var, read-only. */}
       <div
         className="rounded-xl p-4"
@@ -560,22 +610,29 @@ function ApiKeysTab() {
           Criar chave de API
         </h3>
         <div className="flex gap-2">
-          <input
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Nome da chave (ex.: Produção)"
-            className={inputClass}
-            style={{ ...inputStyle, flex: 1 }}
-            onFocus={inputFocus}
-            onBlur={inputBlur}
-          />
+          <div className="flex-1">
+            <label htmlFor="settings-api-key-name" className="sr-only">
+              Nome da nova chave de API
+            </label>
+            <input
+              id="settings-api-key-name"
+              value={newKeyName}
+              onChange={(e) => setNewKeyName(e.target.value)}
+              placeholder="Nome da chave (ex.: Produção)"
+              className={inputClass}
+              style={{ ...inputStyle }}
+              onFocus={inputFocus}
+              onBlur={inputBlur}
+            />
+          </div>
           <button
+            type="button"
             onClick={() => createMutation.mutate(newKeyName)}
             disabled={!newKeyName.trim() || createMutation.isPending}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-40 transition-all whitespace-nowrap"
             style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
             Criar
           </button>
         </div>
@@ -604,16 +661,19 @@ function ApiKeysTab() {
               </code>
               <div className="flex gap-2 mt-3">
                 <button
+                  type="button"
                   onClick={async () => {
                     await navigator.clipboard.writeText(showKey)
                     toast.success('Chave copiada')
                   }}
+                  aria-label="Copiar chave de API recém-criada"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium"
                   style={{ background: 'var(--ur-accent)', color: 'var(--ur-text-on-accent)' }}
                 >
                   Copiar
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowKey(null)}
                   className="px-3 py-1.5 rounded text-xs font-medium"
                   style={{ background: 'var(--ur-surface-soft)', color: 'var(--ur-text-soft)', border: '1px solid var(--ur-border-strong)' }}
@@ -673,30 +733,36 @@ function ApiKeysTab() {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={async () => {
                     await navigator.clipboard.writeText(key.prefix)
                     setCopiedKey(key.id)
                     setTimeout(() => setCopiedKey(null), 2000)
                   }}
+                  aria-label={copiedKey === key.id ? `Chave ${key.name} copiada` : `Copiar prefixo da chave ${key.name}`}
+                  title="Copiar prefixo"
                   className="p-1.5 rounded transition-colors"
                   style={{ color: 'var(--ur-text-muted)' }}
                 >
                   {copiedKey === key.id ? (
-                    <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-success)' }} />
+                    <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-success)' }} aria-hidden="true" />
                   ) : (
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-3.5 h-3.5" aria-hidden="true" />
                   )}
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     if (confirm('Revogar esta chave de API?')) revokeMutation.mutate(key.id)
                   }}
+                  aria-label={`Revogar chave ${key.name}`}
+                  title="Revogar chave"
                   className="p-1.5 rounded transition-colors"
                   style={{ color: 'var(--ur-text-muted)' }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ur-danger)' }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ur-text-muted)' }}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               </div>
             ))}
@@ -739,7 +805,7 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
   })
 
   return (
-    <div className="max-w-lg space-y-5">
+    <div className="max-w-lg space-y-5 mx-4 sm:mx-0">
       <div
         className="rounded-xl p-4"
         style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
@@ -751,22 +817,30 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
           Domínios em que o widget de avaliações pode ser incorporado.
         </p>
         <div className="flex gap-2">
-          <input
-            value={newDomain}
-            onChange={(e) => setNewDomain(e.target.value)}
-            placeholder="https://sualoja.com"
-            className={inputClass}
-            style={{ ...inputStyle, flex: 1 }}
-            onFocus={inputFocus}
-            onBlur={inputBlur}
-          />
+          <div className="flex-1">
+            <label htmlFor="settings-domain-input" className="sr-only">
+              Novo domínio autorizado
+            </label>
+            <input
+              id="settings-domain-input"
+              type="url"
+              value={newDomain}
+              onChange={(e) => setNewDomain(e.target.value)}
+              placeholder="https://sualoja.com"
+              className={inputClass}
+              style={{ ...inputStyle }}
+              onFocus={inputFocus}
+              onBlur={inputBlur}
+            />
+          </div>
           <button
+            type="button"
             onClick={() => addMutation.mutate(newDomain)}
             disabled={!newDomain.trim() || addMutation.isPending}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-40"
             style={{ background: 'var(--ur-accent-soft)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-accent)' }}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
             Adicionar
           </button>
         </div>
@@ -779,7 +853,7 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
             className="flex items-center gap-3 px-4 py-3 rounded-xl"
             style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
           >
-            <Globe className="w-4 h-4 shrink-0" style={{ color: 'var(--ur-text-muted)' }} />
+            <Globe className="w-4 h-4 shrink-0" style={{ color: 'var(--ur-text-muted)' }} aria-hidden="true" />
             <span className="flex-1 text-sm font-mono" style={{ color: 'var(--ur-text)' }}>
               {d.domain}
             </span>
@@ -794,13 +868,16 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
               {d.verified ? 'Verificado' : 'Pendente'}
             </span>
             <button
+              type="button"
               onClick={() => removeMutation.mutate(d.id)}
+              aria-label={`Remover domínio ${d.domain}`}
+              title="Remover domínio"
               className="p-1 rounded transition-colors"
               style={{ color: 'var(--ur-text-muted)' }}
               onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--ur-danger)' }}
               onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--ur-text-muted)' }}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
         ))}
@@ -837,7 +914,7 @@ function EmailTab({ workspace }: { workspace: Workspace }) {
   })
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="max-w-2xl space-y-4 mx-4 sm:mx-0">
       <div
         className="rounded-xl p-5"
         style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
@@ -895,16 +972,19 @@ function EmailTab({ workspace }: { workspace: Workspace }) {
         className="rounded-xl p-5"
         style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
       >
-        <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
+        <label htmlFor="settings-reply-to" className="text-sm font-semibold mb-1 block" style={{ color: 'var(--ur-text)' }}>
           Reply-to padrão
-        </h3>
-        <p className="text-xs mb-3" style={{ color: 'var(--ur-text-muted)' }}>
+        </label>
+        <p id="settings-reply-to-help" className="text-xs mb-3" style={{ color: 'var(--ur-text-muted)' }}>
           Endereço para onde as respostas dos clientes serão direcionadas.
         </p>
         <input
+          id="settings-reply-to"
+          type="email"
           value={replyTo}
           onChange={(e) => setReplyTo(e.target.value)}
           placeholder="suporte@suaempresa.com"
+          aria-describedby="settings-reply-to-help"
           className={inputClass + ' font-mono'}
           style={inputStyle}
           onFocus={inputFocus}
@@ -926,17 +1006,24 @@ function EmailTab({ workspace }: { workspace: Workspace }) {
           Confirme que o seu provedor está aceitando emails de univerreviews.com.
         </p>
         <div className="flex items-center gap-2">
-          <input
-            type="email"
-            value={testEmail}
-            onChange={(e) => setTestEmail(e.target.value)}
-            placeholder="seu@email.com"
-            className={inputClass}
-            style={{ ...inputStyle, flex: 1 }}
-            onFocus={inputFocus}
-            onBlur={inputBlur}
-          />
+          <div className="flex-1">
+            <label htmlFor="settings-test-email" className="sr-only">
+              Email de destino para o teste
+            </label>
+            <input
+              id="settings-test-email"
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="seu@email.com"
+              className={inputClass}
+              style={{ ...inputStyle }}
+              onFocus={inputFocus}
+              onBlur={inputBlur}
+            />
+          </div>
           <button
+            type="button"
             onClick={() => testMut.mutate()}
             disabled={!testEmail.includes('@') || testMut.isPending}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
@@ -946,9 +1033,12 @@ function EmailTab({ workspace }: { workspace: Workspace }) {
             }}
           >
             {testMut.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                <span className="sr-only" role="status">Enviando teste…</span>
+              </>
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4" aria-hidden="true" />
             )}
             Enviar
           </button>
@@ -969,7 +1059,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const hash = window.location.hash.replace('#', '')
-    const validTabs: Tab[] = ['general', 'branding', 'team', 'email', 'api-keys', 'domains']
+    const validTabs: Tab[] = ['general', 'branding', 'appearance', 'team', 'email', 'api-keys', 'domains']
     if (hash && (validTabs as string[]).includes(hash)) {
       setActiveTab(hash as Tab)
     }
@@ -991,6 +1081,7 @@ export default function SettingsPage() {
   const tabContent: Record<Tab, React.ReactNode> = {
     general: <GeneralTab workspace={workspaceData} />,
     branding: <BrandingTab workspace={workspaceData} />,
+    appearance: <AppearanceTab workspace={workspaceData} />,
     team: <TeamTab workspace={workspaceData} />,
     email: <EmailTab workspace={workspaceData} />,
     'api-keys': <ApiKeysTab />,
@@ -1006,30 +1097,68 @@ export default function SettingsPage() {
       />
 
       <div
+        role="tablist"
+        aria-label="Seções de configurações"
         className="flex items-center gap-1 px-5 py-3 overflow-x-auto"
         style={{ borderBottom: '1px solid var(--ur-border)' }}
+        onKeyDown={(e) => {
+          const idx = tabs.findIndex((t) => t.id === activeTab)
+          if (e.key === 'ArrowRight') {
+            e.preventDefault()
+            const next = tabs[(idx + 1) % tabs.length]
+            setActiveTab(next.id)
+            document.getElementById(`settings-tab-${next.id}`)?.focus()
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault()
+            const prev = tabs[(idx - 1 + tabs.length) % tabs.length]
+            setActiveTab(prev.id)
+            document.getElementById(`settings-tab-${prev.id}`)?.focus()
+          } else if (e.key === 'Home') {
+            e.preventDefault()
+            setActiveTab(tabs[0].id)
+            document.getElementById(`settings-tab-${tabs[0].id}`)?.focus()
+          } else if (e.key === 'End') {
+            e.preventDefault()
+            const last = tabs[tabs.length - 1]
+            setActiveTab(last.id)
+            document.getElementById(`settings-tab-${last.id}`)?.focus()
+          }
+        }}
       >
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
-            style={{
-              background: activeTab === tab.id ? 'var(--ur-accent-soft)' : 'transparent',
-              border: `1px solid ${activeTab === tab.id ? 'var(--ur-accent-soft-3)' : 'transparent'}`,
-              color: activeTab === tab.id ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
-            }}
-          >
-            <tab.icon className="w-3.5 h-3.5" />
-            {tab.label}
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          const selected = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              id={`settings-tab-${tab.id}`}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls={`settings-panel-${tab.id}`}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => setActiveTab(tab.id)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
+              style={{
+                background: selected ? 'var(--ur-accent-soft)' : 'transparent',
+                border: `1px solid ${selected ? 'var(--ur-accent-soft-3)' : 'transparent'}`,
+                color: selected ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
+              }}
+            >
+              <tab.icon className="w-3.5 h-3.5" aria-hidden="true" />
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
+            id={`settings-panel-${activeTab}`}
+            role="tabpanel"
+            aria-labelledby={`settings-tab-${activeTab}`}
+            tabIndex={0}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}

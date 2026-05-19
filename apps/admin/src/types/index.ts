@@ -151,6 +151,29 @@ export interface WorkspaceBranding {
   brand_voice: string | null
 }
 
+/**
+ * Storefront `<univer-reviews>` widget customization. The admin "Aparência do
+ * Widget" tab edits these fields and the storefront fetches them via
+ * GET /api/v1/public/widget-config. Per-element HTML attributes always win
+ * over the workspace-level values stored here (precedence:
+ * attribute > workspace setting > built-in default).
+ */
+export type WidgetLayout = 'default' | 'compact' | 'grid' | 'carousel'
+export type WidgetLocale = 'pt-BR' | 'en-US' | 'es-AR'
+export type WidgetStarShape = 'star' | 'heart' | 'flame' | 'thumb' | 'diamond'
+
+export interface WidgetConfig {
+  layout: WidgetLayout
+  locale: WidgetLocale
+  theme_color: string
+  star_color: string
+  star_shape: WidgetStarShape
+  show_qa: boolean
+  show_write_review: boolean
+  per_page: number
+  custom_css: string
+}
+
 export interface WorkspaceDomain {
   id: string
   domain: string
@@ -165,10 +188,29 @@ export interface Workspace {
   default_locale: string
   currency: string
   branding: WorkspaceBranding
+  /** Storefront widget customization. Optional so older payloads still type-check. */
+  widget?: WidgetConfig
   plan: 'free' | 'starter' | 'pro' | 'enterprise'
   users: WorkspaceUser[]
   domains: WorkspaceDomain[]
   created_at: string
+}
+
+/**
+ * Snake-case payload accepted by PATCH /api/v1/workspace for the widget
+ * "Aparência" tab. Sent as flat keys (no `widget:` envelope) because the
+ * Rails controller permits them at the top level of `workspace_params`.
+ */
+export interface WidgetUpdatePayload {
+  brand_color?: string
+  default_locale?: WidgetLocale
+  rating_icon_preset?: WidgetStarShape
+  widget_default_layout?: WidgetLayout
+  widget_star_color?: string
+  widget_show_qa?: boolean
+  widget_show_write_review?: boolean
+  widget_per_page?: number
+  widget_custom_css?: string
 }
 
 export interface WorkspaceStats {

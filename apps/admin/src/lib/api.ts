@@ -125,6 +125,44 @@ class ApiClient {
         { method: 'POST', body: JSON.stringify({ ids, action }) },
         token
       ),
+
+    /**
+     * Stream the reviews matching `filters` as a CSV blob. Bypasses the JSON
+     * request() helper because the backend returns text/csv — we need the raw
+     * Response so we can hand a Blob to the browser for download. Filters
+     * mirror reviews.list (status, rating, source, q, from, to).
+     */
+    exportCsv: async (
+      filters: Pick<ReviewListParams, 'status' | 'rating' | 'source' | 'q' | 'from' | 'to'>,
+      token: string,
+    ): Promise<Blob> => {
+      const search = new URLSearchParams()
+      ;(Object.entries(filters) as Array<[string, string | number | undefined]>).forEach(
+        ([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            search.set(k, String(v))
+          }
+        },
+      )
+      const qs = search.toString()
+      const url = `${this.baseUrl}/api/v1/reviews/export.csv${qs ? `?${qs}` : ''}`
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!res.ok) {
+        const errBody = await res
+          .json()
+          .catch(() => ({ error: 'unknown', message: res.statusText }))
+        throw new ApiError(res.status, errBody.message || errBody.error, errBody.issues)
+      }
+
+      return res.blob()
+    },
   }
 
   // ─── AI ─────────────────────────────────────────────────────────────────────
@@ -237,8 +275,11 @@ class ApiClient {
         { method: 'PATCH', body: JSON.stringify(data) },
         token
       ).then(r => r.data),
+    // Backend wraps stats in { data: ... } just like /workspace — unwrap so
+    // callers read fields off the bare WorkspaceStats object (fixes dashboard
+    // and reviews-page stats cards rendering `undefined`).
     stats: (token: string) =>
-      this.request<WorkspaceStats>('/workspace/stats', {}, token),
+      this.request<{ data: WorkspaceStats }>('/workspace/stats', {}, token).then(r => r.data),
     inviteUser: (email: string, role: string, token: string) =>
       this.request<WorkspaceUser>(
         '/workspace/invitations',

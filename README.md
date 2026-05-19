@@ -1,5 +1,7 @@
 # UniverReviews
 
+[![CI](https://github.com/EuKennedy/univerreviews/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/EuKennedy/univerreviews/actions/workflows/ci.yml)
+
 Plataforma multi-tenant de reviews para e-commerce com IA nativa.
 
 Substitui Ryviu, Judge.me, Yotpo, Loox e similares com paridade de features + IA generativa (moderação, geração, anti-fraude, auto-resposta, tradução) + coleta multicanal (Email, WhatsApp, SMS) + UGC de vídeo via Feedspace.

@@ -57,6 +57,7 @@ export function IntegrationCard({
       {/* Hover glow */}
       {status !== 'coming_soon' && (
         <div
+          aria-hidden="true"
           className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
           style={{
             background: 'radial-gradient(ellipse at 50% 0%, var(--ur-accent-glow) 0%, transparent 70%)',
@@ -68,6 +69,7 @@ export function IntegrationCard({
         <div
           className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border-strong)' }}
+          aria-hidden="true"
         >
           {logo}
         </div>
@@ -80,7 +82,7 @@ export function IntegrationCard({
             border: `1px solid ${sc.border}`,
           }}
         >
-          {Icon && <Icon className="w-3 h-3" />}
+          {Icon && <Icon className="w-3 h-3" aria-hidden="true" />}
           {sc.label}
         </span>
       </div>
@@ -122,6 +124,7 @@ export function IntegrationCard({
             {status === 'connected' ? 'Configurar' : 'Conectar'}
           </span>
           <ArrowRight
+            aria-hidden="true"
             className="w-3.5 h-3.5 transition-all group-hover:translate-x-0.5 group-hover:text-[var(--ur-accent)]"
             style={{ color: 'var(--ur-text-faint)' }}
           />
@@ -131,7 +134,15 @@ export function IntegrationCard({
   )
 
   if (href && status !== 'coming_soon') {
-    return <Link href={href}>{content}</Link>
+    const ariaLabel =
+      status === 'connected'
+        ? `Configurar integração ${name}`
+        : `Conectar integração ${name}`
+    return (
+      <Link href={href} aria-label={ariaLabel}>
+        {content}
+      </Link>
+    )
   }
 
   return content

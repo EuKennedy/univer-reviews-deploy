@@ -43,6 +43,7 @@ import {
 import { Pagination } from '@/components/godmode/Pagination'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import type {
   Campaign,
   CampaignSend,
@@ -206,35 +207,74 @@ export default function CampaignDetailPage() {
       <StatsBar stats={stats} />
 
       <div
+        role="tablist"
+        aria-label="Seções da campanha"
         className="flex items-center gap-1 px-6 pt-3 shrink-0"
         style={{
           borderBottom: '1px solid var(--ur-border)',
           background: 'var(--ur-bg-soft)',
         }}
+        onKeyDown={(e) => {
+          const tabs: Tab[] = ['overview', 'template', 'sends', 'settings']
+          const idx = tabs.indexOf(tab)
+          if (e.key === 'ArrowRight') {
+            e.preventDefault()
+            const next = tabs[(idx + 1) % tabs.length]
+            setTab(next)
+            document.getElementById(`campaign-tab-${next}`)?.focus()
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault()
+            const prev = tabs[(idx - 1 + tabs.length) % tabs.length]
+            setTab(prev)
+            document.getElementById(`campaign-tab-${prev}`)?.focus()
+          } else if (e.key === 'Home') {
+            e.preventDefault()
+            setTab(tabs[0])
+            document.getElementById(`campaign-tab-${tabs[0]}`)?.focus()
+          } else if (e.key === 'End') {
+            e.preventDefault()
+            setTab(tabs[tabs.length - 1])
+            document.getElementById(`campaign-tab-${tabs[tabs.length - 1]}`)?.focus()
+          }
+        }}
       >
         <TabButton
+          id="campaign-tab-overview"
+          panelId="campaign-panel-overview"
           active={tab === 'overview'}
           label="Visão geral"
           onClick={() => setTab('overview')}
         />
         <TabButton
+          id="campaign-tab-template"
+          panelId="campaign-panel-template"
           active={tab === 'template'}
           label="Template"
           onClick={() => setTab('template')}
         />
         <TabButton
+          id="campaign-tab-sends"
+          panelId="campaign-panel-sends"
           active={tab === 'sends'}
           label="Envios"
           onClick={() => setTab('sends')}
         />
         <TabButton
+          id="campaign-tab-settings"
+          panelId="campaign-panel-settings"
           active={tab === 'settings'}
           label="Configurações"
           onClick={() => setTab('settings')}
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div
+        id={`campaign-panel-${tab}`}
+        role="tabpanel"
+        aria-labelledby={`campaign-tab-${tab}`}
+        tabIndex={0}
+        className="flex-1 overflow-y-auto p-6"
+      >
         {tab === 'overview' && <OverviewTab campaign={campaign} />}
         {tab === 'template' && <TemplateTab campaign={campaign} />}
         {tab === 'sends' && <SendsTab campaignId={campaign.id} />}
@@ -252,16 +292,26 @@ export default function CampaignDetailPage() {
 }
 
 function TabButton({
+  id,
+  panelId,
   active,
   label,
   onClick,
 }: {
+  id: string
+  panelId: string
   active: boolean
   label: string
   onClick: () => void
 }) {
   return (
     <button
+      type="button"
+      id={id}
+      role="tab"
+      aria-selected={active}
+      aria-controls={panelId}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className="px-3 py-2 text-xs font-medium transition-all duration-150"
       style={{
@@ -783,6 +833,8 @@ function TestSendModal({
 }) {
   const { getToken } = useAuth()
   const [email, setEmail] = useState('')
+  const titleId = `campaign-test-send-title-${campaign.id}`
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose)
 
   const mut = useMutation({
     mutationFn: () =>
@@ -807,6 +859,10 @@ function TestSendModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="w-full max-w-md rounded-xl p-5"
         style={{
           background: 'var(--ur-surface)',
@@ -815,16 +871,22 @@ function TestSendModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <h3 className="ur-h3">Enviar teste</h3>
+          <h3 id={titleId} className="ur-h3">Enviar teste</h3>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Fechar diálogo"
             className="p-1.5 rounded-md"
             style={{ color: 'var(--ur-text-soft)' }}
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
+        <label htmlFor={`campaign-test-send-email-${campaign.id}`} className="sr-only">
+          Email de destino
+        </label>
         <input
+          id={`campaign-test-send-email-${campaign.id}`}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -843,8 +905,13 @@ function TestSendModal({
             disabled={!email.includes('@') || mut.isPending}
             onClick={() => mut.mutate()}
           >
-            {mut.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            <Send className="w-3.5 h-3.5" />
+            {mut.isPending && (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                <span className="sr-only" role="status">Enviando…</span>
+              </>
+            )}
+            <Send className="w-3.5 h-3.5" aria-hidden="true" />
             Enviar teste
           </ActionButton>
         </div>

@@ -122,6 +122,29 @@ module Api
         render json: { data: serialize_review(@review) }
       end
 
+      # GET /api/v1/reviews/export.csv
+      #
+      # Streams the workspace's reviews as CSV, respecting the same filters as
+      # #index (status, rating, source, q, from, to). Caps at 50k rows so a
+      # rogue export cannot DoS the API. Auth: write scope required so we can
+      # log the action through AuditLog.
+      def export
+        require_write!
+
+        csv = ReviewCsvExporter.new(current_workspace).to_csv(params)
+
+        AuditLog.record(
+          workspace: current_workspace,
+          action: "review.exported_csv",
+          metadata: { filters: params.permit(:status, :rating, :source, :q, :from, :to).to_h, bytes: csv.bytesize },
+          request: request
+        )
+
+        send_data csv,
+                  type: "text/csv; charset=utf-8",
+                  disposition: %(attachment; filename="reviews-#{Date.current}.csv")
+      end
+
       # POST /api/v1/reviews/bulk
       def bulk
         require_write!

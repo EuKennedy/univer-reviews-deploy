@@ -87,7 +87,10 @@ export function PageHeader({
           </div>
 
           {actions && (
-            <div className="flex items-center gap-2 shrink-0">{actions}</div>
+            // flex-wrap + gap-2 on mobile prevents action buttons from
+            // overflowing horizontally on 375px viewports. sm:flex-nowrap
+            // restores the single-line desktop layout.
+            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap shrink-0">{actions}</div>
           )}
         </div>
       </div>

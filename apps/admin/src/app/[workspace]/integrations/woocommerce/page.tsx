@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   RefreshCw,
   Trash2,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -20,6 +21,7 @@ import { ptBR } from 'date-fns/locale'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import type { WooCommerceConfig } from '@/types'
 
 const STEPS = ['URL da loja', 'Chaves de API', 'Teste', 'Configurar', 'Pronto']
@@ -96,6 +98,9 @@ export default function WooCommercePage() {
     success: boolean
     message: string
   } | null>(null)
+  // Disconnect confirmation modal (replaces native confirm() for keyboard
+  // accessibility, focus management, and consistent styling).
+  const [disconnectOpen, setDisconnectOpen] = useState(false)
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['woocommerce-config', workspace],
@@ -287,7 +292,7 @@ export default function WooCommercePage() {
                 <button
                   onClick={() => syncMutation.mutate()}
                   disabled={syncMutation.isPending}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] sm:min-h-0"
                   style={{
                     background: 'var(--ur-accent-soft)',
                     border: '1px solid var(--ur-accent-soft-3)',
@@ -305,7 +310,7 @@ export default function WooCommercePage() {
                   href={config.store_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] sm:min-h-0"
                   style={{
                     background: 'var(--ur-bg)',
                     border: '1px solid var(--ur-border)',
@@ -337,29 +342,34 @@ export default function WooCommercePage() {
                 já importadas serão mantidas.
               </p>
               <button
-                onClick={() => {
-                  if (
-                    confirm(
-                      'Desconectar a integração WooCommerce? Essa ação não pode ser desfeita.'
-                    )
-                  ) {
-                    disconnectMutation.mutate()
-                  }
-                }}
+                type="button"
+                onClick={() => setDisconnectOpen(true)}
                 disabled={disconnectMutation.isPending}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                aria-label="Desconectar integração WooCommerce"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] sm:min-h-0"
                 style={{
                   background: 'var(--ur-danger-bg)',
                   border: '1px solid var(--ur-danger-bg)',
                   color: 'var(--ur-danger)',
                 }}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
                 Desconectar
               </button>
             </div>
           </div>
         </div>
+
+        {disconnectOpen && (
+          <DisconnectConfirmModal
+            onCancel={() => setDisconnectOpen(false)}
+            onConfirm={() => {
+              setDisconnectOpen(false)
+              disconnectMutation.mutate()
+            }}
+            isLoading={disconnectMutation.isPending}
+          />
+        )}
       </div>
     )
   }
@@ -400,10 +410,12 @@ export default function WooCommercePage() {
                 <p className="text-sm mb-5" style={{ color: 'var(--ur-text-muted)' }}>
                   Esta é a URL da sua loja WooCommerce.
                 </p>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+                <label htmlFor="wc-store-url" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                   URL da loja
                 </label>
                 <input
+                  id="wc-store-url"
+                  type="url"
                   {...field('store_url')}
                   placeholder="https://sualoja.com"
                   className={inputClass}
@@ -426,7 +438,7 @@ export default function WooCommercePage() {
                     setStep(1)
                   }}
                   disabled={!form.store_url?.trim()}
-                  className="mt-4 w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
+                  className="mt-4 w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all min-h-[44px] sm:min-h-0"
                   style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
                 >
                   Avançar →
@@ -462,10 +474,11 @@ export default function WooCommercePage() {
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+                    <label htmlFor="wc-consumer-key" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                       Consumer Key
                     </label>
                     <input
+                      id="wc-consumer-key"
                       {...field('consumer_key')}
                       placeholder="ck_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                       className={inputClass}
@@ -475,10 +488,11 @@ export default function WooCommercePage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+                    <label htmlFor="wc-consumer-secret" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                       Consumer Secret
                     </label>
                     <input
+                      id="wc-consumer-secret"
                       type="password"
                       {...field('consumer_secret')}
                       placeholder="cs_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -493,7 +507,7 @@ export default function WooCommercePage() {
                 <div className="flex gap-3 mt-5">
                   <button
                     onClick={() => setStep(0)}
-                    className="px-4 py-2.5 rounded-lg text-sm font-medium"
+                    className="px-4 py-2.5 rounded-lg text-sm font-medium min-h-[44px] sm:min-h-0"
                     style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}
                   >
                     ← Voltar
@@ -501,7 +515,7 @@ export default function WooCommercePage() {
                   <button
                     onClick={() => setStep(2)}
                     disabled={!form.consumer_key?.trim() || !form.consumer_secret?.trim()}
-                    className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
+                    className="flex-1 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all min-h-[44px] sm:min-h-0"
                     style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
                   >
                     Avançar →
@@ -556,7 +570,7 @@ export default function WooCommercePage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setStep(1)}
-                    className="px-4 py-2.5 rounded-lg text-sm font-medium"
+                    className="px-4 py-2.5 rounded-lg text-sm font-medium min-h-[44px] sm:min-h-0"
                     style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}
                   >
                     ← Voltar
@@ -564,7 +578,7 @@ export default function WooCommercePage() {
                   <button
                     onClick={handleTest}
                     disabled={testing}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium disabled:opacity-60 transition-all"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium disabled:opacity-60 transition-all min-h-[44px] sm:min-h-0"
                     style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
                   >
                     {testing ? (
@@ -623,10 +637,11 @@ export default function WooCommercePage() {
                   ))}
 
                   <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
+                    <label htmlFor="wc-sync-interval" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                       Intervalo de sincronização automática
                     </label>
                     <select
+                      id="wc-sync-interval"
                       value={form.auto_sync_interval}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -649,7 +664,7 @@ export default function WooCommercePage() {
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={() => setStep(2)}
-                    className="px-4 py-2.5 rounded-lg text-sm font-medium"
+                    className="px-4 py-2.5 rounded-lg text-sm font-medium min-h-[44px] sm:min-h-0"
                     style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}
                   >
                     ← Voltar
@@ -657,7 +672,7 @@ export default function WooCommercePage() {
                   <button
                     onClick={() => saveMutation.mutate(form as WooCommerceConfig)}
                     disabled={saveMutation.isPending}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium disabled:opacity-60 transition-all"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium disabled:opacity-60 transition-all min-h-[44px] sm:min-h-0"
                     style={{ background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))', color: 'var(--ur-text-on-accent)' }}
                   >
                     {saveMutation.isPending ? (
@@ -694,6 +709,111 @@ export default function WooCommercePage() {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Disconnect confirmation modal ──────────────────────────────────────────
+// Replaces native confirm() — keyboard accessible, focus-trapped, Esc-closable,
+// styled in line with the rest of the admin.
+
+function DisconnectConfirmModal({
+  onCancel,
+  onConfirm,
+  isLoading,
+}: {
+  onCancel: () => void
+  onConfirm: () => void
+  isLoading: boolean
+}) {
+  const titleId = 'wc-disconnect-title'
+  const descId = 'wc-disconnect-desc'
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onCancel)
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'var(--ur-overlay)' }}
+      onClick={onCancel}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descId}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md rounded-xl p-5"
+        style={{
+          background: 'var(--ur-surface)',
+          border: '1px solid var(--ur-border)',
+          boxShadow: 'var(--ur-shadow-lg)',
+        }}
+      >
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle
+              className="w-5 h-5"
+              style={{ color: 'var(--ur-danger)' }}
+              aria-hidden="true"
+            />
+            <h3 id={titleId} className="ur-h3" style={{ color: 'var(--ur-text)' }}>
+              Desconectar WooCommerce?
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Fechar diálogo"
+            className="p-1.5 rounded-md"
+            style={{ color: 'var(--ur-text-soft)' }}
+          >
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+        <p id={descId} className="ur-body-soft mb-5">
+          Isso vai interromper todas as sincronizações automáticas. As avaliações
+          e produtos já importados são preservados. Essa ação não pode ser
+          desfeita — você precisará passar pelo assistente outra vez.
+        </p>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-40"
+            style={{
+              background: 'var(--ur-bg)',
+              border: '1px solid var(--ur-border)',
+              color: 'var(--ur-text-secondary)',
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoading}
+            aria-label="Confirmar desconexão do WooCommerce"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-40"
+            style={{
+              background: 'var(--ur-danger)',
+              border: '1px solid var(--ur-danger)',
+              color: '#fff',
+            }}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                <span className="sr-only" role="status">Desconectando…</span>
+              </>
+            ) : (
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
+            )}
+            Desconectar
+          </button>
         </div>
       </div>
     </div>

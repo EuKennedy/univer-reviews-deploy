@@ -30,6 +30,7 @@ import {
 } from '@/components/godmode/Toolbar'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import type {
   Campaign,
   CampaignStatus,
@@ -364,6 +365,7 @@ function CampaignRow({
 
         <div className="relative shrink-0">
           <button
+            type="button"
             onClick={() => setMenuOpen((v) => !v)}
             className="p-1.5 rounded-md transition-colors"
             style={{ color: 'var(--ur-text-soft)' }}
@@ -373,9 +375,11 @@ function CampaignRow({
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent'
             }}
-            aria-label="Ações"
+            aria-label={`Ações da campanha ${campaign.name}`}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
           >
-            <MoreHorizontal className="w-4 h-4" />
+            <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
           </button>
           {menuOpen && (
             <>
@@ -384,6 +388,8 @@ function CampaignRow({
                 onClick={() => setMenuOpen(false)}
               />
               <div
+                role="menu"
+                aria-label={`Ações da campanha ${campaign.name}`}
                 className="absolute right-0 top-full mt-1 z-20 w-48 rounded-lg overflow-hidden"
                 style={{
                   background: 'var(--ur-surface)',
@@ -392,7 +398,7 @@ function CampaignRow({
                 }}
               >
                 <MenuItem
-                  icon={<Pencil className="w-3.5 h-3.5" />}
+                  icon={<Pencil className="w-3.5 h-3.5" aria-hidden="true" />}
                   label="Editar"
                   onClick={() => {
                     setMenuOpen(false)
@@ -400,7 +406,7 @@ function CampaignRow({
                   }}
                 />
                 <MenuItem
-                  icon={<CopyIcon className="w-3.5 h-3.5" />}
+                  icon={<CopyIcon className="w-3.5 h-3.5" aria-hidden="true" />}
                   label="Duplicar"
                   onClick={() => {
                     setMenuOpen(false)
@@ -409,7 +415,7 @@ function CampaignRow({
                 />
                 {campaign.status === 'active' ? (
                   <MenuItem
-                    icon={<Pause className="w-3.5 h-3.5" />}
+                    icon={<Pause className="w-3.5 h-3.5" aria-hidden="true" />}
                     label="Pausar"
                     onClick={() => {
                       setMenuOpen(false)
@@ -418,7 +424,7 @@ function CampaignRow({
                   />
                 ) : (
                   <MenuItem
-                    icon={<Play className="w-3.5 h-3.5" />}
+                    icon={<Play className="w-3.5 h-3.5" aria-hidden="true" />}
                     label="Ativar"
                     onClick={() => {
                       setMenuOpen(false)
@@ -427,7 +433,7 @@ function CampaignRow({
                   />
                 )}
                 <MenuItem
-                  icon={<Send className="w-3.5 h-3.5" />}
+                  icon={<Send className="w-3.5 h-3.5" aria-hidden="true" />}
                   label="Enviar teste"
                   onClick={() => {
                     setMenuOpen(false)
@@ -435,7 +441,7 @@ function CampaignRow({
                   }}
                 />
                 <MenuItem
-                  icon={<Trash2 className="w-3.5 h-3.5" />}
+                  icon={<Trash2 className="w-3.5 h-3.5" aria-hidden="true" />}
                   label="Excluir"
                   tone="danger"
                   onClick={() => {
@@ -540,6 +546,8 @@ function MenuItem({
   const color = tone === 'danger' ? 'var(--ur-danger)' : 'var(--ur-text)'
   return (
     <button
+      type="button"
+      role="menuitem"
       onClick={onClick}
       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors"
       style={{ color }}
@@ -550,7 +558,7 @@ function MenuItem({
         e.currentTarget.style.background = 'transparent'
       }}
     >
-      <span style={{ color }}>{icon}</span>
+      <span style={{ color }} aria-hidden="true">{icon}</span>
       {label}
     </button>
   )
@@ -603,6 +611,8 @@ function TestSendModal({
 }) {
   const { getToken } = useAuth()
   const [email, setEmail] = useState('')
+  const titleId = `test-send-title-${campaign.id}`
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose)
 
   const mut = useMutation({
     mutationFn: () =>
@@ -627,6 +637,10 @@ function TestSendModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="w-full max-w-md rounded-xl p-5"
         style={{
           background: 'var(--ur-surface)',
@@ -635,20 +649,26 @@ function TestSendModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-3">
-          <h3 className="ur-h3">Enviar teste · {campaign.name}</h3>
+          <h3 id={titleId} className="ur-h3">Enviar teste · {campaign.name}</h3>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Fechar diálogo"
             className="p-1.5 rounded-md"
             style={{ color: 'var(--ur-text-soft)' }}
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
         <p className="ur-body-soft mb-3">
           Envia uma cópia exata desta campanha para o email informado, com dados
           de exemplo nos placeholders.
         </p>
+        <label htmlFor={`test-send-email-${campaign.id}`} className="sr-only">
+          Email de destino
+        </label>
         <input
+          id={`test-send-email-${campaign.id}`}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -667,8 +687,13 @@ function TestSendModal({
             disabled={!email.includes('@') || mut.isPending}
             onClick={() => mut.mutate()}
           >
-            {mut.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            <Send className="w-3.5 h-3.5" />
+            {mut.isPending && (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                <span className="sr-only" role="status">Enviando…</span>
+              </>
+            )}
+            <Send className="w-3.5 h-3.5" aria-hidden="true" />
             Enviar teste
           </ActionButton>
         </div>

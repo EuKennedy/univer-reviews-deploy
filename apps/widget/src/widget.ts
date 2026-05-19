@@ -55,6 +55,33 @@ type SortMode = 'created_at' | 'helpful' | 'rating' | 'oldest'
 type RatingFilter = 0 | 1 | 2 | 3 | 4 | 5
 type MediaFilter = 'all' | 'with_photo' | 'with_video' | 'verified'
 type ActiveTab = 'reviews' | 'qa'
+type StarShape = 'star' | 'heart' | 'flame' | 'thumb' | 'diamond'
+
+interface WidgetConfig {
+  layout?: Layout
+  locale?: string
+  theme_color?: string
+  star_color?: string
+  star_shape?: StarShape
+  show_qa?: boolean
+  show_write_review?: boolean
+  per_page?: number
+  custom_css?: string
+}
+
+// The glyph used for a single star. Exposed as a top-level function so the
+// rating picker (interactive) and the rendered cards (read-only) stay in
+// sync when the workspace switches shapes.
+function starGlyph(shape: StarShape): string {
+  switch (shape) {
+    case 'heart':   return '\u2665'  // ♥
+    case 'flame':   return '\uD83D\uDD25' // 🔥
+    case 'thumb':   return '\uD83D\uDC4D' // 👍
+    case 'diamond': return '\u2666'  // ♦
+    case 'star':
+    default:        return '\u2605'  // ★
+  }
+}
 
 // ─── i18n ────────────────────────────────────────────────────────────────────
 
@@ -215,7 +242,7 @@ function relativeTime(iso: string, locale: string): string {
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 
-const buildCSS = (themeColor: string): string => `
+const buildCSS = (themeColor: string, starColor: string): string => `
 :host {
   --ur-bg: #ffffff;
   --ur-surface: #ffffff;
@@ -225,7 +252,7 @@ const buildCSS = (themeColor: string): string => `
   --ur-text-muted: #9ca3af;
   --ur-border: #e5e7eb;
   --ur-border-soft: #f3f4f6;
-  --ur-star: #fbbf24;
+  --ur-star: ${starColor};
   --ur-star-empty: #e5e7eb;
   --ur-verified: #16a34a;
   --ur-accent: ${themeColor};
@@ -665,8 +692,24 @@ class UniverReviewsWidget extends HTMLElement {
   private layout: Layout = 'default'
   private locale = 'pt-BR'
   private themeColor = '#d4a850'
+  private starColor  = '#fbbf24'
+  private starShape: StarShape = 'star'
   private showWriteReview = true
   private showQa = true
+  private customCss = ''
+
+  // Per-attribute precedence flags — set true the moment the host page
+  // ships an explicit attribute. The remote widget-config is then merged
+  // in only for the keys the page did NOT override (attribute > workspace
+  // setting > built-in default).
+  private attrSet = {
+    layout: false,
+    locale: false,
+    themeColor: false,
+    perPage: false,
+    showQa: false,
+    showWriteReview: false,
+  }
 
   private reviews: Review[] = []
   private summary: ReviewSummary | null = null
@@ -691,6 +734,9 @@ class UniverReviewsWidget extends HTMLElement {
   private showQuestionForm = false
   private formSuccess: string | null = null
 
+  // Cached workspace config so we only fetch once per element instance.
+  private workspaceConfigLoaded = false
+
   constructor() {
     super()
     this.shadow = this.attachShadow({ mode: 'open' })
@@ -711,7 +757,10 @@ class UniverReviewsWidget extends HTMLElement {
   connectedCallback() {
     this.readAttrs()
     this.loadVotes()
-    void this.fetchAll()
+    // Fire workspace config + data fetch in parallel. Config result is
+    // applied before render() inside fetchAll so the storefront ends up
+    // painted exactly once with the merged settings.
+    void this.fetchWorkspaceConfig().then(() => this.fetchAll())
   }
 
   attributeChangedCallback() {
@@ -722,18 +771,68 @@ class UniverReviewsWidget extends HTMLElement {
   private readAttrs() {
     this.productId      = this.getAttribute('product-id') || ''
     this.apiUrl         = this.getAttribute('api-url') || this.apiUrl
-    this.layout         = (this.getAttribute('layout') as Layout) || 'default'
-    this.locale         = this.getAttribute('locale') || 'pt-BR'
-    this.themeColor     = this.getAttribute('theme-color') || '#d4a850'
-    this.showWriteReview = this.getAttribute('show-write-review') !== 'false'
-    this.showQa          = this.getAttribute('show-qa') !== 'false'
+
+    const layoutAttr = this.getAttribute('layout')
+    if (layoutAttr) { this.layout = layoutAttr as Layout; this.attrSet.layout = true }
+
+    const localeAttr = this.getAttribute('locale')
+    if (localeAttr) { this.locale = localeAttr; this.attrSet.locale = true }
+
+    const themeAttr = this.getAttribute('theme-color')
+    if (themeAttr) { this.themeColor = themeAttr; this.attrSet.themeColor = true }
+
+    if (this.hasAttribute('show-write-review')) {
+      this.showWriteReview = this.getAttribute('show-write-review') !== 'false'
+      this.attrSet.showWriteReview = true
+    }
+    if (this.hasAttribute('show-qa')) {
+      this.showQa = this.getAttribute('show-qa') !== 'false'
+      this.attrSet.showQa = true
+    }
     const pp = parseInt(this.getAttribute('per-page') || '', 10)
-    if (pp > 0 && pp <= 100) this.perPage = pp
+    if (pp > 0 && pp <= 100) { this.perPage = pp; this.attrSet.perPage = true }
     this.featuredMode = this.getAttribute('featured') === 'true'
     const lim = parseInt(this.getAttribute('limit') || '', 10)
     if (lim > 0) this.featuredLimit = Math.min(lim, 100)
     const mr = parseInt(this.getAttribute('min-rating') || '', 10)
     if (mr >= 1 && mr <= 5) this.featuredMinRating = mr
+  }
+
+  // Fetch workspace-level customization from the API and merge it into the
+  // current settings, respecting per-attribute precedence: any attribute
+  // the host page set explicitly is preserved; everything else picks up
+  // the workspace value. Theme/star color and custom CSS always come from
+  // the workspace if it provides them (those have no per-element override).
+  private async fetchWorkspaceConfig(): Promise<void> {
+    if (this.workspaceConfigLoaded) return
+    try {
+      const r = await fetch(`${this.apiUrl}/api/v1/public/widget-config`, {
+        headers: { 'X-Univer-Domain': window.location.hostname },
+      })
+      if (!r.ok) { this.workspaceConfigLoaded = true; return }
+      const json = await r.json()
+      const cfg: WidgetConfig = json?.data || {}
+
+      if (!this.attrSet.layout && cfg.layout)         this.layout         = cfg.layout
+      if (!this.attrSet.locale && cfg.locale)         this.locale         = cfg.locale
+      if (!this.attrSet.themeColor && cfg.theme_color) this.themeColor    = cfg.theme_color
+      if (!this.attrSet.showQa && typeof cfg.show_qa === 'boolean')
+        this.showQa = cfg.show_qa
+      if (!this.attrSet.showWriteReview && typeof cfg.show_write_review === 'boolean')
+        this.showWriteReview = cfg.show_write_review
+      if (!this.attrSet.perPage && typeof cfg.per_page === 'number' && cfg.per_page > 0)
+        this.perPage = Math.min(cfg.per_page, 100)
+
+      // Star color / shape and custom CSS are workspace-only — no HTML
+      // attribute precedes them today.
+      if (cfg.star_color) this.starColor = cfg.star_color
+      if (cfg.star_shape) this.starShape = cfg.star_shape
+      if (cfg.custom_css) this.customCss = cfg.custom_css
+    } catch (e) {
+      console.warn('[univer-reviews] widget-config', e instanceof Error ? e.message : 'unknown')
+    } finally {
+      this.workspaceConfigLoaded = true
+    }
   }
 
   private t(key: string): string {
@@ -905,7 +1004,14 @@ class UniverReviewsWidget extends HTMLElement {
 
   // ─── Render entrypoint ──────────────────────────────────────────────────
   private render() {
-    this.shadow.innerHTML = `<style>${buildCSS(this.themeColor)}</style>${this.renderRoot()}`
+    // The custom CSS override is appended *after* the built-in stylesheet
+    // so workspace overrides win cascade-wise without us trying to merge
+    // selectors. We still HTML-escape only the closing-style sequence to
+    // keep the workspace from breaking out of the <style> block.
+    const safeCustom = this.customCss
+      ? `<style data-ur="custom">${this.customCss.replace(/<\/style>/gi, '<\\/style>')}</style>`
+      : ''
+    this.shadow.innerHTML = `<style>${buildCSS(this.themeColor, this.starColor)}</style>${safeCustom}${this.renderRoot()}`
     this.attachEvents()
   }
 
@@ -1033,7 +1139,7 @@ ${items.length === 0
       const active = this.ratingFilter === r
       return `
       <div class="ur-dist-row ${active ? 'active' : ''}" data-rating="${r}">
-        <span class="ur-dist-label">${r}<span class="ur-dist-star">★</span></span>
+        <span class="ur-dist-label">${r}<span class="ur-dist-star">${starGlyph(this.starShape)}</span></span>
         <span class="ur-dist-bar"><span class="ur-dist-fill" style="width:${row.percentage}%"></span></span>
         <span class="ur-dist-count">${row.count}</span>
       </div>`
@@ -1141,9 +1247,10 @@ ${items.length === 0
   private renderStars(rating: number): string {
     const r = Math.max(0, Math.min(5, Number(rating) || 0))
     const full = Math.round(r)
+    const glyph = starGlyph(this.starShape)
     let out = ''
     for (let i = 1; i <= 5; i++) {
-      out += `<span class="ur-star ${i > full ? 'empty' : ''}">★</span>`
+      out += `<span class="ur-star ${i > full ? 'empty' : ''}">${glyph}</span>`
     }
     return out
   }
@@ -1186,7 +1293,7 @@ ${items.length === 0
     <div class="ur-field">
       <label class="ur-label">${this.t('select_rating')}</label>
       <div class="ur-rating-picker" data-picker="rating">
-        ${[1, 2, 3, 4, 5].map(i => `<button type="button" data-rating="${i}">★</button>`).join('')}
+        ${[1, 2, 3, 4, 5].map(i => `<button type="button" data-rating="${i}">${starGlyph(this.starShape)}</button>`).join('')}
       </div>
       <input type="hidden" name="rating" value="0" />
     </div>

@@ -12,13 +12,17 @@ export function ThemeToggle({ className, size = 14 }: ThemeToggleProps) {
   const { theme, toggleTheme } = useTheme()
   const isLight = theme === 'light'
   const Icon = isLight ? Sun : Moon
+  // Announces what the click will *do*, not what it currently is — clearer for SR users.
+  const nextTheme = isLight ? 'escuro' : 'claro'
+  const label = `Mudar para tema ${nextTheme} (atual: ${isLight ? 'claro' : 'escuro'})`
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      title="Alternar tema"
-      aria-label="Alternar tema"
+      title={label}
+      aria-label={label}
+      aria-pressed={!isLight}
       className={className}
       style={{
         width: 28,
@@ -44,7 +48,7 @@ export function ThemeToggle({ className, size = 14 }: ThemeToggleProps) {
         e.currentTarget.style.borderColor = 'var(--ur-border)'
       }}
     >
-      <Icon style={{ width: size, height: size }} />
+      <Icon style={{ width: size, height: size }} aria-hidden="true" />
     </button>
   )
 }

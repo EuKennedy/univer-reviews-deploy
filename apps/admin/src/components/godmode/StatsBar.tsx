@@ -96,7 +96,10 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
 
 export function StatsBar({ stats, isLoading, className }: StatsBarProps) {
   return (
-    <div className={cn('flex gap-3 p-4', className)}>
+    // grid-cols-2 lg:grid-cols-4 — keeps stats cards in a clean 2-up grid on
+    // mobile (375 / 768 px) and expands to a single row on desktop. The
+    // previous `flex gap-3` shrank each card below readable width on phones.
+    <div className={cn('grid grid-cols-2 lg:grid-cols-4 gap-3 p-4', className)}>
       {stats.map((stat, i) => (
         <StatCard key={i} stat={stat} isLoading={isLoading} />
       ))}

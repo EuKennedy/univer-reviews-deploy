@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -155,6 +155,28 @@ export function Shell({ children, workspace }: ShellProps) {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
+  // ── Swipe-to-close for the mobile drawer ────────────────────────────────
+  // Native touch handlers (no gesture library): track the X anchor on
+  // touchstart, watch deltaX on touchmove, close at < -60px which lines up
+  // with iOS / Android dismiss thresholds. Reset on touchend.
+  const touchStartX = useRef<number | null>(null)
+  const handleDrawerTouchStart = (e: React.TouchEvent<HTMLElement>) => {
+    touchStartX.current = e.touches[0]?.clientX ?? null
+  }
+  const handleDrawerTouchMove = (e: React.TouchEvent<HTMLElement>) => {
+    if (touchStartX.current == null) return
+    const x = e.touches[0]?.clientX
+    if (x == null) return
+    const dx = x - touchStartX.current
+    if (dx < -60) {
+      setMobileOpen(false)
+      touchStartX.current = null
+    }
+  }
+  const handleDrawerTouchEnd = () => {
+    touchStartX.current = null
+  }
+
   const sidebarWidth = collapsed ? 60 : 220
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
@@ -255,6 +277,7 @@ export function Shell({ children, workspace }: ShellProps) {
               <ThemeToggle />
 
               <button
+                type="button"
                 onClick={logout}
                 className="p-1.5 rounded-md transition-colors"
                 style={{ color: 'var(--ur-text-muted)' }}
@@ -265,8 +288,9 @@ export function Shell({ children, workspace }: ShellProps) {
                   e.currentTarget.style.color = 'var(--ur-text-muted)'
                 }}
                 title="Sair"
+                aria-label="Sair da conta"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
             </>
           )}
@@ -280,6 +304,11 @@ export function Shell({ children, workspace }: ShellProps) {
       className="flex h-screen overflow-hidden"
       style={{ background: 'var(--ur-bg)' }}
     >
+      {/* Skip link — first focusable element on every page. */}
+      <a href="#main-content" className="ur-skip-link">
+        Pular para conteúdo principal
+      </a>
+
       {/* Desktop sidebar */}
       <motion.aside
         animate={{ width: sidebarWidth }}
@@ -295,6 +324,7 @@ export function Shell({ children, workspace }: ShellProps) {
 
         {/* Collapse toggle */}
         <button
+          type="button"
           onClick={() => setCollapsed((v) => !v)}
           className="absolute top-4 -right-3 w-6 h-6 rounded-full flex items-center justify-center transition-all z-10"
           style={{
@@ -303,11 +333,13 @@ export function Shell({ children, workspace }: ShellProps) {
             color: 'var(--ur-text-muted)',
             boxShadow: 'var(--ur-shadow-sm)',
           }}
+          aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          aria-expanded={!collapsed}
         >
           {collapsed ? (
-            <ChevronRight className="w-3 h-3" />
+            <ChevronRight className="w-3 h-3" aria-hidden="true" />
           ) : (
-            <ChevronLeft className="w-3 h-3" />
+            <ChevronLeft className="w-3 h-3" aria-hidden="true" />
           )}
         </button>
       </motion.aside>
@@ -325,6 +357,7 @@ export function Shell({ children, workspace }: ShellProps) {
               style={{ background: 'var(--ur-overlay)' }}
             />
             <motion.aside
+              id="mobile-sidebar"
               initial={{ x: -220 }}
               animate={{ x: 0 }}
               exit={{ x: -220 }}
@@ -334,6 +367,11 @@ export function Shell({ children, workspace }: ShellProps) {
                 background: 'var(--ur-bg-soft)',
                 borderRight: '1px solid var(--ur-border)',
               }}
+              aria-label="Menu de navegação"
+              onTouchStart={handleDrawerTouchStart}
+              onTouchMove={handleDrawerTouchMove}
+              onTouchEnd={handleDrawerTouchEnd}
+              onTouchCancel={handleDrawerTouchEnd}
             >
               <SidebarContent onItemClick={() => setMobileOpen(false)} />
             </motion.aside>
@@ -352,11 +390,19 @@ export function Shell({ children, workspace }: ShellProps) {
           }}
         >
           <button
+            type="button"
             onClick={() => setMobileOpen(true)}
             className="p-1.5 rounded-lg"
             style={{ color: 'var(--ur-text-soft)' }}
+            aria-label={mobileOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-sidebar"
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileOpen ? (
+              <X className="w-5 h-5" aria-hidden="true" />
+            ) : (
+              <Menu className="w-5 h-5" aria-hidden="true" />
+            )}
           </button>
           <div className="flex items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -380,7 +426,13 @@ export function Shell({ children, workspace }: ShellProps) {
         </div>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto focus:outline-none"
+        >
+          {children}
+        </main>
       </div>
     </div>
   )

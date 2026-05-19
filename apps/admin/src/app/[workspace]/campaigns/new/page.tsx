@@ -568,8 +568,9 @@ function TemplateStep({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* ── Form ── */}
         <div className="space-y-4">
-          <Field label="Nome interno da campanha">
+          <Field label="Nome interno da campanha" htmlFor="new-campaign-name">
             <input
+              id="new-campaign-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Pedir avaliação pós-compra"
@@ -583,8 +584,9 @@ function TemplateStep({
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="From name">
+            <Field label="From name" htmlFor="new-campaign-from-name">
               <input
+                id="new-campaign-from-name"
                 readOnly
                 value={fromName}
                 className="w-full text-sm rounded-lg p-2.5 outline-none cursor-not-allowed"
@@ -595,8 +597,9 @@ function TemplateStep({
                 }}
               />
             </Field>
-            <Field label="From email">
+            <Field label="From email" htmlFor="new-campaign-from-email">
               <input
+                id="new-campaign-from-email"
                 readOnly
                 value={fromEmail}
                 className="w-full text-sm rounded-lg p-2.5 outline-none cursor-not-allowed font-mono"
@@ -609,8 +612,9 @@ function TemplateStep({
             </Field>
           </div>
 
-          <Field label="Reply-to">
+          <Field label="Reply-to" htmlFor="new-campaign-reply-to">
             <input
+              id="new-campaign-reply-to"
               type="email"
               value={replyTo}
               onChange={(e) => setReplyTo(e.target.value)}
@@ -624,8 +628,9 @@ function TemplateStep({
             />
           </Field>
 
-          <Field label="Assunto">
+          <Field label="Assunto" htmlFor="new-campaign-subject">
             <input
+              id="new-campaign-subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               onFocus={() => setSubjectFocus(true)}
@@ -644,8 +649,9 @@ function TemplateStep({
             />
           </Field>
 
-          <Field label="Corpo (HTML)">
+          <Field label="Corpo (HTML)" htmlFor="new-campaign-html">
             <textarea
+              id="new-campaign-html"
               value={html}
               onChange={(e) => setHtml(e.target.value)}
               rows={12}
@@ -801,25 +807,37 @@ function ConfigStep({
       />
 
       <div className="flex items-center gap-2">
-        <input
-          type="email"
-          value={testEmail}
-          onChange={(e) => setTestEmail(e.target.value)}
-          placeholder="seu@email.com"
-          className="flex-1 text-sm rounded-lg p-2.5 outline-none"
-          style={{
-            background: 'var(--ur-bg)',
-            border: '1px solid var(--ur-border)',
-            color: 'var(--ur-text)',
-          }}
-        />
+        <div className="flex-1">
+          <label htmlFor="new-campaign-test-email" className="sr-only">
+            Email para o envio de teste
+          </label>
+          <input
+            id="new-campaign-test-email"
+            type="email"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="seu@email.com"
+            className="w-full text-sm rounded-lg p-2.5 outline-none"
+            style={{
+              background: 'var(--ur-bg)',
+              border: '1px solid var(--ur-border)',
+              color: 'var(--ur-text)',
+            }}
+          />
+        </div>
         <ActionButton
           variant="primary"
           disabled={!testEmail.includes('@') || isTestSending}
           onClick={onTestSend}
+          aria-label="Enviar teste para email"
         >
-          {isTestSending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          <Send className="w-3.5 h-3.5" />
+          {isTestSending && (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+              <span className="sr-only" role="status">Enviando…</span>
+            </>
+          )}
+          <Send className="w-3.5 h-3.5" aria-hidden="true" />
           Enviar teste
         </ActionButton>
       </div>
@@ -925,9 +943,24 @@ function SectionHeader({
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * Form field wrapper — uses `<label>` so the child input is associated by
+ * proximity. When the child is a complex input (e.g. textarea, button group)
+ * the htmlFor needs to be explicit; callers pass `htmlFor` so the label
+ * properly targets the descendant. This guarantees a programmatic
+ * label/input association for SR users on every form control in the flow.
+ */
+function Field({
+  label,
+  children,
+  htmlFor,
+}: {
+  label: string
+  children: React.ReactNode
+  htmlFor?: string
+}) {
   return (
-    <label className="block">
+    <label className="block" htmlFor={htmlFor}>
       <span className="ur-overline block mb-1.5">{label}</span>
       {children}
     </label>

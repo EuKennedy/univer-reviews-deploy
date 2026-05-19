@@ -71,6 +71,7 @@ export default function ReviewsPage() {
   const [rating, setRating] = useState('')
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [slidePanel, setSlidePanel] = useState<Review | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   const queryParams = {
     page,
@@ -130,6 +131,42 @@ export default function ReviewsPage() {
     },
     [selectedIds, bulkMutation]
   )
+
+  const handleExportCsv = useCallback(async () => {
+    if (isExporting) return
+    setIsExporting(true)
+    const dismiss = toast.loading('Preparando CSV…')
+    try {
+      const blob = await api.reviews.exportCsv(
+        {
+          status: (status as ReviewStatus) || undefined,
+          source: (source as Review['source']) || undefined,
+          rating: rating ? Number(rating) : undefined,
+          q: search || undefined,
+        },
+        getToken(),
+      )
+
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = `reviews-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      // Revoke after the click handler has consumed the URL.
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
+
+      toast.dismiss(dismiss)
+      toast.success('CSV exportado')
+    } catch (err) {
+      toast.dismiss(dismiss)
+      const message = err instanceof Error ? err.message : 'Falha ao exportar CSV'
+      toast.error(message)
+    } finally {
+      setIsExporting(false)
+    }
+  }, [isExporting, status, source, rating, search, getToken])
 
   const columns = [
     columnHelper.display({
@@ -249,8 +286,9 @@ export default function ReviewsPage() {
                   statusMutation.mutate({ id: review.id, status: 'approved' })
                 }
                 variant="ghost"
+                aria-label={`Aprovar avaliação de ${review.author_name}`}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-success)' }} />
+                <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-success)' }} aria-hidden="true" />
               </ActionButton>
             )}
             {review.status !== 'rejected' && (
@@ -259,8 +297,9 @@ export default function ReviewsPage() {
                   statusMutation.mutate({ id: review.id, status: 'rejected' })
                 }
                 variant="ghost"
+                aria-label={`Rejeitar avaliação de ${review.author_name}`}
               >
-                <XCircle className="w-3.5 h-3.5" style={{ color: 'var(--ur-danger)' }} />
+                <XCircle className="w-3.5 h-3.5" style={{ color: 'var(--ur-danger)' }} aria-hidden="true" />
               </ActionButton>
             )}
             {review.status === 'hidden' ? (
@@ -269,8 +308,9 @@ export default function ReviewsPage() {
                   statusMutation.mutate({ id: review.id, status: 'approved' })
                 }
                 variant="ghost"
+                aria-label={`Mostrar avaliação de ${review.author_name}`}
               >
-                <Eye className="w-3.5 h-3.5" />
+                <Eye className="w-3.5 h-3.5" aria-hidden="true" />
               </ActionButton>
             ) : (
               <ActionButton
@@ -278,15 +318,17 @@ export default function ReviewsPage() {
                   statusMutation.mutate({ id: review.id, status: 'hidden' })
                 }
                 variant="ghost"
+                aria-label={`Ocultar avaliação de ${review.author_name}`}
               >
-                <EyeOff className="w-3.5 h-3.5" />
+                <EyeOff className="w-3.5 h-3.5" aria-hidden="true" />
               </ActionButton>
             )}
             <ActionButton
               onClick={() => deleteMutation.mutate(review.id)}
               variant="ghost"
+              aria-label={`Excluir avaliação de ${review.author_name}`}
             >
-              <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-danger)' }} />
+              <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--ur-danger)' }} aria-hidden="true" />
             </ActionButton>
           </div>
         )
@@ -326,15 +368,7 @@ export default function ReviewsPage() {
             ? `${formatNumber(data.meta.total_count)} avaliações no total`
             : 'Gerencie e modere avaliações de clientes'
         }
-        actions={
-          <ActionButton
-            onClick={() => toast.info('Preparando exportação…')}
-            variant="default"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Exportar
-          </ActionButton>
-        }
+        actions={null}
       />
 
       <StatsBar stats={statsItems} isLoading={isLoading} />
@@ -388,11 +422,13 @@ export default function ReviewsPage() {
               </ActionButton>
             </div>
             <button
+              type="button"
               onClick={() => setRowSelection({})}
+              aria-label="Limpar seleção"
               className="ml-auto p-1 rounded"
               style={{ color: 'var(--ur-text-muted)' }}
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </motion.div>
         )}
@@ -427,9 +463,19 @@ export default function ReviewsPage() {
           </>
         }
         right={
-          <span className="ur-meta">
-            {data?.meta.total_count ?? 0} resultados
-          </span>
+          <>
+            <span className="ur-meta">
+              {data?.meta.total_count ?? 0} resultados
+            </span>
+            <ActionButton
+              onClick={handleExportCsv}
+              disabled={isExporting}
+              variant="default"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {isExporting ? 'Exportando…' : 'Exportar CSV'}
+            </ActionButton>
+          </>
         }
       />
 
@@ -497,11 +543,13 @@ export default function ReviewsPage() {
                     Página completa <ChevronRight className="w-3 h-3" />
                   </Link>
                   <button
+                    type="button"
                     onClick={() => setSlidePanel(null)}
+                    aria-label="Fechar painel de detalhes"
                     className="p-1.5 rounded-md transition-colors"
                     style={{ color: 'var(--ur-text-muted)' }}
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
               </div>

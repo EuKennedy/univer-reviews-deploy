@@ -21,13 +21,23 @@ class Workspace < ApplicationRecord
 
   PLANS   = %w[free starter pro enterprise].freeze
   STATUSES = %w[active suspended trial].freeze
+  WIDGET_LAYOUTS = %w[default compact grid carousel].freeze
+  WIDGET_STAR_SHAPES = %w[star heart flame thumb diamond].freeze
+  WIDGET_LOCALES = %w[pt-BR en-US es-AR].freeze
 
   validates :slug,   presence: true, uniqueness: true,
                      format: { with: /\A[a-z0-9-]+\z/, message: "only lowercase letters, numbers and hyphens" }
   validates :name,   presence: true
   validates :plan,   inclusion: { in: PLANS }
   validates :status, inclusion: { in: STATUSES }
-  validates :brand_color, format: { with: /\A#[0-9a-fA-F]{6}\z/, allow_blank: true }
+  validates :brand_color,      format: { with: /\A#[0-9a-fA-F]{6}\z/, allow_blank: true }
+  validates :widget_star_color, format: { with: /\A#[0-9a-fA-F]{6}\z/, allow_blank: false }
+  validates :widget_default_layout, inclusion: { in: WIDGET_LAYOUTS }
+  validates :widget_per_page, numericality: {
+    only_integer: true, greater_than_or_equal_to: 1, less_than_or_equal_to: 100,
+  }
+  validates :rating_icon_preset,
+            inclusion: { in: WIDGET_STAR_SHAPES, allow_blank: true }
 
   scope :active,    -> { where(status: "active") }
   scope :suspended, -> { where(status: "suspended") }
@@ -47,5 +57,23 @@ class Workspace < ApplicationRecord
 
   def woocommerce_config
     woocommerce_domain&.platform_meta
+  end
+
+  # Public widget config exposed at GET /api/v1/public/widget-config. The
+  # storefront `<univer-reviews>` element calls this on connect to pick up
+  # workspace-level defaults, with the rule that an explicit HTML attribute
+  # always wins (attribute > workspace setting > built-in default).
+  def widget_config
+    {
+      layout:            widget_default_layout.presence || "default",
+      locale:            default_locale.presence || "pt-BR",
+      theme_color:       brand_color.presence || "#d4a850",
+      star_color:        widget_star_color.presence || "#fbbf24",
+      star_shape:        rating_icon_preset.presence || "star",
+      show_qa:           widget_show_qa.nil? ? true : widget_show_qa,
+      show_write_review: widget_show_write_review.nil? ? true : widget_show_write_review,
+      per_page:          widget_per_page.presence || 10,
+      custom_css:        widget_custom_css.to_s,
+    }
   end
 end

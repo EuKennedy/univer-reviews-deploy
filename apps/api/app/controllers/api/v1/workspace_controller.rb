@@ -21,9 +21,28 @@ module Api
             plan:             ws.plan,
             status:           ws.status,
             created_at:       ws.created_at&.iso8601,
+            # Workspace members (required by the admin Settings → Team tab; the
+            # TS type Workspace.users is non-optional). last_seen_at maps to the
+            # last_login_at column; avatar_url is reserved for a future column,
+            # rendered as nil so the contract is forward-compatible today.
+            users: ws.workspace_users.order(created_at: :asc).map { |u|
+              {
+                id:           u.id,
+                email:        u.email,
+                name:         u.name,
+                role:         u.role,
+                last_seen_at: u.last_login_at&.iso8601,
+                avatar_url:   nil,
+                created_at:   u.created_at&.iso8601
+              }
+            },
             domains: ws.workspace_domains.map { |d|
               { id: d.id, domain: d.domain, platform: d.platform, verified: d.verified? }
             },
+            # Widget-level customization. Mirrors what /api/v1/public/widget-config
+            # serves to the storefront, so the admin UI can show the same source
+            # of truth without a second round-trip.
+            widget: ws.widget_config,
             subscription: ws.subscription ? {
               status:              ws.subscription.status,
               plan_slug:           ws.subscription.plan&.slug,
@@ -100,11 +119,24 @@ module Api
       private
 
       def workspace_params
-        params.require(:workspace).permit(
-          :name, :brand_logo, :brand_color,
-          :rating_icon_preset, :rating_icon_filled, :rating_icon_empty,
-          :brand_voice_md, :default_locale, :default_currency
-        )
+        # Support two shapes:
+        #   { workspace: { name: ..., brand_color: ... } }                — current admin
+        #   { name: ..., brand_color: ..., widget_default_layout: ... }   — flat payload
+        # Either way the new widget-customization fields are permitted.
+        permitted = %i[
+          name brand_logo brand_color
+          rating_icon_preset rating_icon_filled rating_icon_empty
+          brand_voice_md default_locale default_currency
+          widget_default_layout widget_star_color
+          widget_show_qa widget_show_write_review
+          widget_per_page widget_custom_css
+        ]
+
+        if params[:workspace].present?
+          params.require(:workspace).permit(*permitted)
+        else
+          params.permit(*permitted)
+        end
       end
     end
   end

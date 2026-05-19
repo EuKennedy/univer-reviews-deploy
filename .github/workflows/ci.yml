@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-rspec:
+    name: API · RSpec
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_USER: postgres
+          POSTGRES_DB: univerreviews_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:ci@localhost:5432/univerreviews_test
+      REDIS_URL: redis://localhost:6379/0
+      SECRET_KEY_BASE: test-secret-key-base-do-not-use-in-prod-0000000000000000000000
+      ANTHROPIC_API_KEY: test
+      RESEND_API_KEY: test
+      DISABLE_BOOTSNAP: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/api
+
+      - name: Install pgvector + pgcrypto extensions on test DB
+        env:
+          PGPASSWORD: ci
+        run: |
+          psql -h localhost -U postgres -d univerreviews_test \
+            -c "CREATE EXTENSION IF NOT EXISTS vector;" \
+            -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+      - name: Run migrations
+        working-directory: apps/api
+        run: bundle exec rails db:migrate
+
+      - name: RSpec
+        working-directory: apps/api
+        run: bundle exec rspec --format documentation --fail-fast
+
+  admin-build:
+    name: Admin · TS + Next build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      BETTER_AUTH_SECRET: dummy-32-chars-minimum-secret-aaaaaa
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: apps/admin
+        run: pnpm exec tsc --noEmit
+
+      - name: Next build
+        working-directory: apps/admin
+        run: pnpm exec next build --no-lint
+
+  widget-build:
+    name: Widget · Rollup bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: apps/widget
+        run: npm install --no-audit --no-fund
+
+      - name: Build widget
+        working-directory: apps/widget
+        run: npm run build
+
+      - name: Verify bundle exists and is under 60KB
+        working-directory: apps/widget
+        run: |
+          if [ ! -f dist/widget.js ]; then
+            echo "::error::dist/widget.js missing — build did not emit the bundle"
+            exit 1
+          fi
+          size=$(wc -c < dist/widget.js | tr -d ' ')
+          echo "widget.js size: $size bytes"
+          if [ "$size" -ge 61440 ]; then
+            echo "::error::widget.js is $size bytes — exceeds 60KB budget"
+            exit 1
+          fi
+
+  rubocop:
+    name: API · Rubocop (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/api
+
+      - name: Rubocop
+        working-directory: apps/api
+        run: bundle exec rubocop --parallel || true

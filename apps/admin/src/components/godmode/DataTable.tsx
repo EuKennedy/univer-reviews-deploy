@@ -141,58 +141,103 @@ export function DataTable<TData>({
   })
 
   return (
-    <div className={cn('w-full overflow-auto', className)}>
-      <table className="w-full border-collapse">
+    // overflow-x-auto + min-w on the inner table makes the data table
+    // horizontally scrollable on < 768px viewports without breaking the
+    // desktop layout. The first column (identifier/name) is sticky-left on
+    // small viewports so users keep context while panning sideways. On md+
+    // viewports nothing changes (md:min-w-0, md:static).
+    <div className={cn('w-full overflow-x-auto overflow-y-auto', className)}>
+      <table className="w-full border-collapse min-w-[720px] md:min-w-0">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr
               key={headerGroup.id}
               style={{ borderBottom: '1px solid var(--ur-border)' }}
             >
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  className="px-4 py-2.5 text-left"
-                  style={{ background: 'var(--ur-bg-soft)' }}
-                >
-                  {header.isPlaceholder ? null : (
-                    <div
-                      className={cn(
-                        'ur-overline flex items-center gap-1.5',
-                        header.column.getCanSort() &&
-                          'cursor-pointer select-none transition-colors'
-                      )}
-                      onClick={header.column.getToggleSortingHandler()}
-                      onMouseEnter={(e) => {
-                        if (header.column.getCanSort()) {
+              {headerGroup.headers.map((header, idx) => {
+                const stickyClass =
+                  idx === 0
+                    ? 'sticky left-0 z-10 md:static md:left-auto'
+                    : ''
+                if (header.isPlaceholder) {
+                  return (
+                    <th
+                      key={header.id}
+                      className={cn('px-4 py-2.5 text-left', stickyClass)}
+                      style={{ background: 'var(--ur-bg-soft)' }}
+                    />
+                  )
+                }
+                const canSort = header.column.getCanSort()
+                const sortDir = header.column.getIsSorted()
+                const sortHandler = header.column.getToggleSortingHandler()
+                const headerLabel =
+                  typeof header.column.columnDef.header === 'string'
+                    ? header.column.columnDef.header
+                    : header.column.id
+                const sortLabel = canSort
+                  ? sortDir === 'asc'
+                    ? `Ordenar ${headerLabel} decrescente`
+                    : sortDir === 'desc'
+                    ? `Limpar ordenação de ${headerLabel}`
+                    : `Ordenar ${headerLabel} crescente`
+                  : undefined
+                return (
+                  <th
+                    key={header.id}
+                    className={cn('px-4 py-2.5 text-left', stickyClass)}
+                    style={{ background: 'var(--ur-bg-soft)' }}
+                    aria-sort={
+                      sortDir === 'asc'
+                        ? 'ascending'
+                        : sortDir === 'desc'
+                        ? 'descending'
+                        : canSort
+                        ? 'none'
+                        : undefined
+                    }
+                  >
+                    {canSort ? (
+                      <button
+                        type="button"
+                        onClick={sortHandler}
+                        aria-label={sortLabel}
+                        className="ur-overline flex items-center gap-1.5 cursor-pointer select-none transition-colors bg-transparent border-0 p-0 text-left"
+                        onMouseEnter={(e) => {
                           e.currentTarget.style.color = 'var(--ur-text)'
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (header.column.getCanSort()) {
+                        }}
+                        onMouseLeave={(e) => {
                           e.currentTarget.style.color = ''
-                        }
-                      }}
-                    >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                      {header.column.getCanSort() && (
-                        <span style={{ color: 'var(--ur-text-muted)' }}>
-                          {header.column.getIsSorted() === 'asc' ? (
+                        }}
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                        <span
+                          style={{ color: 'var(--ur-text-muted)' }}
+                          aria-hidden="true"
+                        >
+                          {sortDir === 'asc' ? (
                             <ChevronUp className="w-3 h-3" />
-                          ) : header.column.getIsSorted() === 'desc' ? (
+                          ) : sortDir === 'desc' ? (
                             <ChevronDown className="w-3 h-3" />
                           ) : (
                             <ChevronsUpDown className="w-3 h-3" />
                           )}
                         </span>
-                      )}
-                    </div>
-                  )}
-                </th>
-              ))}
+                      </button>
+                    ) : (
+                      <span className="ur-overline">
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                      </span>
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           ))}
         </thead>
@@ -229,11 +274,19 @@ export function DataTable<TData>({
                   el.style.borderLeft = 'none'
                 }}
               >
-                {row.getVisibleCells().map((cell) => (
+                {row.getVisibleCells().map((cell, idx) => (
                   <td
                     key={cell.id}
-                    className="px-4 py-3 text-sm"
-                    style={{ color: 'var(--ur-text)' }}
+                    className={cn(
+                      'px-4 py-3 text-sm',
+                      idx === 0 && 'sticky left-0 z-[1] md:static md:left-auto',
+                    )}
+                    style={{
+                      color: 'var(--ur-text)',
+                      // Match the row background so the sticky cell doesn't
+                      // bleed through underlying rows while scrolling.
+                      background: idx === 0 ? 'var(--ur-surface)' : undefined,
+                    }}
                   >
                     {flexRender(
                       cell.column.columnDef.cell,

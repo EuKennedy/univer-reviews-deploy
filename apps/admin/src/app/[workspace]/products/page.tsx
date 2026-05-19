@@ -96,8 +96,14 @@ const columns = [
     header: '',
     cell: ({ row }) =>
       row.original.external_id ? (
-        <button className="p-1.5 rounded" style={{ color: 'var(--ur-text-muted)' }}>
-          <ExternalLink className="w-3.5 h-3.5" />
+        <button
+          type="button"
+          className="p-1.5 rounded"
+          style={{ color: 'var(--ur-text-muted)' }}
+          aria-label={`Abrir ${row.original.name} no WooCommerce`}
+          title="Abrir no WooCommerce"
+        >
+          <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
         </button>
       ) : null,
   }),
@@ -152,7 +158,7 @@ export default function ProductsPage() {
           <button
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] sm:min-h-0"
             style={{
               background: 'var(--ur-accent-soft)',
               border: '1px solid var(--ur-accent-soft-3)',

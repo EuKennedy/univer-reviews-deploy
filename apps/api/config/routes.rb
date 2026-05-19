@@ -15,6 +15,7 @@ Rails.application.routes.draw do
       resources :reviews, only: %i[index show create destroy] do
         collection do
           post :bulk
+          get  "export.csv", action: :export, as: :export_csv
         end
         member do
           post :status
@@ -144,6 +145,7 @@ Rails.application.routes.draw do
         get  "questions/:product_id",   to: "questions#index"
         post "questions/:product_id",   to: "questions#create"
         get  "videos/:product_id",      to: "videos#index"
+        get  "widget-config",           to: "widget_config#show"
       end
 
       # Webhooks

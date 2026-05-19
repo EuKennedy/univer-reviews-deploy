@@ -20,9 +20,23 @@ const sourceLabel: Record<string, string> = {
 }
 
 export function ReviewCard({ review, onClick }: ReviewCardProps) {
+  const cardLabel = `Avaliação de ${review.author_name}, ${review.rating} estrelas${review.product_name ? `, sobre ${review.product_name}` : ''}`
   return (
     <div
       onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onClick()
+              }
+            }
+          : undefined
+      }
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? cardLabel : undefined}
       className="rounded-xl p-4 transition-all duration-150 cursor-pointer group relative"
       style={{
         background: 'var(--ur-surface)',
@@ -62,6 +76,8 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
               </span>
               {review.verified_purchase && (
                 <CheckCircle2
+                  aria-label="Compra verificada"
+                  role="img"
                   className="w-3.5 h-3.5"
                   style={{ color: 'var(--ur-success)' }}
                 />
@@ -126,6 +142,7 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
           )}
         </div>
         <ExternalLink
+          aria-hidden="true"
           className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity"
           style={{ color: 'var(--ur-text-muted)' }}
         />

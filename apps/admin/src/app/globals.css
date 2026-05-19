@@ -268,10 +268,91 @@ body {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-/* Focus ring */
-*:focus-visible {
-  outline: 2px solid var(--ur-accent-ring);
+/* ───────────────────────────────────────────────────────────────────────────
+ * Focus visibility — keyboard-only.
+ * `:focus-visible` ensures mouse clicks don't surface the ring while
+ * keyboard tabs always do. The ring uses the live accent color so
+ * `prefers-contrast: more` and brand overrides flow through automatically.
+ * ─────────────────────────────────────────────────────────────────────── */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  outline: 2px solid var(--ur-accent);
   outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* Suppress the focus ring on mouse clicks for elements that should still be
+   keyboard-focusable (Safari emits :focus on mouse press for buttons). */
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible),
+[role="tab"]:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Skip link — first focusable element on every page.
+ * Stays off-screen until a keyboard user tabs into it.
+ * ─────────────────────────────────────────────────────────────────────── */
+.ur-skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--ur-accent);
+  color: var(--ur-text-on-accent);
+  border-radius: 8px;
+  font-size: var(--ur-font-sm);
+  font-weight: var(--ur-weight-semibold);
+  box-shadow: var(--ur-shadow-md);
+  transform: translateY(-200%);
+  transition: transform 0.18s ease;
+}
+.ur-skip-link:focus,
+.ur-skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--ur-text-on-accent);
+  outline-offset: 2px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Screen-reader-only utility — visible to assistive tech, invisible visually.
+ * Used by ARIA live regions and inline loader status announcements.
+ * ─────────────────────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Reduced motion — honor the user's OS-level setting.
+ * Stops framer-motion, CSS transitions, and smooth-scroll for users who
+ * request reduced motion (vestibular triggers, focus-fatigue, low-end devices).
+ * ─────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -416,8 +497,17 @@ body {
   }
 
   /* Thicken focus ring so it's unmistakable. */
-  *:focus-visible {
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible,
+  [role="tab"]:focus-visible,
+  [role="menuitem"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
     outline-width: 3px;
     outline-offset: 3px;
+    outline-color: var(--ur-accent);
   }
 }

@@ -47,15 +47,18 @@ export function SearchInput({
         viewBox="0 0 24 24"
         stroke="currentColor"
         strokeWidth={2}
+        aria-hidden="true"
       >
         <circle cx="11" cy="11" r="8" />
         <path d="m21 21-4.35-4.35" />
       </svg>
       <input
-        type="text"
+        type="search"
+        role="searchbox"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        aria-label={placeholder}
         className="pl-9 pr-3 py-2 text-sm font-medium rounded-lg outline-none transition-all duration-150 w-64"
         style={{
           background: 'var(--ur-bg)',
@@ -94,6 +97,7 @@ export function FilterSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      aria-label={placeholder}
       className={cn(
         'px-3 py-2 text-sm font-medium rounded-lg outline-none transition-all duration-150 cursor-pointer',
         className
@@ -125,6 +129,13 @@ interface ActionButtonProps {
   disabled?: boolean
   children: React.ReactNode
   className?: string
+  /**
+   * Accessible label. Required when the button is icon-only (no visible
+   * text in children). Falls through to the underlying button.
+   */
+  'aria-label'?: string
+  title?: string
+  type?: 'button' | 'submit' | 'reset'
 }
 
 export function ActionButton({
@@ -133,6 +144,9 @@ export function ActionButton({
   disabled,
   children,
   className,
+  'aria-label': ariaLabel,
+  title,
+  type = 'button',
 }: ActionButtonProps) {
   const styles: Record<string, React.CSSProperties> = {
     default: {
@@ -160,10 +174,16 @@ export function ActionButton({
 
   return (
     <button
+      type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      title={title ?? ariaLabel}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed',
+        // min-h-[44px] hits the iOS / Android 44px touch-target floor on
+        // mobile; sm:min-h-0 lets desktop fall back to the dense default
+        // height (~32px) so toolbars stay compact on larger viewports.
+        'flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] sm:min-h-0',
         className
       )}
       style={styles[variant]}

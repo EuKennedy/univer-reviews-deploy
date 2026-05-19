@@ -31,12 +31,16 @@ export function Pagination({
         Exibindo {start}–{end} de {totalCount} resultados
       </span>
 
-      <div className="flex items-center gap-1">
+      <nav
+        aria-label="Paginação"
+        className="flex items-center gap-1"
+      >
         <PageButton
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
+          ariaLabel="Página anterior"
         >
-          <ChevronLeft className="w-3.5 h-3.5" />
+          <ChevronLeft className="w-3.5 h-3.5" aria-hidden="true" />
         </PageButton>
 
         {pages.map((p, i) =>
@@ -44,6 +48,7 @@ export function Pagination({
             <span
               key={`ellipsis-${i}`}
               className="w-8 h-8 flex items-center justify-center ur-meta"
+              aria-hidden="true"
             >
               …
             </span>
@@ -52,6 +57,12 @@ export function Pagination({
               key={p}
               onClick={() => onPageChange(p as number)}
               active={p === currentPage}
+              ariaLabel={
+                p === currentPage
+                  ? `Página ${p}, página atual`
+                  : `Ir para a página ${p}`
+              }
+              ariaCurrent={p === currentPage ? 'page' : undefined}
             >
               {p}
             </PageButton>
@@ -61,10 +72,11 @@ export function Pagination({
         <PageButton
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
+          ariaLabel="Próxima página"
         >
-          <ChevronRight className="w-3.5 h-3.5" />
+          <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
         </PageButton>
-      </div>
+      </nav>
     </div>
   )
 }
@@ -74,16 +86,23 @@ function PageButton({
   onClick,
   disabled,
   active,
+  ariaLabel,
+  ariaCurrent,
 }: {
   children: React.ReactNode
   onClick?: () => void
   disabled?: boolean
   active?: boolean
+  ariaLabel?: string
+  ariaCurrent?: 'page' | undefined
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      aria-current={ariaCurrent}
       className="w-7 h-7 rounded-md text-xs font-medium transition-all duration-100 flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
       style={{
         background: active ? 'var(--ur-accent-soft-2)' : 'transparent',

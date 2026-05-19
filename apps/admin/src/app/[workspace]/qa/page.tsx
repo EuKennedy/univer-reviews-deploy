@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   HelpCircle,
@@ -21,6 +21,7 @@ import { Toolbar, SearchInput, FilterSelect, ActionButton } from '@/components/g
 import { Pagination } from '@/components/godmode/Pagination'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import type { Question, QuestionGroup, QuestionStatus, Product } from '@/types'
 
 type Tab = 'questions' | 'groups'
@@ -41,24 +42,44 @@ export default function QaPage() {
       />
 
       <div
+        role="tablist"
+        aria-label="Seções de Q&A"
         className="flex items-center gap-1 px-6 pt-3 shrink-0"
         style={{ borderBottom: '1px solid var(--ur-border)', background: 'var(--ur-bg-soft)' }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault()
+            const next = tab === 'questions' ? 'groups' : 'questions'
+            setTab(next)
+            document.getElementById(`qa-tab-${next}`)?.focus()
+          }
+        }}
       >
         <TabButton
+          id="qa-tab-questions"
+          panelId="qa-panel-questions"
           active={tab === 'questions'}
-          icon={<MessageCircle className="w-3.5 h-3.5" />}
+          icon={<MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />}
           label="Perguntas"
           onClick={() => setTab('questions')}
         />
         <TabButton
+          id="qa-tab-groups"
+          panelId="qa-panel-groups"
           active={tab === 'groups'}
-          icon={<Folder className="w-3.5 h-3.5" />}
+          icon={<Folder className="w-3.5 h-3.5" aria-hidden="true" />}
           label="Grupos"
           onClick={() => setTab('groups')}
         />
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div
+        id={`qa-panel-${tab}`}
+        role="tabpanel"
+        aria-labelledby={`qa-tab-${tab}`}
+        tabIndex={0}
+        className="flex-1 min-h-0 overflow-hidden"
+      >
         {tab === 'questions' ? <QuestionsTab /> : <GroupsTab />}
       </div>
     </div>
@@ -66,11 +87,15 @@ export default function QaPage() {
 }
 
 function TabButton({
+  id,
+  panelId,
   active,
   icon,
   label,
   onClick,
 }: {
+  id: string
+  panelId: string
   active: boolean
   icon: React.ReactNode
   label: string
@@ -78,6 +103,12 @@ function TabButton({
 }) {
   return (
     <button
+      type="button"
+      id={id}
+      role="tab"
+      aria-selected={active}
+      aria-controls={panelId}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
       className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all duration-150 relative"
       style={{
@@ -327,7 +358,7 @@ function QuestionCard({
                 setShowAnswerForm(false)
               }}
               disabled={isBusy || answer.trim().length < 2}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg disabled:opacity-40 min-h-[44px] sm:min-h-0"
               style={{
                 background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
                 color: 'var(--ur-text-on-accent)',
@@ -396,10 +427,12 @@ function IconButton({
   const c = colors[tone]
   return (
     <button
+      type="button"
       title={title}
+      aria-label={title}
       onClick={onClick}
       disabled={disabled}
-      className="p-1.5 rounded-md transition-colors disabled:opacity-40"
+      className="p-1.5 rounded-md transition-colors disabled:opacity-40 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
       style={{ color: c.color, background: 'transparent' }}
       onMouseEnter={(e) => {
         if (!disabled) e.currentTarget.style.background = 'var(--ur-surface-soft)'
@@ -882,6 +915,9 @@ function Modal({
   onClose: () => void
   wide?: boolean
 }) {
+  const titleId = useId()
+  const dialogRef = useFocusTrap<HTMLDivElement>(true, onClose)
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -889,6 +925,10 @@ function Modal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="w-full rounded-xl p-5 max-h-[90vh] overflow-y-auto"
         style={{
           background: 'var(--ur-bg-soft)',
@@ -898,15 +938,17 @@ function Modal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold" style={{ color: 'var(--ur-text)' }}>
+          <h3 id={titleId} className="text-base font-semibold" style={{ color: 'var(--ur-text)' }}>
             {title}
           </h3>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Fechar diálogo"
             className="p-1.5 rounded-md"
             style={{ color: 'var(--ur-text-soft)' }}
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
         {children}
