@@ -98,6 +98,36 @@ module Integrations
       end
     end
 
+    # ── Webhooks ────────────────────────────────────────────────────────────────
+    # Register a webhook on the merchant's WooCommerce store so we receive live
+    # events at our public ingest endpoint without the merchant ever having to
+    # open the WooCommerce → Settings → Advanced → Webhooks panel manually.
+    def register_webhook(topic:, delivery_url:, secret:, name: nil)
+      body = {
+        name:         name || "UniverReviews — #{topic}",
+        topic:        topic,
+        delivery_url: delivery_url,
+        secret:       secret,
+        status:       "active",
+        api_version:  3
+      }
+      post("/wp-json/wc/v3/webhooks", body)
+    end
+
+    def list_webhooks
+      get("/wp-json/wc/v3/webhooks", per_page: 100)
+    end
+
+    def delete_webhook(id:)
+      delete("/wp-json/wc/v3/webhooks/#{id}", force: true)
+    end
+
+    # Return only webhooks already pointing at our delivery_url so register_all
+    # can stay idempotent across re-runs of the connect flow.
+    def find_our_webhooks(delivery_url:)
+      Array(list_webhooks).select { |w| w["delivery_url"].to_s == delivery_url.to_s }
+    end
+
     private
 
     def connection
@@ -115,6 +145,33 @@ module Integrations
 
     def get(path, **params)
       response = connection.get(path, params)
+      response.body
+    rescue Faraday::UnauthorizedError
+      raise AuthenticationError, "WooCommerce authentication failed — check consumer key/secret"
+    rescue Faraday::ConnectionFailed, Faraday::TimeoutError => e
+      raise ConnectionError, "WooCommerce connection error: #{e.message}"
+    rescue Faraday::Error => e
+      raise Error, "WooCommerce API error: #{e.message}"
+    end
+
+    def post(path, body)
+      response = connection.post(path) do |req|
+        req.headers["Content-Type"] = "application/json"
+        req.body = body.to_json
+      end
+      response.body
+    rescue Faraday::UnauthorizedError
+      raise AuthenticationError, "WooCommerce authentication failed — check consumer key/secret"
+    rescue Faraday::ConnectionFailed, Faraday::TimeoutError => e
+      raise ConnectionError, "WooCommerce connection error: #{e.message}"
+    rescue Faraday::Error => e
+      raise Error, "WooCommerce API error: #{e.message}"
+    end
+
+    def delete(path, **params)
+      response = connection.delete(path) do |req|
+        params.each { |k, v| req.params[k.to_s] = v }
+      end
       response.body
     rescue Faraday::UnauthorizedError
       raise AuthenticationError, "WooCommerce authentication failed — check consumer key/secret"

@@ -67,4 +67,56 @@ RSpec.describe Api::V1::Webhooks::WoocommerceController, type: :request do
   # NOTE: Signature verification is exercised when platform_meta.webhook_secret is set.
   # Default test domain has no secret so unsigned deliveries are accepted — this matches
   # WooCommerce's behavior when the user has not configured a signing secret on their store.
+
+  describe "HMAC signature verification" do
+    let(:secret) { "shhh-secret-32-bytes" }
+    let(:body)   { payload.to_json }
+
+    def sign(body, secret)
+      Base64.strict_encode64(OpenSSL::HMAC.digest("SHA256", secret, body))
+    end
+
+    before do
+      domain.update!(platform_meta: { "webhook_secret" => secret })
+    end
+
+    it "accepts a delivery with a valid HMAC signature" do
+      post "/api/v1/webhooks/woocommerce",
+           params: body,
+           headers: headers.merge("X-Wc-Webhook-Signature" => sign(body, secret))
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "rejects a delivery whose body was tampered with" do
+      tampered = body.sub("199.00", "0.01")
+      post "/api/v1/webhooks/woocommerce",
+           params: tampered,
+           headers: headers.merge("X-Wc-Webhook-Signature" => sign(body, secret))
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "rejects a delivery with a missing signature header" do
+      post "/api/v1/webhooks/woocommerce", params: body, headers: headers
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "rejects a delivery signed with the wrong secret" do
+      post "/api/v1/webhooks/woocommerce",
+           params: body,
+           headers: headers.merge("X-Wc-Webhook-Signature" => sign(body, "other-secret"))
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+
+  describe "graceful migration for connections without a secret" do
+    it "accepts unsigned deliveries and logs a warning" do
+      expect(Rails.logger).to receive(:warn).with(/no webhook_secret stored/)
+
+      post "/api/v1/webhooks/woocommerce", params: payload.to_json, headers: headers
+      expect(response).to have_http_status(:ok)
+    end
+  end
 end

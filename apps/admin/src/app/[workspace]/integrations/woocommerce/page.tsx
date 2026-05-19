@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { api } from '@/lib/api'
@@ -223,6 +223,28 @@ export default function WooCommercePage() {
                   </p>
                 </div>
               </div>
+
+              {config.webhooks && config.webhooks.registered_count > 0 && (
+                <p
+                  className="text-xs mb-4"
+                  style={{ color: 'var(--ur-text-muted)' }}
+                >
+                  Webhooks: {config.webhooks.registered_count} registrado
+                  {config.webhooks.registered_count === 1 ? '' : 's'} automaticamente
+                  {config.webhooks.registered_at ? (
+                    <>
+                      {' '}
+                      <span style={{ color: 'var(--ur-text-soft)' }}>
+                        · Última verificação:{' '}
+                        {formatDistanceToNow(new Date(config.webhooks.registered_at), {
+                          locale: ptBR,
+                          addSuffix: true,
+                        })}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              )}
 
               <div className="grid grid-cols-3 gap-4">
                 {[

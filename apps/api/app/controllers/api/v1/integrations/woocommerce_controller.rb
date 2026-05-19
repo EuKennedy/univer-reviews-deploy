@@ -47,14 +47,29 @@ module Api
               consumer_secret: domain.woo_consumer_secret
             ).test_connection
 
+            webhooks_summary = nil
             if probe[:success]
               domain.verify!
               WooCommerceSyncJob.perform_later(current_workspace.id)
               import = current_workspace.imports.create!(source: "woocommerce")
               WooCommerceImportJob.perform_later(current_workspace.id, import.id)
+
+              # Auto-register webhooks so the merchant never has to open
+              # WooCommerce → Settings → Advanced → Webhooks themselves.
+              # Idempotent — re-running this on update is safe.
+              begin
+                domain.reload
+                result = ::Integrations::WooCommerceWebhookRegistrar.register_all(domain)
+                webhooks_summary = result.to_h
+              rescue => e
+                Rails.logger.error("[WC-WEBHOOKS] auto-register failed: #{e.class}: #{e.message}")
+                webhooks_summary = { ok: false, registered: [], skipped: [], errors: [{ error: e.message }] }
+              end
             end
 
-            render json: config_payload(domain).merge(probe: probe), status: was_new ? :created : :ok
+            payload = config_payload(domain).merge(probe: probe)
+            payload[:webhooks] = webhooks_summary if webhooks_summary
+            render json: payload, status: was_new ? :created : :ok
           else
             render json: { error: "unprocessable_entity", issues: domain.errors.full_messages },
                    status: :unprocessable_entity
@@ -74,6 +89,16 @@ module Api
           unless domain
             render json: { error: "not_found" }, status: :not_found
             return
+          end
+
+          # Best-effort cleanup of webhooks on the merchant's WooCommerce store
+          # before we wipe the local credentials. Never block destroy on this —
+          # if the store is unreachable or already deleted the user still wants
+          # to remove the integration from our side.
+          begin
+            ::Integrations::WooCommerceWebhookRegistrar.unregister_all(domain)
+          rescue => e
+            Rails.logger.warn("[WC-WEBHOOKS] auto-unregister failed: #{e.class}: #{e.message}")
           end
 
           domain.destroy!
@@ -276,7 +301,12 @@ module Api
             auto_sync_interval: meta.fetch("auto_sync_interval", 3600),
             last_sync_at: (last_import&.finished_at || last_import&.started_at)&.iso8601,
             product_count: current_workspace.products.where(platform: "woocommerce").count,
-            review_count: current_workspace.reviews.where(source: "woo").count
+            review_count: current_workspace.reviews.where(source: "woo").count,
+            webhooks: {
+              registered_count: Array(meta["webhook_ids"]).length,
+              registered_at:    meta["webhooks_registered_at"],
+              topics:           Array(meta["webhook_ids"]).map { |h| h.is_a?(Hash) ? h["topic"] : nil }.compact
+            }
           }
         end
       end

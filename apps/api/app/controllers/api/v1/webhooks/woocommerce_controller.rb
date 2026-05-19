@@ -13,16 +13,25 @@ module Api
             return
           end
 
-          # Verify HMAC signature when configured for this domain
-          if @workspace_domain.platform_meta.is_a?(Hash)
-            secret = @workspace_domain.platform_meta["webhook_secret"]
-            if secret.present? && !valid_signature?(secret)
+          raw_body = request.body.tap(&:rewind).read
+
+          # Verify HMAC signature when configured for this domain.
+          # Backwards-compat: when no secret is stored yet (older connections
+          # that pre-date the auto-register feature), we accept the delivery
+          # but log a warning so the next reconnect upgrades them.
+          secret = @workspace_domain.platform_meta.is_a?(Hash) ? @workspace_domain.platform_meta["webhook_secret"] : nil
+          if secret.present?
+            unless valid_signature?(secret, raw_body)
               head :unauthorized
               return
             end
+          else
+            Rails.logger.warn(
+              "[WC-WEBHOOK] no webhook_secret stored for workspace_domain=#{@workspace_domain.id} — accepting unsigned delivery"
+            )
           end
 
-          payload = JSON.parse(request.body.tap(&:rewind).read)
+          payload = JSON.parse(raw_body)
           topic   = request.headers["X-Wc-Webhook-Topic"].to_s
 
           set_rls_workspace(@workspace.id)
@@ -78,13 +87,12 @@ module Api
           nil
         end
 
-        def valid_signature?(secret)
+        def valid_signature?(secret, body)
           signature = request.headers["X-Wc-Webhook-Signature"]
           return false if signature.blank?
 
-          body = request.body.tap(&:rewind).read
           expected = Base64.strict_encode64(
-            OpenSSL::HMAC.digest("SHA256", secret, body)
+            OpenSSL::HMAC.digest("SHA256", secret, body.to_s)
           )
           ActiveSupport::SecurityUtils.secure_compare(signature, expected)
         end

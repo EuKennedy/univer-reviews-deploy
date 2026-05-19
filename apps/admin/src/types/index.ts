@@ -350,6 +350,11 @@ export interface WooCommerceConfig {
   last_sync_at: string | null
   product_count: number | null
   review_count: number | null
+  webhooks?: {
+    registered_count: number
+    registered_at: string | null
+    topics: string[]
+  }
 }
 
 // ─── Catalog Health ───────────────────────────────────────────────────────────
