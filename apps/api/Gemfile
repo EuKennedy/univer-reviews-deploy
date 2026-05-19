@@ -57,6 +57,7 @@ group :development, :test do
   gem "shoulda-matchers", "~> 6.4"
   gem "database_cleaner-active_record", "~> 2.2"
   gem "rubocop-rails-omakase", require: false
+  gem "webmock", "~> 3.23"
 end
 
 group :development do

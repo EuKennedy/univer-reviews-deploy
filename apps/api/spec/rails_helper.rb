@@ -5,6 +5,16 @@ require "shoulda/matchers"
 require "factory_bot_rails"
 require "database_cleaner/active_record"
 
+begin
+  require "webmock/rspec"
+  WebMock.disable_net_connect!(allow_localhost: true)
+rescue LoadError
+  # webmock not installed yet — tests that depend on it will be skipped.
+end
+
+# ActiveJob test adapter so we can assert enqueued jobs deterministically.
+require "active_job/test_helper"
+
 Dir[Rails.root.join("spec/support/**/*.rb")].sort.each { |f| require f }
 
 begin
@@ -19,6 +29,7 @@ RSpec.configure do |config|
   config.filter_rails_from_backtrace!
 
   config.include FactoryBot::Syntax::Methods
+  config.include ActiveJob::TestHelper
 
   config.before(:suite) do
     DatabaseCleaner.strategy = :transaction
@@ -27,6 +38,11 @@ RSpec.configure do |config|
 
   config.around do |example|
     DatabaseCleaner.cleaning { example.run }
+  end
+
+  # Use the test adapter for ActiveJob so we can introspect enqueued jobs.
+  config.before(:each) do
+    ActiveJob::Base.queue_adapter = :test
   end
 end
 

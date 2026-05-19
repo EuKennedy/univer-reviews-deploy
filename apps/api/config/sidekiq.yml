@@ -14,3 +14,7 @@
     cron: "0 6 * * *"
     class: WooCommerceSyncAllJob
     queue: imports
+  dispatch_due_campaign_sends:
+    cron: "* * * * *"
+    class: DispatchDueCampaignSendsJob
+    queue: default

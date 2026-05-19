@@ -18,6 +18,10 @@ import type {
   CatalogHealthByProduct,
   Product,
   Campaign,
+  CampaignInput,
+  CampaignSend,
+  CampaignSendStatus,
+  CampaignStatus,
   PaginatedResponse,
   ApiKey,
   Question,
@@ -443,17 +447,124 @@ class ApiClient {
   }
 
   // ─── Campaigns ──────────────────────────────────────────────────────────────
+  //
+  // Post-purchase email automation. Rails wraps every payload in { data: ... }
+  // — we unwrap once here so the React layer reads plain Campaign / CampaignSend
+  // objects. Pagination uses the standard PaginatedResponse envelope.
   campaigns = {
-    list: (token: string) =>
-      this.request<Campaign[]>('/campaigns', {}, token),
-    get: (id: string, token: string) =>
-      this.request<Campaign>(`/campaigns/${id}`, {}, token),
-    create: (data: Partial<Campaign>, token: string) =>
-      this.request<Campaign>(
+    list: (
+      params: { page?: number; per_page?: number; status?: CampaignStatus | '' } = {},
+      token: string,
+    ) =>
+      this.request<PaginatedResponse<Campaign> | { data: Campaign[] }>(
         '/campaigns',
-        { method: 'POST', body: JSON.stringify(data) },
-        token
+        { params: params as Record<string, string | number | boolean | undefined> },
+        token,
+      ).then((r) => {
+        // Tolerate two backend shapes: paginated envelope OR plain { data: [] }
+        if (Array.isArray((r as PaginatedResponse<Campaign>).data) && (r as PaginatedResponse<Campaign>).meta) {
+          return r as PaginatedResponse<Campaign>
+        }
+        const list = (r as { data: Campaign[] }).data ?? []
+        return {
+          data: list,
+          meta: {
+            current_page: 1,
+            per_page: list.length || 25,
+            total_count: list.length,
+            total_pages: 1,
+          },
+        } as PaginatedResponse<Campaign>
+      }),
+
+    get: (id: string, token: string) =>
+      this.request<{ data: Campaign }>(`/campaigns/${id}`, {}, token).then((r) => r.data),
+
+    create: (data: CampaignInput, token: string) =>
+      this.request<{ data: Campaign }>(
+        '/campaigns',
+        { method: 'POST', body: JSON.stringify({ campaign: data }) },
+        token,
+      ).then((r) => r.data),
+
+    update: (id: string, data: Partial<CampaignInput>, token: string) =>
+      this.request<{ data: Campaign }>(
+        `/campaigns/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ campaign: data }) },
+        token,
+      ).then((r) => r.data),
+
+    remove: (id: string, token: string) =>
+      this.request(`/campaigns/${id}`, { method: 'DELETE' }, token),
+
+    sendNow: (id: string, token: string) =>
+      this.request<{ data: Campaign }>(
+        `/campaigns/${id}/send_now`,
+        { method: 'POST' },
+        token,
+      ).then((r) => r.data),
+
+    pause: (id: string, token: string) =>
+      this.request<{ data: Campaign }>(
+        `/campaigns/${id}/pause`,
+        { method: 'POST' },
+        token,
+      ).then((r) => r.data),
+
+    resume: (id: string, token: string) =>
+      this.request<{ data: Campaign }>(
+        `/campaigns/${id}/resume`,
+        { method: 'POST' },
+        token,
+      ).then((r) => r.data),
+
+    testSend: (id: string, payload: { recipient_email: string }, token: string) =>
+      this.request<{ message?: string }>(
+        `/campaigns/${id}/test_send`,
+        { method: 'POST', body: JSON.stringify(payload) },
+        token,
       ),
+  }
+
+  // ─── Campaign Sends ─────────────────────────────────────────────────────────
+  campaignSends = {
+    listByCampaign: (
+      campaignId: string,
+      params: { page?: number; per_page?: number; status?: CampaignSendStatus | '' } = {},
+      token: string,
+    ) =>
+      this.request<PaginatedResponse<CampaignSend>>(
+        `/campaigns/${campaignId}/sends`,
+        { params: params as Record<string, string | number | boolean | undefined> },
+        token,
+      ),
+
+    /**
+     * Manual retry of a single send. Backend route not yet wired — the client
+     * surfaces ApiError(404) so the UI can gracefully render "em breve".
+     */
+    resend: (sendId: string, token: string) =>
+      this.request<{ data: CampaignSend }>(
+        `/campaign_sends/${sendId}/resend`,
+        { method: 'POST' },
+        token,
+      ).then((r) => r.data),
+  }
+
+  // ─── Email (workspace-level test send / domain status) ──────────────────────
+  email = {
+    testSend: (recipient_email: string, token: string) =>
+      this.request<{ message?: string }>(
+        '/email/test_send',
+        { method: 'POST', body: JSON.stringify({ recipient_email }) },
+        token,
+      ),
+    domainStatus: (token: string) =>
+      this.request<{ data: { domain: string; verified: boolean } }>(
+        '/email/domain_status',
+        {},
+        token,
+      ).then((r) => r.data),
   }
 }
 

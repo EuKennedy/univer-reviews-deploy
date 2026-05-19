@@ -16,6 +16,8 @@ import {
   Loader2,
   Eye,
   EyeOff,
+  Mail,
+  Send,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
@@ -23,16 +25,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PageHeader } from '@/components/godmode/PageHeader'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import type { Workspace, ApiKey, UserRole } from '@/types'
 
-type Tab = 'general' | 'branding' | 'team' | 'api-keys' | 'domains'
+type Tab = 'general' | 'branding' | 'team' | 'api-keys' | 'domains' | 'email'
 
 const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'general', label: 'Geral', icon: Settings },
   { id: 'branding', label: 'Marca', icon: Palette },
   { id: 'team', label: 'Time', icon: Users },
+  { id: 'email', label: 'Email', icon: Mail },
   { id: 'api-keys', label: 'Chaves de API', icon: Key },
   { id: 'domains', label: 'Domínios', icon: Globe },
 ]
@@ -814,6 +817,147 @@ function DomainsTab({ workspace }: { workspace: Workspace }) {
   )
 }
 
+// ─── Email tab ──────────────────────────────────────────────────────────────
+
+function EmailTab({ workspace }: { workspace: Workspace }) {
+  const { getToken } = useAuth()
+  const [replyTo, setReplyTo] = useState('suporte@univerreviews.com')
+  const [testEmail, setTestEmail] = useState('')
+
+  const testMut = useMutation({
+    mutationFn: () => api.email.testSend(testEmail, getToken()),
+    onSuccess: () => toast.success(`Email de teste enviado para ${testEmail}`),
+    onError: (e: unknown) => {
+      if (e instanceof ApiError && e.status === 404) {
+        toast.error('Endpoint de teste ainda não disponível')
+      } else {
+        toast.error(e instanceof Error ? e.message : 'Falha no envio de teste')
+      }
+    },
+  })
+
+  return (
+    <div className="max-w-2xl space-y-4">
+      <div
+        className="rounded-xl p-5"
+        style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
+      >
+        <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
+          Domínio de envio
+        </h3>
+        <p className="text-xs mb-3" style={{ color: 'var(--ur-text-muted)' }}>
+          Todas as suas campanhas enviam via UniverReviews. White-label
+          personalizado em breve.
+        </p>
+        <div
+          className="flex items-center gap-3 px-3 py-2 rounded-lg"
+          style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)' }}
+        >
+          <code className="text-sm font-mono flex-1" style={{ color: 'var(--ur-text)' }}>
+            univerreviews.com
+          </code>
+          <span
+            className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
+            style={{
+              background: 'var(--ur-success-bg)',
+              color: 'var(--ur-success)',
+            }}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            Verificado
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="rounded-xl p-5"
+        style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
+      >
+        <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
+          From padrão
+        </h3>
+        <p
+          className="text-xs mb-3"
+          style={{ color: 'var(--ur-text-muted)' }}
+          title="From name resolve para o nome do seu workspace."
+        >
+          From name resolve para o nome do seu workspace.
+        </p>
+        <code
+          className="block text-sm font-mono px-3 py-2 rounded-lg"
+          style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text)' }}
+        >
+          {workspace.name} &lt;noreply@univerreviews.com&gt;
+        </code>
+      </div>
+
+      <div
+        className="rounded-xl p-5"
+        style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
+      >
+        <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
+          Reply-to padrão
+        </h3>
+        <p className="text-xs mb-3" style={{ color: 'var(--ur-text-muted)' }}>
+          Endereço para onde as respostas dos clientes serão direcionadas.
+        </p>
+        <input
+          value={replyTo}
+          onChange={(e) => setReplyTo(e.target.value)}
+          placeholder="suporte@suaempresa.com"
+          className={inputClass + ' font-mono'}
+          style={inputStyle}
+          onFocus={inputFocus}
+          onBlur={inputBlur}
+        />
+        <p className="text-xs mt-2" style={{ color: 'var(--ur-text-faint)' }}>
+          Salvar reply-to global em breve — por enquanto cada campanha define o seu.
+        </p>
+      </div>
+
+      <div
+        className="rounded-xl p-5"
+        style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-border)' }}
+      >
+        <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
+          Envio de teste
+        </h3>
+        <p className="text-xs mb-3" style={{ color: 'var(--ur-text-muted)' }}>
+          Confirme que o seu provedor está aceitando emails de univerreviews.com.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            type="email"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="seu@email.com"
+            className={inputClass}
+            style={{ ...inputStyle, flex: 1 }}
+            onFocus={inputFocus}
+            onBlur={inputBlur}
+          />
+          <button
+            onClick={() => testMut.mutate()}
+            disabled={!testEmail.includes('@') || testMut.isPending}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-40 transition-all"
+            style={{
+              background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
+              color: 'var(--ur-text-on-accent)',
+            }}
+          >
+            {testMut.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Enviar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const params = useParams()
   const workspace = params?.workspace as string
@@ -825,7 +969,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const hash = window.location.hash.replace('#', '')
-    const validTabs: Tab[] = ['general', 'branding', 'team', 'api-keys', 'domains']
+    const validTabs: Tab[] = ['general', 'branding', 'team', 'email', 'api-keys', 'domains']
     if (hash && (validTabs as string[]).includes(hash)) {
       setActiveTab(hash as Tab)
     }
@@ -848,6 +992,7 @@ export default function SettingsPage() {
     general: <GeneralTab workspace={workspaceData} />,
     branding: <BrandingTab workspace={workspaceData} />,
     team: <TeamTab workspace={workspaceData} />,
+    email: <EmailTab workspace={workspaceData} />,
     'api-keys': <ApiKeysTab />,
     domains: <DomainsTab workspace={workspaceData} />,
   }

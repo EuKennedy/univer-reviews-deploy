@@ -70,8 +70,13 @@ Rails.application.routes.draw do
           post :send_now
           post :pause
           post :resume
+          post :test_send
         end
       end
+
+      # Email tracking (no auth — payload is signed)
+      get "email/open",  to: "tracking#open"
+      get "email/click", to: "tracking#click"
 
       # Rewards
       resources :reward_rules
@@ -147,6 +152,7 @@ Rails.application.routes.draw do
         post :shopify
         post :stripe
         post :feedspace
+        post :resend
       end
     end
   end

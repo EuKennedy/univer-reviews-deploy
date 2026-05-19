@@ -238,24 +238,103 @@ export interface QuestionGroup {
 
 // ─── Campaign ─────────────────────────────────────────────────────────────────
 
-export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed'
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'archived' | 'completed'
 export type CampaignType = 'email' | 'sms' | 'whatsapp'
+export type CampaignTriggerEvent =
+  | 'order_completed'
+  | 'order_delivered'
+  | 'order_paid'
+  | 'order_refunded'
 
+/**
+ * Email-first campaign shape. Older shape (subject/body/type/trigger) kept as
+ * optional for backwards compatibility with the legacy list view; new fields
+ * are authoritative for the post-purchase email automation flow.
+ */
 export interface Campaign {
   id: string
   workspace_id: string
   name: string
-  type: CampaignType
   status: CampaignStatus
-  subject: string | null
-  body: string
-  trigger: 'manual' | 'post_purchase' | 'scheduled'
+
+  // Triggering + scheduling
+  trigger_events: CampaignTriggerEvent[]
+  trigger_after_minutes: number
+
+  // From / reply-to
+  from_name: string
+  from_email: string
+  reply_to: string | null
+
+  // Email content
+  subject_template: string
+  html_template: string
+
+  // Aggregates
   sent_count: number
   open_count: number
   click_count: number
   review_count: number
+
   created_at: string
   updated_at: string
+
+  // ── Legacy fields (optional — kept so older callers still type-check) ──
+  type?: CampaignType
+  subject?: string | null
+  body?: string
+  trigger?: 'manual' | 'post_purchase' | 'scheduled'
+}
+
+export type CampaignSendStatus =
+  | 'queued'
+  | 'sent'
+  | 'delivered'
+  | 'opened'
+  | 'clicked'
+  | 'bounced'
+  | 'complained'
+  | 'converted'
+
+export interface CampaignSend {
+  id: string
+  campaign_id: string
+  recipient_email: string
+  recipient_name: string | null
+  status: CampaignSendStatus
+  sent_at: string | null
+  opened_at: string | null
+  clicked_at: string | null
+  bounced_at: string | null
+  external_order_id: string | null
+  opened_count: number
+  clicked_count: number
+  last_event_at: string | null
+  created_at: string
+}
+
+export interface CampaignStats {
+  sent: number
+  delivered: number
+  opened: number
+  clicked: number
+  converted: number
+  delivered_rate: number
+  open_rate: number
+  click_rate: number
+  conversion_rate: number
+}
+
+export interface CampaignInput {
+  name: string
+  status?: CampaignStatus
+  trigger_events: CampaignTriggerEvent[]
+  trigger_after_minutes: number
+  from_name?: string
+  from_email?: string
+  reply_to?: string | null
+  subject_template: string
+  html_template: string
 }
 
 // ─── Integrations ─────────────────────────────────────────────────────────────
