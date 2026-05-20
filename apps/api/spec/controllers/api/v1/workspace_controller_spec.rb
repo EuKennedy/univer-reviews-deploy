@@ -50,7 +50,8 @@ RSpec.describe Api::V1::WorkspaceController, type: :request do
     end
 
     it "serializes each user with the expected shape" do
-      create(:workspace_user, :owner, workspace: workspace, email: "owner@example.com", name: "Alice")
+      # `owner` is already created by the let!(:owner) above — recreating it
+      # here would violate the (workspace_id, email) uniqueness constraint.
       get "/api/v1/workspace", headers: headers
 
       body = JSON.parse(response.body)
