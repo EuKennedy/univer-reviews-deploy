@@ -17,10 +17,18 @@ require "active_job/test_helper"
 
 Dir[Rails.root.join("spec/support/**/*.rb")].sort.each { |f| require f }
 
-begin
-  ActiveRecord::Migration.maintain_test_schema!
-rescue ActiveRecord::PendingMigrationError => e
-  abort e.to_s.strip
+# In CI we run `rails db:migrate` against the test DB directly before invoking
+# rspec, so maintain_test_schema! is both redundant and harmful: with
+# schema_format = :sql, Rails 8.1 dumps a structure.sql that starts with
+# `CREATE SCHEMA public` (no IF NOT EXISTS), and reloading it against an
+# already-bootstrapped database fails with "schema public already exists".
+# Local devs still get the safety net.
+unless ENV["CI"]
+  begin
+    ActiveRecord::Migration.maintain_test_schema!
+  rescue ActiveRecord::PendingMigrationError => e
+    abort e.to_s.strip
+  end
 end
 
 RSpec.configure do |config|
