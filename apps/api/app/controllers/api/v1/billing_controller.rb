@@ -1,6 +1,21 @@
 module Api
   module V1
     class BillingController < ApplicationController
+      # Billing endpoints are restricted to owner/admin. The previous code
+      # gated only on require_write! (which includes editor), so any editor
+      # session could open the Stripe billing portal and cancel/refund/
+      # change the plan on the workspace's Stripe customer.
+      before_action :require_billing_role!, only: %i[create_checkout portal]
+
+      # Frontend hosts we accept for post-checkout / portal-return redirects.
+      # Anything else is treated as user input and dropped to the safe default.
+      ALLOWED_REDIRECT_HOSTS = %w[
+        dash.univerreviews.com
+        app.univerreviews.com
+        univerreviews.com
+        www.univerreviews.com
+      ].freeze
+
       # GET /api/v1/billing
       def show
         sub = current_workspace.subscription
@@ -37,12 +52,10 @@ module Api
 
       # POST /api/v1/billing/create_checkout
       def create_checkout
-        require_write!
-
         plan_slug    = params.require(:plan)
         billing_type = params[:billing_type] || "monthly"
-        success_url  = params[:success_url] || ENV.fetch("FRONTEND_URL", "http://localhost:3001")
-        cancel_url   = params[:cancel_url]  || ENV.fetch("FRONTEND_URL", "http://localhost:3001")
+        success_url  = safe_redirect_url(params[:success_url])
+        cancel_url   = safe_redirect_url(params[:cancel_url])
 
         plan = BillingPlan.active.find_by!(slug: plan_slug)
 
@@ -60,6 +73,11 @@ module Api
             },
             quantity: 1
           }],
+          # client_reference_id binds this checkout to our workspace at Stripe's
+          # level; we verify against this on the inbound webhook to prevent
+          # checkout-metadata forgery (a hostile workspace can no longer set
+          # someone else's workspace_id in metadata and have it applied).
+          client_reference_id: current_workspace.id.to_s,
           metadata: {
             workspace_id: current_workspace.id,
             plan_slug: plan_slug
@@ -75,8 +93,6 @@ module Api
 
       # POST /api/v1/billing/portal
       def portal
-        require_write!
-
         sub = current_workspace.subscription
 
         unless sub&.external_id.present?
@@ -84,7 +100,7 @@ module Api
           return
         end
 
-        return_url = params[:return_url] || ENV.fetch("FRONTEND_URL", "http://localhost:3001")
+        return_url = safe_redirect_url(params[:return_url])
 
         # Retrieve customer ID from Stripe subscription
         stripe_sub = Stripe::Subscription.retrieve(sub.external_id)
@@ -96,6 +112,55 @@ module Api
         render json: { data: { portal_url: portal_session.url } }
       rescue Stripe::StripeError => e
         render json: { error: "stripe_error", message: e.message }, status: :unprocessable_entity
+      end
+
+      private
+
+      # Only owner/admin can touch billing. require_write! lets editor through
+      # which is fine for review moderation but NOT for changing plans / opening
+      # the Stripe portal where the user can cancel, refund, or swap payment
+      # methods on the workspace's account.
+      def require_billing_role!
+        role = current_user&.role
+        unless %w[owner admin].include?(role)
+          raise ForbiddenError, "Billing actions require an owner or admin role"
+        end
+      end
+
+      # Open-redirect defense. The previous endpoints forwarded any
+      # success_url / cancel_url / return_url straight to Stripe, which
+      # then 303s the browser to the attacker's domain post-payment —
+      # phishing + token leakage via Referer.
+      #
+      # Accept only:
+      #   - URLs whose host is in ALLOWED_REDIRECT_HOSTS
+      #   - http on localhost / 127.0.0.1 in development
+      # Anything else falls back to ENV["FRONTEND_URL"] (which itself must be
+      # set to a trusted host in prod).
+      def safe_redirect_url(value)
+        fallback = ENV.fetch("FRONTEND_URL", "https://dash.univerreviews.com")
+        return fallback if value.blank?
+
+        begin
+          uri = URI.parse(value.to_s)
+        rescue URI::InvalidURIError
+          return fallback
+        end
+
+        return fallback unless %w[http https].include?(uri.scheme)
+
+        host = uri.host.to_s.downcase
+        return fallback if host.empty?
+
+        if ALLOWED_REDIRECT_HOSTS.include?(host)
+          return value.to_s
+        end
+
+        if (Rails.env.development? || Rails.env.test?) && %w[localhost 127.0.0.1].include?(host)
+          return value.to_s
+        end
+
+        fallback
       end
     end
   end
