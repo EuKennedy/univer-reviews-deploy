@@ -17,9 +17,80 @@ class Univer_Shortcode {
         add_shortcode( 'univer_reviews',          [ $this, 'render' ] );
         add_shortcode( 'univer_featured_reviews', [ $this, 'render_featured' ] );
         add_shortcode( 'univer_reviews_summary',  [ $this, 'render_summary' ] );
+        add_shortcode( 'univer_qa',               [ $this, 'render_qa' ] );
 
         // Also support Gutenberg block as a classic shortcode wrapper
         add_action( 'init', [ $this, 'register_block' ] );
+    }
+
+    /**
+     * [univer_qa] — Q&A panel only (no reviews, no rating summary).
+     *
+     * Same product-id resolution as [univer_reviews]: explicit attr →
+     * current WC product → empty (admin-visible error). Renders the
+     * <univer-reviews> custom element with show-reviews="false" so the
+     * widget shell forces activeTab=qa and skips review/summary fetches.
+     */
+    public function render_qa( array|string $atts, ?string $content = null ): string {
+        $atts = shortcode_atts(
+            [
+                'product_id'   => '',
+                'workspace_id' => get_option( 'univer_workspace_id', '' ),
+                'locale'       => get_option( 'univer_widget_locale', 'pt-BR' ),
+                'theme_color'  => get_option( 'univer_widget_theme_color', '#d4a850' ),
+                'api_url'      => get_option( 'univer_api_url', UNIVER_API_URL ),
+                'class'        => '',
+            ],
+            $atts,
+            'univer_qa'
+        );
+
+        $product_id = sanitize_text_field( $atts['product_id'] );
+        if ( empty( $product_id ) ) {
+            $product_id = $this->get_current_product_id();
+        }
+
+        if ( empty( $product_id ) ) {
+            return current_user_can( 'edit_posts' )
+                ? '<p style="color:#e53e3e;font-size:.85rem;">[univer_qa] — '
+                    . esc_html__( 'Defina product_id ou use em uma página de produto.', 'univer-reviews' )
+                    . '</p>'
+                : '';
+        }
+
+        $workspace_id = sanitize_text_field( $atts['workspace_id'] );
+        if ( empty( $workspace_id ) ) {
+            return current_user_can( 'edit_posts' )
+                ? '<p style="color:#e53e3e">[univer_qa] — workspace_id ausente.</p>'
+                : '';
+        }
+
+        $locale       = in_array( $atts['locale'], [ 'pt-BR', 'en-US', 'es-AR' ], true ) ? $atts['locale'] : 'pt-BR';
+        $theme_color  = sanitize_hex_color( $atts['theme_color'] ) ?: '#d4a850';
+        $api_url      = esc_url( $atts['api_url'] );
+        $extra_class  = sanitize_html_class( $atts['class'] );
+
+        $this->ensure_widget_enqueued();
+
+        return sprintf(
+            '<div class="univer-reviews-wrapper univer-qa-only %s">
+                <univer-reviews
+                    workspace-id="%s"
+                    product-id="%s"
+                    api-url="%s"
+                    locale="%s"
+                    theme-color="%s"
+                    show-reviews="false"
+                    show-qa="true"
+                ></univer-reviews>
+            </div>',
+            esc_attr( $extra_class ),
+            esc_attr( $workspace_id ),
+            esc_attr( $product_id ),
+            esc_attr( $api_url ),
+            esc_attr( $locale ),
+            esc_attr( $theme_color )
+        );
     }
 
     /**

@@ -709,7 +709,13 @@ class UniverReviewsWidget extends HTMLElement {
     perPage: false,
     showQa: false,
     showWriteReview: false,
+    showReviews: false,
   }
+
+  // Q&A-only mode. When show-reviews="false" we hide the reviews tab AND
+  // default activeTab to 'qa' so the host can drop <univer-reviews show-reviews="false">
+  // (or use the [univer_qa] shortcode) to render just the question panel.
+  private showReviews = true
 
   private reviews: Review[] = []
   private summary: ReviewSummary | null = null
@@ -745,7 +751,7 @@ class UniverReviewsWidget extends HTMLElement {
   static get observedAttributes(): string[] {
     return [
       'workspace-id', 'product-id', 'api-url', 'layout', 'locale',
-      'theme-color', 'show-qa', 'show-write-review', 'per-page',
+      'theme-color', 'show-qa', 'show-reviews', 'show-write-review', 'per-page',
       'featured', 'limit', 'min-rating',
     ]
   }
@@ -788,6 +794,16 @@ class UniverReviewsWidget extends HTMLElement {
     if (this.hasAttribute('show-qa')) {
       this.showQa = this.getAttribute('show-qa') !== 'false'
       this.attrSet.showQa = true
+    }
+    if (this.hasAttribute('show-reviews')) {
+      this.showReviews = this.getAttribute('show-reviews') !== 'false'
+      this.attrSet.showReviews = true
+      // Q&A-only: hiding reviews must imply showing Q&A; otherwise the
+      // widget would render an empty shell.
+      if (!this.showReviews) {
+        this.showQa = true
+        this.activeTab = 'qa'
+      }
     }
     const pp = parseInt(this.getAttribute('per-page') || '', 10)
     if (pp > 0 && pp <= 100) { this.perPage = pp; this.attrSet.perPage = true }
@@ -875,7 +891,11 @@ class UniverReviewsWidget extends HTMLElement {
     this.loading = true
     this.render()
     try {
-      const tasks: Promise<void>[] = [this.fetchSummary(), this.fetchReviews()]
+      // Q&A-only mode: skip review/summary fetches so the panel doesn't
+      // spin or surface unrelated network errors.
+      const tasks: Promise<void>[] = this.showReviews
+        ? [this.fetchSummary(), this.fetchReviews()]
+        : []
       if (this.showQa) tasks.push(this.fetchQuestions())
       await Promise.all(tasks)
     } catch (e) {
@@ -1046,7 +1066,10 @@ class UniverReviewsWidget extends HTMLElement {
 
   // ─── Tabs ────────────────────────────────────────────────────────────────
   private renderTabs(): string {
+    // Hide tab bar when only one panel is visible (either show-qa=false or
+    // show-reviews=false). With only one tab there is nothing to switch to.
     if (!this.showQa) return ''
+    if (!this.showReviews) return ''
     return `
 <div class="ur-tabs">
   <button class="ur-tab ${this.activeTab === 'reviews' ? 'active' : ''}" data-tab="reviews">${this.t('reviews')}</button>
@@ -1122,6 +1145,9 @@ ${items.length === 0
 
   // ─── Summary header ──────────────────────────────────────────────────────
   private renderSummary(): string {
+    // Q&A-only mode: no rating summary to display.
+    if (!this.showReviews) return ''
+
     const avg = this.summary?.avg_rating ?? 0
     const total = this.summary?.total_reviews ?? 0
     const dist = this.summary?.rating_distribution ?? [5, 4, 3, 2, 1].map(r => ({ rating: r, count: 0, percentage: 0 }))
