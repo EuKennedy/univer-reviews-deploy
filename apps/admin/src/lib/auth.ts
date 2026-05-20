@@ -174,49 +174,60 @@ export const auth = betterAuth({
           const name = createdUser.name || email.split('@')[0]
 
           try {
-            // 1. If a Rails WorkspaceUser already exists for this email, link it.
-            const linked = await sql<{ id: string; workspace_id: string }[]>`
-              UPDATE public.workspace_users
-              SET better_auth_user_id = ${createdUser.id}
-              WHERE LOWER(email) = ${email} AND better_auth_user_id IS NULL
-              RETURNING id, workspace_id
-            `
+            await sql.begin(async (tx) => {
+              // workspace_users has FORCE ROW LEVEL SECURITY (workspace_id isolation).
+              // This hook runs with no workspace context — bypass RLS so the email
+              // lookup can find rows across all tenants. Without this, the UPDATE
+              // returns 0 rows and every user gets incorrectly provisioned into the
+              // first workspace in the DB (the "lizzon bug").
+              try {
+                await tx`SET LOCAL row_security = off`
+              } catch (_) {
+                // DB role lacks BYPASSRLS — log and fall through. The UPDATE below
+                // may still return rows if the connection already has app.workspace_id set,
+                // but likely won't. A DBA should grant BYPASSRLS to the app role.
+                console.warn('[auth] cannot bypass RLS in databaseHook — grant BYPASSRLS to app DB role')
+              }
 
-            if (linked.length > 0) {
-              console.info(`[auth] linked WorkspaceUser ${linked[0].id} → ${createdUser.id}`)
-              return
-            }
+              // 1. Link an existing Rails workspace_user by email.
+              const linked = await tx<{ id: string; workspace_id: string }[]>`
+                UPDATE public.workspace_users
+                SET better_auth_user_id = ${createdUser.id}
+                WHERE LOWER(email) = ${email} AND better_auth_user_id IS NULL
+                RETURNING id, workspace_id
+              `
 
-            // 2. No existing WorkspaceUser. Auto-provision into the first workspace.
-            //    Multi-tenant: ALLOW_AUTOPROVISION_WORKSPACE_ID env can pin a specific WS.
-            const targetWorkspaceId =
-              process.env.AUTOPROVISION_WORKSPACE_ID ||
-              (await sql<{ id: string }[]>`SELECT id FROM public.workspaces ORDER BY created_at ASC LIMIT 1`)[0]?.id
+              if (linked.length > 0) {
+                console.info(`[auth] linked WorkspaceUser ${linked[0].id} → ${createdUser.id}`)
+                return
+              }
 
-            if (!targetWorkspaceId) {
-              console.warn(`[auth] no workspace to auto-provision user ${email}`)
-              return
-            }
+              // 2. No existing workspace_user found.
+              //    ONLY auto-provision if AUTOPROVISION_WORKSPACE_ID is explicitly set.
+              //    NEVER fall back to "first workspace in DB" — in a multi-tenant SaaS
+              //    that silently puts every new user into an arbitrary customer's tenant.
+              const targetWorkspaceId = process.env.AUTOPROVISION_WORKSPACE_ID
+              if (!targetWorkspaceId) {
+                console.warn(`[auth] no workspace_user for ${email} — user will see error=no_workspace on login. Set AUTOPROVISION_WORKSPACE_ID or pre-create a workspace_user.`)
+                return
+              }
 
-            // If the workspace has no owner yet, this user becomes the owner.
-            // Otherwise fall back to AUTOPROVISION_ROLE (default: 'viewer').
-            // Prevents the bootstrap problem where the first real user lands as
-            // a read-only viewer with no way to enable integrations.
-            const existingOwner = await sql<{ id: string }[]>`
-              SELECT id FROM public.workspace_users
-              WHERE workspace_id = ${targetWorkspaceId} AND role = 'owner'
-              LIMIT 1
-            `
-            const role = existingOwner.length === 0
-              ? 'owner'
-              : (process.env.AUTOPROVISION_ROLE || 'viewer')
+              const existingOwner = await tx<{ id: string }[]>`
+                SELECT id FROM public.workspace_users
+                WHERE workspace_id = ${targetWorkspaceId} AND role = 'owner'
+                LIMIT 1
+              `
+              const role = existingOwner.length === 0
+                ? 'owner'
+                : (process.env.AUTOPROVISION_ROLE || 'viewer')
 
-            await sql`
-              INSERT INTO public.workspace_users (workspace_id, email, name, role, better_auth_user_id, created_at, updated_at)
-              VALUES (${targetWorkspaceId}, ${email}, ${name}, ${role}, ${createdUser.id}, NOW(), NOW())
-              ON CONFLICT DO NOTHING
-            `
-            console.info(`[auth] auto-provisioned ${email} into workspace ${targetWorkspaceId} as ${role}`)
+              await tx`
+                INSERT INTO public.workspace_users (workspace_id, email, name, role, better_auth_user_id, created_at, updated_at)
+                VALUES (${targetWorkspaceId}, ${email}, ${name}, ${role}, ${createdUser.id}, NOW(), NOW())
+                ON CONFLICT DO NOTHING
+              `
+              console.info(`[auth] auto-provisioned ${email} into workspace ${targetWorkspaceId} as ${role}`)
+            })
           } catch (e) {
             console.error('[auth] WorkspaceUser sync failed:', e)
           }

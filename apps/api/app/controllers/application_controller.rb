@@ -2,6 +2,12 @@ class ApplicationController < ActionController::API
   include Pagy::Backend
   include ActionController::Cookies
 
+  # Each authenticated request runs inside a transaction so that
+  # SET LOCAL app.workspace_id persists for the entire request lifetime.
+  # Without this, SET LOCAL (which is transaction-scoped) has no effect and
+  # RLS policies either see a stale workspace_id from a pooled connection
+  # or no workspace_id at all, breaking row-level isolation.
+  around_action :request_transaction, unless: :skip_authentication?
   before_action :set_current_workspace
 
   rescue_from ActiveRecord::RecordNotFound,    with: :not_found
@@ -83,6 +89,18 @@ class ApplicationController < ActionController::API
     @current_ba_user    = ba_user
     @current_ba_session = ba_session
 
+    # workspace_users has FORCE ROW LEVEL SECURITY (app.workspace_id isolation).
+    # At this point app.workspace_id is not yet set — we're in the auth bootstrap.
+    # Disable row security temporarily so we can locate the user across tenants,
+    # then re-enable it after set_rls_workspace pins the correct workspace.
+    # Requires BYPASSRLS privilege or superuser — gracefully ignored otherwise.
+    conn = ActiveRecord::Base.connection
+    begin
+      conn.execute("SET LOCAL row_security = off")
+    rescue => e
+      Rails.logger.warn("[auth] cannot bypass RLS in assign_from_better_auth: #{e.message}")
+    end
+
     # Resolve workspace from session's active_organization_id mapping → workspaces.better_auth_org_id.
     workspace =
       if ba_session.respond_to?(:active_organization_id) && ba_session.active_organization_id.present?
@@ -110,12 +128,23 @@ class ApplicationController < ActionController::API
     cookies[SESSION_COOKIE] || cookies["__Secure-#{SESSION_COOKIE}"]
   end
 
+  def request_transaction(&block)
+    ActiveRecord::Base.transaction(&block)
+  end
+
   def set_rls_workspace(workspace_id)
-    ActiveRecord::Base.connection.execute(
+    # SET LOCAL requires an active transaction (request_transaction wraps every
+    # authenticated request). Setting it outside a transaction silently degrades
+    # to a session SET, leaking workspace context across pooled connections.
+    conn = ActiveRecord::Base.connection
+    conn.execute(
       ActiveRecord::Base.sanitize_sql(
         ["SET LOCAL app.workspace_id = ?", workspace_id.to_s]
       )
     )
+    # Re-enable RLS now that workspace context is established.
+    # assign_from_better_auth turned it off during the auth bootstrap.
+    conn.execute("SET LOCAL row_security = on")
   end
 
   def current_workspace

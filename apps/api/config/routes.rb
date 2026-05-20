@@ -131,7 +131,8 @@ Rails.application.routes.draw do
       # WordPress sync
       namespace :wp do
         post :sync
-        get  :ping, to: "sync#ping"
+        get  :ping,    to: "sync#ping"
+        get  :reviews, to: "sync#reviews"
       end
 
       # Public (no auth) - storefront/widget
