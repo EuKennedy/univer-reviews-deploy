@@ -7,8 +7,11 @@ class Question < ApplicationRecord
 
   STATUSES = %w[pending published rejected].freeze
 
-  validates :body,   presence: true
-  validates :status, inclusion: { in: STATUSES }
+  validates :body,         presence: true, length: { maximum: 1_000 }
+  validates :answer,       length: { maximum: 5_000 }, allow_nil: true
+  validates :author_name,  length: { maximum: 120 },   allow_nil: true
+  validates :author_email, length: { maximum: 254 },   allow_nil: true
+  validates :status,       inclusion: { in: STATUSES }
 
   before_validation { author_email&.downcase! }
 

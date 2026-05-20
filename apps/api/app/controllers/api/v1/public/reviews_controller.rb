@@ -130,10 +130,18 @@ module Api
         # POST /api/v1/public/reviews/:id/helpful
         def helpful
           review = @workspace.reviews.approved.find(params[:id])
+          # One vote per (review, ip_subnet) per day. Without this an attacker
+          # can curl in a loop and inflate helpful_count to manipulate the
+          # "most helpful" sort.
+          if already_voted_today?(review, :helpful)
+            render json: { error: "already_voted", message: "Já registramos seu voto." }, status: :too_many_requests
+            return
+          end
           if truthy?(params[:undo])
             review.decrement!(:helpful_count) if review.helpful_count.to_i.positive?
           else
             review.mark_helpful!
+            mark_voted!(review, :helpful)
           end
           render json: { data: { id: review.id, helpful_count: review.helpful_count, unhelpful_count: review.unhelpful_count } }
         rescue ActiveRecord::RecordNotFound
@@ -143,10 +151,15 @@ module Api
         # POST /api/v1/public/reviews/:id/unhelpful
         def unhelpful
           review = @workspace.reviews.approved.find(params[:id])
+          if already_voted_today?(review, :unhelpful)
+            render json: { error: "already_voted", message: "Já registramos seu voto." }, status: :too_many_requests
+            return
+          end
           if truthy?(params[:undo])
             review.decrement!(:unhelpful_count) if review.unhelpful_count.to_i.positive?
           else
             review.mark_unhelpful!
+            mark_voted!(review, :unhelpful)
           end
           render json: { data: { id: review.id, helpful_count: review.helpful_count, unhelpful_count: review.unhelpful_count } }
         rescue ActiveRecord::RecordNotFound
@@ -401,13 +414,53 @@ module Api
         # Redis is expected.
         def rate_limited?
           key   = "submit_rl:#{request.remote_ip}"
-          redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+          redis = redis_client
           count = redis.incr(key)
           redis.expire(key, 3600) if count == 1
           count > RATE_LIMIT_SUBMIT
         rescue => e
           Rails.logger.warn("[submit-rate-limit] redis error: #{e.message}")
           Rails.env.production? || Rails.env.staging?
+        end
+
+        # Per-(review, ip) vote dedupe with 24h TTL. Implemented via Redis SETNX:
+        # the first vote wins; concurrent / repeat votes from the same IP get
+        # already_voted = true. Failing-open here is acceptable — the worst
+        # case is the user can vote twice instead of once if Redis is down.
+        def already_voted_today?(review, kind)
+          key = "vote:#{kind}:#{review.id}:#{ip_subnet}"
+          existed = redis_client.set(key, "1", nx: true, ex: 86_400)
+          # set with nx returns true on first write, nil/false on repeat.
+          !existed
+        rescue => e
+          Rails.logger.warn("[vote-dedupe] redis error: #{e.message}")
+          false
+        end
+
+        def mark_voted!(review, kind)
+          key = "vote:#{kind}:#{review.id}:#{ip_subnet}"
+          redis_client.set(key, "1", nx: true, ex: 86_400)
+        rescue => e
+          Rails.logger.warn("[vote-dedupe-mark] redis error: #{e.message}")
+        end
+
+        # Bucket the IP to a /24 (IPv4) or /64 (IPv6) so the same NAT'd
+        # household doesn't bypass with multiple devices, while still allowing
+        # legitimately distinct visitors on the open internet to vote.
+        def ip_subnet
+          addr = request.remote_ip.to_s
+          return addr if addr.empty?
+          if addr.include?(":")
+            # IPv6 → first 4 groups (~/64)
+            addr.split(":").first(4).join(":")
+          else
+            # IPv4 → first 3 octets (/24)
+            addr.split(".").first(3).join(".")
+          end
+        end
+
+        def redis_client
+          @redis_client ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
         end
 
         def submit_params
