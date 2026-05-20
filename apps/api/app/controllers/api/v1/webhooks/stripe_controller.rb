@@ -4,16 +4,52 @@ module Api
       class StripeController < ApplicationController
         skip_before_action :set_current_workspace
 
-        WEBHOOK_SECRET = ENV.fetch("STRIPE_WEBHOOK_SECRET", "")
-
         # POST /api/v1/webhooks/stripe
         def create
+          secret = ENV["STRIPE_WEBHOOK_SECRET"].to_s.strip
+          if secret.empty?
+            if Rails.env.production? || Rails.env.staging?
+              Rails.logger.error("[stripe-webhook] STRIPE_WEBHOOK_SECRET unset — rejecting")
+              head :service_unavailable
+              return
+            else
+              Rails.logger.warn("[stripe-webhook] secret empty in #{Rails.env} — accepting without verification")
+            end
+          end
+
           payload = request.body.read
           sig_header = request.env["HTTP_STRIPE_SIGNATURE"]
 
-          event = Stripe::Webhook.construct_event(payload, sig_header, WEBHOOK_SECRET)
+          event =
+            if secret.empty?
+              # Dev/test: parse without verification so fixtures can fire events.
+              raw = JSON.parse(payload)
+              OpenStruct.new(
+                id:   raw["id"],
+                type: raw["type"],
+                data: OpenStruct.new(object: OpenStruct.new(raw.dig("data", "object") || {}))
+              )
+            else
+              Stripe::Webhook.construct_event(payload, sig_header, secret)
+            end
+
+          # Idempotency: insert a StripeEvent row keyed by event.id BEFORE
+          # processing. Stripe re-delivers on 5xx for 3 days; without this
+          # guard, replayed events double-process (extra subscription writes,
+          # extra audit log rows, extra downgrade on subscription.deleted).
+          if event.id.present?
+            begin
+              StripeEvent.create!(event_id: event.id, event_type: event.type)
+            rescue ActiveRecord::RecordNotUnique
+              Rails.logger.info("[stripe-webhook] replay #{event.id} (#{event.type}) — skipping")
+              head :ok
+              return
+            end
+          end
 
           handle_stripe_event(event)
+
+          StripeEvent.where(event_id: event.id).update_all(processed_at: Time.current) if event.id.present?
           head :ok
         rescue Stripe::SignatureVerificationError => e
           Rails.logger.warn("Stripe webhook signature failed: #{e.message}")
@@ -22,7 +58,7 @@ module Api
           head :bad_request
         rescue => e
           Rails.logger.error("Stripe webhook error: #{e.message}")
-          Sentry.capture_exception(e)
+          Sentry.capture_exception(e) if defined?(Sentry)
           head :internal_server_error
         end
 
