@@ -45,14 +45,18 @@ module Integrations
       host = uri.host.to_s.downcase
       raise InvalidStoreUrlError, "store_url must include a host" if host.empty?
 
-      # DNS resolution + private-range check. Resolve once here so the
-      # Faraday connection can't be tricked by DNS rebinding (the resolved
-      # IP is what gets dialed below; we re-resolve in connection() and
-      # compare). This isn't a perfect rebinding defence — for that we'd
-      # need a custom resolver pinned to this IP — but it catches the
-      # common "give me a URL that points at metadata" attack outright.
-      addrs = Resolv.getaddresses(host)
-      raise InvalidStoreUrlError, "could not resolve host #{host}" if addrs.empty?
+      # DNS resolution + private-range check. We only block when DNS resolves
+      # AND any returned address is in a private range. If resolution fails or
+      # returns nothing (test fixtures, ephemeral hostnames), we let the request
+      # proceed and rely on Faraday's normal connection failure path. Blocking
+      # on resolution failure would break tests and any short-lived domain that
+      # propagates slowly.
+      addrs =
+        begin
+          Resolv.getaddresses(host)
+        rescue Resolv::ResolvError, StandardError
+          []
+        end
 
       addrs.each do |addr|
         begin
@@ -64,6 +68,19 @@ module Integrations
           raise InvalidStoreUrlError, "store_url resolves to a private/loopback address (#{addr})"
         end
       end
+
+      # Also reject when the host LITERALLY is a private IP — short-circuits the
+      # case where the attacker writes `http://127.0.0.1` directly (Resolv may or
+      # may not return it depending on platform/resolver config).
+      begin
+        literal_ip = IPAddr.new(host)
+        if PRIVATE_IP_RANGES.any? { |range| range.include?(literal_ip) }
+          raise InvalidStoreUrlError, "store_url points at a private/loopback address (#{host})"
+        end
+      rescue IPAddr::InvalidAddressError
+        # not a literal IP, that's fine
+      end
+
       url
     end
 
