@@ -1,6 +1,6 @@
 FactoryBot.define do
   factory :workspace do
-    slug     { Faker::Internet.unique.slug(words: 2, glue: "-") }
+    sequence(:slug) { |n| "ws-#{n}-#{SecureRandom.hex(3)}" }
     name     { Faker::Company.name }
     plan     { "pro" }
     status   { "active" }
