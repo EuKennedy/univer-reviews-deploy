@@ -76,6 +76,79 @@ module Api
 
           render json: { message: "WordPress sync queued (products + reviews)" }
         end
+
+        # PATCH /api/v1/wp/reviews/:id/status
+        # WP plugin proxies WordPress comment status changes (approve/hold/spam/trash)
+        # into the SaaS via this endpoint. Maps to the same logic as
+        # POST /api/v1/reviews/:id/status but accepts PATCH because that's what
+        # the plugin sends.
+        def update_status
+          require_write!
+
+          review = current_workspace.reviews.find(params[:id])
+          new_status = params.require(:status)
+          valid_statuses = %w[approved rejected hidden spam pending]
+
+          unless valid_statuses.include?(new_status)
+            render json: { error: "invalid_status", valid: valid_statuses }, status: :bad_request
+            return
+          end
+
+          old_status = review.status
+          review.update!(
+            status: new_status,
+            approved_at: new_status == "approved" ? Time.current : review.approved_at
+          )
+
+          if new_status == "approved" && old_status != "approved"
+            RewardGrantJob.perform_later(review.id)
+          end
+
+          AuditLog.record(
+            workspace: current_workspace,
+            action: "review.status_changed_from_wp",
+            entity: review,
+            metadata: { from: old_status, to: new_status },
+            request: request
+          )
+
+          render json: { data: { id: review.id, status: review.status } }
+        end
+
+        # POST /api/v1/wp/reviews/:id/reply
+        # WP plugin pushes admin replies authored in WordPress (parent_id =
+        # the review comment, content = the reply body) back to the SaaS.
+        def add_reply
+          require_write!
+
+          review = current_workspace.reviews.find(params[:id])
+
+          body = params.require(:body).to_s[0, 4_000]
+          if body.blank?
+            render json: { error: "missing_body" }, status: :bad_request
+            return
+          end
+
+          author_name = params[:author_name].to_s[0, 120].presence || "Suporte"
+
+          reply = review.replies.create!(
+            workspace:    current_workspace,
+            body:         body,
+            author_name:  author_name,
+            is_ai_generated: false,
+            is_published: true
+          )
+
+          AuditLog.record(
+            workspace: current_workspace,
+            action: "review.reply_added_from_wp",
+            entity: review,
+            metadata: { reply_id: reply.id },
+            request: request
+          )
+
+          render json: { data: { id: reply.id, review_id: review.id } }, status: :created
+        end
       end
     end
   end

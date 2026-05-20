@@ -133,11 +133,16 @@ Rails.application.routes.draw do
       # Audit log
       resources :audit_logs, only: [:index]
 
-      # WordPress sync
+      # WordPress sync. The PHP plugin pushes status changes and replies via
+      # /api/v1/wp/reviews/:id/{status,reply} — these mirror the standard
+      # /reviews/:id/status and /reviews/:id/replies endpoints but live under
+      # the wp namespace so the plugin codepath is self-contained.
       namespace :wp do
         post :sync
         get  :ping,    to: "sync#ping"
         get  :reviews, to: "sync#reviews"
+        patch "reviews/:id/status", to: "sync#update_status"
+        post  "reviews/:id/reply",  to: "sync#add_reply"
       end
 
       # Public (no auth) - storefront/widget
