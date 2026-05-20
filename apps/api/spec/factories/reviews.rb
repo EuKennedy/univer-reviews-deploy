@@ -1,7 +1,13 @@
 FactoryBot.define do
   factory :review do
-    workspace
-    product
+    # Force :create for the associations so `build(:review)` still has a
+    # persisted workspace_id / product_id. FactoryBot 5+ defaults to the parent
+    # strategy for nested associations, so a bare `workspace` line under
+    # `build(:review)` would only build (not save) the workspace, leaving
+    # workspace_id nil — which fails the explicit
+    # `validates :workspace_id, presence: true` on the Review model.
+    association :workspace, strategy: :create
+    association :product,   strategy: :create
     rating      { rand(1..5) }
     title       { Faker::Lorem.sentence(word_count: 4) }
     body        { Faker::Lorem.paragraph(sentence_count: 3) }
