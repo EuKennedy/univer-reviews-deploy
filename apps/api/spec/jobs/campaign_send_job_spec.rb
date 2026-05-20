@@ -15,13 +15,13 @@ RSpec.describe CampaignSendJob, type: :job do
     Resend.api_key = "test_key"
   end
 
+  # Stub Resend::Emails.send directly rather than the HTTP layer. The Resend
+  # 1.x gem normalizes response keys (`transform_keys(&:to_sym)` on the
+  # HTTParty response), and HTTParty's internal call chain interacts with
+  # WebMock differently across versions — stubbing at the method boundary
+  # keeps the spec stable against gem upgrades.
   it "renders + sends via Resend, persists message_id and rendered_html (success path)" do
-    stub_request(:post, "https://api.resend.com/emails")
-      .to_return(
-        status: 200,
-        body: { id: "msg_abc123" }.to_json,
-        headers: { "Content-Type" => "application/json" }
-      )
+    allow(Resend::Emails).to receive(:send).and_return({ id: "msg_abc123" })
 
     described_class.new.perform(send_rec.id)
 
@@ -41,8 +41,7 @@ RSpec.describe CampaignSendJob, type: :job do
   end
 
   it "retries on Resend failure and finally marks bounced after MAX_ATTEMPTS" do
-    stub_request(:post, "https://api.resend.com/emails")
-      .to_return(status: 500, body: { error: "boom" }.to_json)
+    allow(Resend::Emails).to receive(:send).and_raise(StandardError.new("boom"))
 
     # attempt=MAX_ATTEMPTS — no further enqueue, just mark bounced
     described_class.new.perform(send_rec.id, attempt: CampaignSendJob::MAX_ATTEMPTS)
@@ -53,7 +52,7 @@ RSpec.describe CampaignSendJob, type: :job do
   end
 
   it "re-enqueues itself with incremented attempt on first failure" do
-    stub_request(:post, "https://api.resend.com/emails").to_return(status: 500, body: "{}")
+    allow(Resend::Emails).to receive(:send).and_raise(StandardError.new("boom"))
 
     expect {
       described_class.new.perform(send_rec.id, attempt: 1)
