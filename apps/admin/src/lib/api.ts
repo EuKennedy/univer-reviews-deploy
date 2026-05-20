@@ -77,6 +77,18 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`
     }
 
+    // Workspace hint header. Rails uses this to bind the request to the
+    // workspace the user is currently looking at, instead of picking
+    // arbitrarily when the Better Auth session doesn't carry an
+    // active_organization_id. Read from the URL path because the admin
+    // routes under /:workspace_slug/...
+    if (typeof window !== 'undefined') {
+      const slug = window.location.pathname.split('/').filter(Boolean)[0]
+      if (slug && !['login', 'invite', 'auth', 'api', '_next'].includes(slug)) {
+        headers['X-Univer-Workspace-Slug'] = slug
+      }
+    }
+
     const res = await fetch(url, {
       ...fetchOptions,
       headers,

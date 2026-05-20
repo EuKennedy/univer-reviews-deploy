@@ -101,18 +101,45 @@ class ApplicationController < ActionController::API
       Rails.logger.warn("[auth] cannot bypass RLS in assign_from_better_auth: #{e.message}")
     end
 
-    # Resolve workspace from session's active_organization_id mapping → workspaces.better_auth_org_id.
+    # Workspace resolution has THREE possible signals (priority order):
+    #   1) Explicit URL slug:  /api/v1/* path under a "/:workspace_slug/..." prefix
+    #      (we accept it via X-Univer-Workspace-Slug for now; the admin already
+    #      reads workspaces from the path so adding the header is cheap)
+    #   2) Better Auth session active_organization_id mapping
+    #   3) The user's only linked workspace_user (when they belong to exactly one)
+    #
+    # We deliberately REMOVED the "fall back to any workspace_user" path.
+    # Previously, a user who belonged to two workspaces and had no
+    # active_organization_id silently landed in whichever was first in the
+    # index — same class as the lizzon bug. Now: if we can't disambiguate,
+    # fail closed with 401 and surface the available slugs so the client
+    # can re-request with the right header.
     workspace =
       if ba_session.respond_to?(:active_organization_id) && ba_session.active_organization_id.present?
         Workspace.find_by(better_auth_org_id: ba_session.active_organization_id)
       end
 
-    # Fall back: pick the user's first linked workspace_user.
-    @current_user      = WorkspaceUser.find_by(better_auth_user_id: ba_user.id, workspace_id: workspace&.id) ||
-                         WorkspaceUser.find_by(better_auth_user_id: ba_user.id)
-    @current_workspace = @current_user&.workspace || workspace
+    slug_hint = request.headers["X-Univer-Workspace-Slug"].to_s.strip
+    if workspace.nil? && slug_hint.present?
+      workspace = Workspace.find_by(slug: slug_hint)
+    end
+
+    if workspace
+      @current_user      = WorkspaceUser.find_by(better_auth_user_id: ba_user.id, workspace_id: workspace.id)
+      @current_workspace = workspace if @current_user
+    else
+      memberships = WorkspaceUser.where(better_auth_user_id: ba_user.id).limit(2).to_a
+      if memberships.length == 1
+        @current_user      = memberships.first
+        @current_workspace = @current_user.workspace
+      elsif memberships.length > 1
+        raise UnauthorizedError,
+              "User belongs to multiple workspaces; specify X-Univer-Workspace-Slug or set active_organization_id."
+      end
+    end
 
     raise UnauthorizedError, "User not provisioned to any workspace" unless @current_workspace
+    raise UnauthorizedError, "User not a member of this workspace"   unless @current_user
   end
 
   def authenticate_api_key!(api_key)
