@@ -8,6 +8,11 @@ Rails.application.routes.draw do
       # Auth
       post "auth/login",      to: "auth#login"
       post "auth/magic-link", to: "auth#magic_link"
+      # POST + body. The old GET route is preserved short-term for clients
+      # that still send the token via query string — both call the same
+      # action so the response is identical. Schedule removal once the
+      # Next.js verify page is fully POSTified.
+      post "auth/verify",     to: "auth#verify"
       get  "auth/verify",     to: "auth#verify"
       delete "auth/logout",   to: "auth#logout"
 

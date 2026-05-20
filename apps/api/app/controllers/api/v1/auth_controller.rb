@@ -20,11 +20,25 @@ module Api
       TOKEN_TTL  = 24.hours
 
       # POST /api/v1/auth/login
-      # Body: { email:, password:, workspace_slug: (optional) }
+      # Body: { email:, password:, workspace_slug: }
+      #
+      # workspace_slug is REQUIRED. Without it the previous implementation
+      # picked an arbitrary WorkspaceUser when the email existed in more
+      # than one tenant — same class of bug as the "lizzon" cross-tenant
+      # redirect we just shipped a fix for on the Next.js side. Make the
+      # tenant explicit at the API boundary.
       def login
         email          = params.require(:email).to_s.downcase.strip
         password       = params.require(:password).to_s
-        workspace_slug = params[:workspace_slug]
+        workspace_slug = params[:workspace_slug].to_s.strip
+
+        if workspace_slug.empty?
+          render json: {
+            error: "missing_workspace_slug",
+            message: "workspace_slug é obrigatório para autenticar."
+          }, status: :bad_request
+          return
+        end
 
         user = find_user(email, workspace_slug)
 
@@ -53,9 +67,16 @@ module Api
 
       # POST /api/v1/auth/magic-link
       # Body: { email:, workspace_slug: }
+      # workspace_slug is required for the same reason as #login above.
       def magic_link
         email          = params.require(:email).downcase.strip
-        workspace_slug = params[:workspace_slug]
+        workspace_slug = params[:workspace_slug].to_s.strip
+
+        if workspace_slug.empty?
+          # Match the success response to prevent user/workspace enumeration.
+          render json: { message: "If that email exists, a magic link was sent." }
+          return
+        end
 
         user = find_user(email, workspace_slug)
 
@@ -79,9 +100,19 @@ module Api
         render json: { message: "If that email exists, a magic link was sent." }
       end
 
-      # GET /api/v1/auth/verify?token=xxx
+      # POST /api/v1/auth/verify
+      # Body: { token: "raw_magic_link_token" }
+      #
+      # Used to be GET with the token in the query string — that put the
+      # token in browser history, Referer headers leaked it to any third-
+      # party asset on the post-login page, and proxy/access logs captured
+      # it. Magic-link tokens are 24h credentials; we now require POST + body.
       def verify
-        raw_token = params.require(:token)
+        raw_token = (params[:token].presence || request.headers["X-Magic-Link-Token"]).to_s
+        if raw_token.empty?
+          render json: { error: "missing_token", message: "Token é obrigatório." }, status: :bad_request
+          return
+        end
         token_record = MagicLinkToken.find_valid(raw_token)
 
         if token_record.nil?
