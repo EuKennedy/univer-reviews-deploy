@@ -149,13 +149,16 @@ Rails.application.routes.draw do
         get  "widget-config",           to: "widget_config#show"
       end
 
-      # Webhooks
+      # Webhooks — each sub-controller exposes a `create` action.
+      # Without explicit `to:` mappings, `post :woocommerce` resolves to
+      # WebhooksController#woocommerce, which does not exist (we use one
+      # controller per integration).
       namespace :webhooks do
-        post :woocommerce
-        post :shopify
-        post :stripe
-        post :feedspace
-        post :resend
+        post "woocommerce", to: "woocommerce#create"
+        post "shopify",     to: "shopify#create"
+        post "stripe",      to: "stripe#create"
+        post "feedspace",   to: "feedspace#create"
+        post "resend",      to: "resend#create"
       end
     end
   end
