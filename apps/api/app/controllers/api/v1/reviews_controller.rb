@@ -149,11 +149,18 @@ module Api
       def bulk
         require_write!
 
-        ids    = params.require(:ids)
-        action = params.require(:action)
+        # Read `action` from request body explicitly. `params[:action]` is
+        # always set by the Rails router to the controller action name ("bulk"),
+        # so it shadows any JSON body field with the same key.
+        body_params = request.request_parameters
+        ids        = params[:ids] || body_params["ids"]
+        bulk_action = body_params["action"]
+
+        raise ActionController::ParameterMissing, :ids if ids.blank?
+        raise ActionController::ParameterMissing, :action if bulk_action.blank?
 
         valid_actions = %w[approve reject hide spam delete]
-        unless valid_actions.include?(action)
+        unless valid_actions.include?(bulk_action)
           render json: { error: "invalid_action", valid: valid_actions }, status: :bad_request
           return
         end
@@ -163,7 +170,7 @@ module Api
 
         ActiveRecord::Base.transaction do
           reviews.each do |review|
-            case action
+            case bulk_action
             when "approve"
               old_status = review.status
               review.approve!
@@ -179,12 +186,12 @@ module Api
 
         AuditLog.record(
           workspace: current_workspace,
-          action: "review.bulk_#{action}",
+          action: "review.bulk_#{bulk_action}",
           metadata: { ids: ids, count: count },
           request: request
         )
 
-        render json: { updated: count, action: action }
+        render json: { updated: count, action: bulk_action }
       end
 
       private
