@@ -42,19 +42,38 @@ module Api
         # Resend signs webhooks via the Svix protocol — three headers:
         # svix-id, svix-timestamp, svix-signature. Verification is
         # base64(hmac_sha256(secret, "#{id}.#{ts}.#{body}")).
-        # If RESEND_WEBHOOK_SECRET is unset, we log a warning and accept
-        # (development mode).
+        #
+        # In production/staging RESEND_WEBHOOK_SECRET is REQUIRED — missing
+        # secret means we reject deliveries (fail closed). Previously we
+        # logged a warning and accepted the webhook, which let any attacker
+        # mark sends as bounced/complained/opened and poison suppression
+        # lists during any window where the env var was unset.
+        #
+        # Also rejects deliveries whose timestamp is older than
+        # WEBHOOK_TIMESTAMP_TOLERANCE to prevent replay of captured deliveries.
+        WEBHOOK_TIMESTAMP_TOLERANCE = 5.minutes
+
         def verify_signature(body)
           secret = ENV["RESEND_WEBHOOK_SECRET"].to_s.strip
           if secret.empty?
-            Rails.logger.warn("RESEND_WEBHOOK_SECRET missing — accepting webhook without verification")
-            return true
+            if Rails.env.production? || Rails.env.staging?
+              Rails.logger.error("[resend-webhook] RESEND_WEBHOOK_SECRET unset in #{Rails.env} — rejecting")
+              return false
+            else
+              Rails.logger.warn("[resend-webhook] RESEND_WEBHOOK_SECRET missing — accepting in #{Rails.env}")
+              return true
+            end
           end
 
           svix_id   = request.headers["Svix-Id"]
           svix_ts   = request.headers["Svix-Timestamp"]
           svix_sig  = request.headers["Svix-Signature"]
           return false if svix_id.blank? || svix_ts.blank? || svix_sig.blank?
+
+          # Replay protection: reject deliveries older than the tolerance window.
+          ts_int = svix_ts.to_i
+          return false if ts_int.zero?
+          return false if (Time.now.to_i - ts_int).abs > WEBHOOK_TIMESTAMP_TOLERANCE.to_i
 
           # Svix secret format: "whsec_<base64>"
           key_bytes = secret.start_with?("whsec_") ? Base64.decode64(secret.sub(/\Awhsec_/, "")) : secret

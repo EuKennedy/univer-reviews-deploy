@@ -7,28 +7,37 @@ module Api
 
         # POST /api/v1/webhooks/woocommerce
         def create
-          @workspace = resolve_workspace
-          unless @workspace
+          @workspace_domain = resolve_workspace_domain
+          unless @workspace_domain
             head :not_found
             return
           end
+          @workspace = @workspace_domain.workspace
 
           raw_body = request.body.tap(&:rewind).read
 
-          # Verify HMAC signature when configured for this domain.
-          # Backwards-compat: when no secret is stored yet (older connections
-          # that pre-date the auto-register feature), we accept the delivery
-          # but log a warning so the next reconnect upgrades them.
+          # Mandatory HMAC verification. The previous code had a "backwards-compat"
+          # path that accepted unsigned deliveries when platform_meta lacked a
+          # webhook_secret — combined with an attacker-controllable host header,
+          # that gave anyone the ability to forge order events against any
+          # WooCommerce-connected tenant.
+          #
+          # Fail closed in production/staging. Legacy domains MUST re-register
+          # via WooCommerceWebhookRegistrar to get a secret minted.
           secret = @workspace_domain.platform_meta.is_a?(Hash) ? @workspace_domain.platform_meta["webhook_secret"] : nil
-          if secret.present?
+          if secret.blank?
+            if Rails.env.production? || Rails.env.staging?
+              Rails.logger.warn("[wc-webhook] no secret on domain=#{@workspace_domain.id} — rejecting")
+              head :unauthorized
+              return
+            else
+              Rails.logger.warn("[wc-webhook] no secret on domain=#{@workspace_domain.id} — accepting in #{Rails.env}")
+            end
+          else
             unless valid_signature?(secret, raw_body)
               head :unauthorized
               return
             end
-          else
-            Rails.logger.warn(
-              "[WC-WEBHOOK] no webhook_secret stored for workspace_domain=#{@workspace_domain.id} — accepting unsigned delivery"
-            )
           end
 
           payload = JSON.parse(raw_body)
@@ -48,43 +57,24 @@ module Api
 
         private
 
-        def resolve_workspace
-          host = host_from_header(request.headers["X-Wc-Webhook-Source"]) ||
-                 host_from_referer
+        # Resolve the tenant strictly by X-Wc-Webhook-Source.
+        # Removed: Referer fallback (attacker-controllable) and progressive
+        # subdomain walk (let evil.victim.com hit victim.com's workspace).
+        # We still strip an exact "www." prefix because WooCommerce often
+        # sends www.<host> for stores registered as the bare apex — that
+        # one-step normalisation is narrow and does not enable cross-tenant
+        # routing the way the old subdomain walk did.
+        def resolve_workspace_domain
+          host = host_from_header(request.headers["X-Wc-Webhook-Source"])
           return nil if host.blank?
-
-          @workspace_domain = find_domain_progressively(host)
-          @workspace_domain&.workspace
+          WorkspaceDomain.find_by(domain: host) ||
+            (host.start_with?("www.") && WorkspaceDomain.find_by(domain: host.sub(/\Awww\./, ""))) ||
+            nil
         end
 
         def host_from_header(value)
           return nil if value.blank?
           value.to_s.gsub(/\Ahttps?:\/\//, "").split("/").first&.downcase
-        end
-
-        def host_from_referer
-          return nil if request.referer.blank?
-          URI.parse(request.referer).host&.downcase
-        rescue URI::InvalidURIError
-          nil
-        end
-
-        # Mirror of the public/reviews resolution: exact → strip www → walk
-        # subdomains until we find a registered workspace_domain.
-        def find_domain_progressively(host)
-          candidates = [host]
-          candidates << host.sub(/\Awww\./, "") if host.start_with?("www.")
-          # Walk up subdomains: foo.bar.example.com → bar.example.com → example.com
-          parts = host.split(".")
-          while parts.length > 2
-            parts.shift
-            candidates << parts.join(".")
-          end
-          candidates.uniq.each do |c|
-            domain = WorkspaceDomain.find_by(domain: c)
-            return domain if domain
-          end
-          nil
         end
 
         def valid_signature?(secret, body)

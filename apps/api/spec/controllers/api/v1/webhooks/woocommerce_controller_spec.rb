@@ -111,12 +111,18 @@ RSpec.describe Api::V1::Webhooks::WoocommerceController, type: :request do
     end
   end
 
-  describe "graceful migration for connections without a secret" do
-    it "accepts unsigned deliveries and logs a warning" do
-      expect(Rails.logger).to receive(:warn).with(/no webhook_secret stored/)
+  describe "secret enforcement" do
+    it "accepts unsigned deliveries in non-production envs and logs a warning" do
+      expect(Rails.logger).to receive(:warn).with(/no secret on domain=/).at_least(:once)
 
       post "/api/v1/webhooks/woocommerce", params: payload.to_json, headers: headers
       expect(response).to have_http_status(:ok)
+    end
+
+    it "rejects unsigned deliveries when running as production" do
+      allow(Rails.env).to receive(:production?).and_return(true)
+      post "/api/v1/webhooks/woocommerce", params: payload.to_json, headers: headers
+      expect(response).to have_http_status(:unauthorized)
     end
   end
 end
