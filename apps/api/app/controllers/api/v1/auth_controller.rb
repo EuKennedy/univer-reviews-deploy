@@ -3,7 +3,19 @@ module Api
     class AuthController < ApplicationController
       skip_before_action :set_current_workspace
 
-      JWT_SECRET = ENV.fetch("JWT_SECRET", "change_me_in_production_min_64_chars_long_secret_key_here_!!!")
+      # JWT_SECRET must be supplied via env. The previous code had a hardcoded
+      # fallback string; if the env var ever went unset in production, every
+      # JWT the API issued (and accepted) could be forged by anyone holding
+      # the public source. Fail fast on boot instead.
+      JWT_SECRET = ENV.fetch("JWT_SECRET") do
+        if Rails.env.production? || Rails.env.staging?
+          raise "JWT_SECRET environment variable is required in #{Rails.env}"
+        end
+        # Dev/test: derive a per-boot secret so tests/devs don't have to set it,
+        # but the value is not stable across processes (intentional — forces
+        # config in any shared environment).
+        Rails.env.test? ? "test-jwt-secret-do-not-use-in-prod-#{"0" * 32}" : SecureRandom.hex(64)
+      end
       JWT_ALGO   = "HS256"
       TOKEN_TTL  = 24.hours
 
