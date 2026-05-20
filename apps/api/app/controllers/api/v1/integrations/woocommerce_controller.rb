@@ -41,11 +41,16 @@ module Api
             # Probe credentials immediately so the UI never claims "connected" against
             # broken credentials. Verify the domain and trigger an initial sync only
             # if the live probe succeeds.
-            probe = ::Integrations::WooCommerceAdapter.new(
-              store_url:       domain.woo_store_url,
-              consumer_key:    domain.woo_consumer_key,
-              consumer_secret: domain.woo_consumer_secret
-            ).test_connection
+            probe =
+              begin
+                ::Integrations::WooCommerceAdapter.new(
+                  store_url:       domain.woo_store_url,
+                  consumer_key:    domain.woo_consumer_key,
+                  consumer_secret: domain.woo_consumer_secret
+                ).test_connection
+              rescue ::Integrations::WooCommerceAdapter::InvalidStoreUrlError => e
+                { success: false, error: "URL inválida: #{e.message}" }
+              end
 
             webhooks_summary = nil
             if probe[:success]
@@ -126,11 +131,16 @@ module Api
             return
           end
 
-          result = ::Integrations::WooCommerceAdapter.new(
-            store_url: store_url,
-            consumer_key: consumer_key,
-            consumer_secret: consumer_secret
-          ).test_connection
+          result =
+            begin
+              ::Integrations::WooCommerceAdapter.new(
+                store_url: store_url,
+                consumer_key: consumer_key,
+                consumer_secret: consumer_secret
+              ).test_connection
+            rescue ::Integrations::WooCommerceAdapter::InvalidStoreUrlError => e
+              { success: false, error: "URL inválida: #{e.message}" }
+            end
 
           if result[:success]
             current_workspace.woocommerce_domain&.verify!

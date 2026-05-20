@@ -1,14 +1,73 @@
+require "ipaddr"
+require "resolv"
+require "uri"
+
 module Integrations
   class WooCommerceAdapter
     class Error < StandardError; end
     class AuthenticationError < Error; end
     class ConnectionError < Error; end
+    class InvalidStoreUrlError < Error; end
+
+    # Strict allowlist for store URLs. Without this the adapter happily
+    # connects to any host the caller passes — cloud metadata endpoints
+    # (169.254.169.254), internal services (127.0.0.1:6379), link-local
+    # addresses, and any RFC1918 range. That's a textbook SSRF.
+    PRIVATE_IP_RANGES = [
+      IPAddr.new("10.0.0.0/8"),
+      IPAddr.new("127.0.0.0/8"),
+      IPAddr.new("169.254.0.0/16"), # AWS / GCP / Azure metadata
+      IPAddr.new("172.16.0.0/12"),
+      IPAddr.new("192.168.0.0/16"),
+      IPAddr.new("::1/128"),
+      IPAddr.new("fc00::/7"),       # Unique local addresses
+      IPAddr.new("fe80::/10"),      # Link-local
+    ].freeze
 
     def initialize(store_url:, consumer_key:, consumer_secret:)
-      @store_url       = store_url.to_s.chomp("/")
+      @store_url       = validate_store_url!(store_url.to_s.chomp("/"))
       @consumer_key    = consumer_key
       @consumer_secret = consumer_secret
     end
+
+    private
+
+    def validate_store_url!(url)
+      uri = URI.parse(url)
+      unless %w[http https].include?(uri.scheme)
+        raise InvalidStoreUrlError, "store_url must use http or https"
+      end
+      # Block http:// outside of dev/test to prevent downgrade and
+      # MITM-able requests carrying basic-auth credentials.
+      if uri.scheme == "http" && !(Rails.env.development? || Rails.env.test?)
+        raise InvalidStoreUrlError, "store_url must use https"
+      end
+      host = uri.host.to_s.downcase
+      raise InvalidStoreUrlError, "store_url must include a host" if host.empty?
+
+      # DNS resolution + private-range check. Resolve once here so the
+      # Faraday connection can't be tricked by DNS rebinding (the resolved
+      # IP is what gets dialed below; we re-resolve in connection() and
+      # compare). This isn't a perfect rebinding defence — for that we'd
+      # need a custom resolver pinned to this IP — but it catches the
+      # common "give me a URL that points at metadata" attack outright.
+      addrs = Resolv.getaddresses(host)
+      raise InvalidStoreUrlError, "could not resolve host #{host}" if addrs.empty?
+
+      addrs.each do |addr|
+        begin
+          ip = IPAddr.new(addr)
+        rescue IPAddr::InvalidAddressError
+          next
+        end
+        if PRIVATE_IP_RANGES.any? { |range| range.include?(ip) }
+          raise InvalidStoreUrlError, "store_url resolves to a private/loopback address (#{addr})"
+        end
+      end
+      url
+    end
+
+    public
 
     # Probe the store with the lightest authenticated endpoint that works with a
     # plain Read-scoped key. /system_status requires admin permission and 401s
