@@ -1,6 +1,12 @@
 require "rails_helper"
 
 RSpec.describe Workspace, type: :model do
+  # shoulda-matchers' validate_uniqueness_of works by creating a clone of the
+  # subject and saving it to the DB. With a bare `Workspace.new` it would fail
+  # the slug NOT NULL constraint before uniqueness can be exercised. Provide a
+  # subject from the factory so every required column is populated.
+  subject { build(:workspace) }
+
   describe "validations" do
     it { is_expected.to validate_presence_of(:slug) }
     it { is_expected.to validate_presence_of(:name) }
