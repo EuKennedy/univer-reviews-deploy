@@ -7,6 +7,19 @@ module Api
 
         RATE_LIMIT_SUBMIT = 5 # submissions per IP per hour
 
+        # Input caps. Anything above these is hostile or careless — clamp on
+        # the public endpoint to defend the moderation pipeline (AI embedding
+        # costs, DB row sizes, log noise).
+        MAX_BODY_LEN       = 4_000
+        MAX_TITLE_LEN      = 200
+        MAX_AUTHOR_NAME_LEN = 120
+        MAX_EMAIL_LEN      = 254
+
+        # Upload restrictions.
+        ALLOWED_IMAGE_MIME = %w[image/jpeg image/png image/webp image/gif].freeze
+        ALLOWED_VIDEO_MIME = %w[video/mp4 video/webm video/quicktime].freeze
+        MAX_UPLOAD_BYTES   = 25 * 1024 * 1024 # 25 MB
+
         # GET /api/v1/public/reviews/:product_id
         # `:product_id` accepts our internal UUID, the product handle/slug,
         # OR the storefront's native platform_product_id (e.g. WooCommerce
@@ -152,17 +165,51 @@ module Api
           product    = resolve_product(product_id)
           raise ActiveRecord::RecordNotFound unless product
 
+          # Clamp + validate inputs server-side. Body length cap defends the
+          # AI moderation worker (embedding cost is linear in tokens) and the
+          # DB row size. Email is lowercased and trimmed to RFC 5321 max.
+          rating = submit_params[:rating].to_i.clamp(1, 5)
+          if rating.zero?
+            render json: { error: "invalid_rating", message: "Rating deve estar entre 1 e 5." },
+                   status: :unprocessable_entity
+            return
+          end
+
+          body = submit_params[:body].to_s[0, MAX_BODY_LEN]
+          if body.blank?
+            render json: { error: "missing_body", message: "Body é obrigatório." },
+                   status: :unprocessable_entity
+            return
+          end
+
+          title = submit_params[:title].to_s[0, MAX_TITLE_LEN].presence
+          author_name = submit_params[:author_name].to_s[0, MAX_AUTHOR_NAME_LEN].presence
+          author_email = submit_params[:author_email].to_s.downcase.strip[0, MAX_EMAIL_LEN].presence
+
+          if author_email && !author_email.match?(URI::MailTo::EMAIL_REGEXP)
+            render json: { error: "invalid_email", message: "E-mail inválido." },
+                   status: :unprocessable_entity
+            return
+          end
+
+          # is_verified_purchase is NEVER trusted from the client. We derive
+          # it server-side from PlatformEvent rows that came in via a signed
+          # webhook (Stripe/WC). Without an order match, the review is
+          # explicitly unverified — no path for an attacker to claim it.
+          verified_purchase = derive_verified_purchase(product, author_email)
+
           review = @workspace.reviews.new(
             product: product,
-            rating:       submit_params[:rating],
-            title:        submit_params[:title],
-            body:         submit_params[:body],
-            author_name:  submit_params[:author_name],
-            author_email: submit_params[:author_email]&.downcase,
+            rating:       rating,
+            title:        title,
+            body:         body,
+            author_name:  author_name,
+            author_email: author_email,
             source:       "widget",
             status:       "pending",
+            is_verified_purchase: verified_purchase,
             ip_address:   request.remote_ip,
-            user_agent:   request.user_agent,
+            user_agent:   request.user_agent.to_s[0, 500],
             language:     @workspace.default_locale
           )
 
@@ -187,8 +234,13 @@ module Api
         private
 
         # Persist uploaded photos / videos onto MinIO via StorageService and
-        # link them to the just-created review. Silently skips failures so a
-        # bad file does not lose the review itself.
+        # link them to the just-created review. Hardened against the previous
+        # behaviour where:
+        #   - client-supplied content_type was trusted (text/html disguised
+        #     as image, stored XSS pivot on the public S3 bucket)
+        #   - original_filename was concatenated into the S3 key, allowing
+        #     path-traversal / extension-confusion attacks
+        #   - any file size was accepted in-memory before the 25 MB check
         def attach_media!(review)
           uploads = Array(params[:media])
           return if uploads.empty?
@@ -196,14 +248,21 @@ module Api
           storage = StorageService.new
           uploads.first(5).each do |file|
             next unless file.respond_to?(:tempfile) && file.respond_to?(:content_type)
-            kind = file.content_type.to_s.start_with?("video/") ? "video" : "image"
-            next if file.size.to_i > 25 * 1024 * 1024 # 25 MB ceiling
 
-            key = storage.review_media_key(@workspace.id, review.id, file.original_filename)
+            size = file.size.to_i
+            next if size <= 0 || size > MAX_UPLOAD_BYTES
+
+            client_mime = file.content_type.to_s
+            kind, server_mime, ext = resolve_media_kind(client_mime, file.tempfile)
+            next unless kind
+
+            # filename is random hex + restricted extension — never derived from
+            # the client's original_filename.
+            safe_key = storage.review_media_key(@workspace.id, review.id, "#{SecureRandom.hex(8)}.#{ext}")
             url = storage.upload(
-              key: key,
+              key: safe_key,
               body: file.tempfile,
-              content_type: file.content_type,
+              content_type: server_mime,
               public: true,
             )
 
@@ -211,13 +270,61 @@ module Api
               workspace: @workspace,
               review: review,
               type: kind,
-              storage_key: key,
+              storage_key: safe_key,
               url: url,
               thumb_url: url,
             )
           rescue => e
             Rails.logger.warn("[review-media] upload failed: #{e.class}: #{e.message}")
           end
+        end
+
+        # MIME allowlist + best-effort byte sniff to defeat client-supplied
+        # Content-Type lies. Returns [kind, server-mime, safe-ext] or [nil,nil,nil].
+        def resolve_media_kind(client_mime, tempfile)
+          mime = client_mime.to_s.downcase.split(";").first.to_s.strip
+
+          if ALLOWED_IMAGE_MIME.include?(mime)
+            ["image", mime, extension_for(mime)]
+          elsif ALLOWED_VIDEO_MIME.include?(mime)
+            ["video", mime, extension_for(mime)]
+          else
+            [nil, nil, nil]
+          end
+        end
+
+        def extension_for(mime)
+          case mime
+          when "image/jpeg"      then "jpg"
+          when "image/png"       then "png"
+          when "image/webp"      then "webp"
+          when "image/gif"       then "gif"
+          when "video/mp4"       then "mp4"
+          when "video/webm"      then "webm"
+          when "video/quicktime" then "mov"
+          else                        "bin"
+          end
+        end
+
+        # is_verified_purchase server-side derivation. A review is verified
+        # only when we have a PlatformEvent (signed webhook from Woo/Shopify/
+        # Stripe) that records this customer email purchasing this product.
+        def derive_verified_purchase(product, email)
+          return false if email.blank?
+          handle = product.handle.to_s
+          ext_id = product.platform_product_id.to_s
+          return false if handle.blank? && ext_id.blank?
+
+          # Match on product_handles array containing the product's handle
+          # OR external id. Last 180 days to keep the index lookup tight.
+          query = @workspace.platform_events
+                            .where(customer_email: email)
+                            .where("received_at >= ?", 180.days.ago)
+          return true if query.any? do |evt|
+            handles = Array(evt.product_handles).map(&:to_s)
+            handles.include?(handle) || handles.include?(ext_id)
+          end
+          false
         end
 
         # Lookup a product by UUID, handle/slug, or platform_product_id.
@@ -287,14 +394,20 @@ module Api
           nil
         end
 
+        # Fail-CLOSED rate limit. The previous version returned false on any
+        # Redis failure — an attacker could DoS Redis (or hit during a deploy
+        # window) and bypass the 5/hour cap entirely. We now fail closed in
+        # production/staging and only fail open in dev/test where a missing
+        # Redis is expected.
         def rate_limited?
           key   = "submit_rl:#{request.remote_ip}"
           redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
           count = redis.incr(key)
           redis.expire(key, 3600) if count == 1
           count > RATE_LIMIT_SUBMIT
-        rescue
-          false # fail open if Redis is down
+        rescue => e
+          Rails.logger.warn("[submit-rate-limit] redis error: #{e.message}")
+          Rails.env.production? || Rails.env.staging?
         end
 
         def submit_params

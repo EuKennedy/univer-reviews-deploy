@@ -17,6 +17,16 @@ class Review < ApplicationRecord
   validates :status,       inclusion: { in: STATUSES }
   validates :ai_sentiment, inclusion: { in: SENTIMENTS }, allow_nil: true
 
+  # Length caps. Without them an attacker could POST a 200 MB body to the
+  # public submit endpoint and exhaust memory in the AI moderation worker
+  # (embedding cost is linear in tokens). The public controller already
+  # clamps before save; this is defense in depth at the model boundary so
+  # the same constraints apply to imports / API / WP plugin.
+  validates :body,         length: { maximum: 4_000 }, allow_nil: true
+  validates :title,        length: { maximum: 200 },   allow_nil: true
+  validates :author_name,  length: { maximum: 120 },   allow_nil: true
+  validates :author_email, length: { maximum: 254 },   allow_nil: true
+
   before_save :set_approved_at
 
   scope :approved,     -> { where(status: "approved") }

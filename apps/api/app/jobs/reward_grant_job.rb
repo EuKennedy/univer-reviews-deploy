@@ -20,6 +20,16 @@ class RewardGrantJob < ApplicationJob
 
       rules.each do |rule|
         begin
+          # Reward grants tied to author_email are abusable on public submit:
+          # an attacker submits N reviews using N attacker-owned emails and
+          # collects N coupons. We require verified purchase (a signed
+          # PlatformEvent matches this email to a real order) UNLESS the rule
+          # explicitly opts out via require_purchase: false.
+          if rule.require_purchase && !review.is_verified_purchase
+            Rails.logger.info("RewardGrantJob: skipping rule=#{rule.id} review=#{review.id} — not verified_purchase")
+            next
+          end
+
           # Lock the rule row so concurrent jobs serialise on the cap checks.
           # max_per_customer_per_month is a soft cap (no unique index), and
           # max_total_grants reads total_grants_count which is mutated by
