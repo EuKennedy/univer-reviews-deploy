@@ -83,7 +83,10 @@ export default function DashboardPage() {
     },
     {
       label: 'Nota média',
-      value: stats?.avg_rating?.toFixed(2) ?? '—',
+      // Rails serialises Postgres `avg` as a decimal string. Coerce to Number
+      // before .toFixed — without this the client crashes with
+      // `TypeError: e.toFixed is not a function` whenever avg_rating is a string.
+      value: stats?.avg_rating != null ? Number(stats.avg_rating).toFixed(2) : '—',
       delta: stats?.avg_rating_delta,
       icon: <Star className="w-4 h-4" />,
       suffix: '/ 5',

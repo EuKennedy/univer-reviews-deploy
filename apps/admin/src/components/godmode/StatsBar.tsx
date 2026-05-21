@@ -82,8 +82,8 @@ function StatCard({ stat, isLoading }: { stat: StatItem; isLoading?: boolean }) 
                       : 'var(--ur-text-soft)',
                   }}
                 >
-                  {stat.delta > 0 ? '+' : ''}
-                  {stat.delta.toFixed(1)}% vs. mês anterior
+                  {Number(stat.delta) > 0 ? '+' : ''}
+                  {Number(stat.delta).toFixed(1)}% vs. mês anterior
                 </span>
               </div>
             )}
