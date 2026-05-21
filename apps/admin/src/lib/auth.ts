@@ -54,9 +54,19 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
     updateAge: 60 * 60 * 24,      // refresh expiry once per 24h of activity
+    // cookieCache DISABLED. With it enabled, Better Auth serialises session +
+    // user into a signed `__Secure-better-auth.session_data` cookie and short-
+    // circuits getSession() reads against that cookie (5min window). Any time
+    // BETTER_AUTH_SECRET rotates, the user/session schema changes, or the
+    // session row is deleted server-side, the cached cookie remains in the
+    // browser with stale/unverifiable data — middleware treats the session as
+    // partially valid and loops between /login and the redirect target.
+    //
+    // The cost of disabling is one extra DB roundtrip per middleware-protected
+    // request (~1-2ms). For MVP that's acceptable; revisit if it shows up in
+    // p95 latency at scale.
     cookieCache: {
-      enabled: true,
-      maxAge: 60 * 5, // 5min in-memory cache for getSession() in middleware
+      enabled: false,
     },
   },
 
