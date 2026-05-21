@@ -311,6 +311,34 @@ class ApiClient {
         token,
       ),
 
+    /**
+     * Fan out Q&A generation across EVERY active product in the workspace.
+     * Each product gets a background job that fetches its WC details and
+     * generates `count_per_product` pairs (default 10) via Claude. Returns
+     * immediately — real work happens in Sidekiq.
+     */
+    bulkCreateQuestionsAll: (
+      input: {
+        count_per_product?: number
+        status?: 'pending' | 'published'
+        language?: string
+      },
+      token: string,
+    ) =>
+      this.request<{
+        message: string
+        meta: {
+          products_queued: number
+          count_per_product: number
+          total_pairs_expected: number
+          status: string
+        }
+      }>(
+        '/ai/bulk-create-questions-all',
+        { method: 'POST', body: JSON.stringify(input) },
+        token,
+      ),
+
     cleanupDuplicates: (clusterIds: string[], token: string) =>
       this.request<{ message: string }>(
         '/ai/cleanup-duplicates',

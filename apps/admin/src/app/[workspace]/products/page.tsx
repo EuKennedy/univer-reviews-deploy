@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
-import { Package, ExternalLink, RefreshCw, Loader2 } from 'lucide-react'
+import { Package, ExternalLink, RefreshCw, Loader2, Sparkles } from 'lucide-react'
 import { ProductReviewActions } from '@/components/products/ProductReviewActions'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/godmode/PageHeader'
@@ -146,6 +146,34 @@ export default function ProductsPage() {
     },
   })
 
+  const bulkQaAllMutation = useMutation({
+    mutationFn: () =>
+      api.ai.bulkCreateQuestionsAll(
+        { count_per_product: 10, status: 'published' },
+        getToken(),
+      ),
+    onSuccess: (res) => {
+      toast.success(
+        `Q&A em massa iniciado para ${res.meta.products_queued} produtos (${res.meta.total_pairs_expected} pares esperados).`,
+        { duration: 8000 },
+      )
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha ao iniciar Q&A em massa'
+      toast.error(msg)
+    },
+  })
+
+  const confirmBulkQa = () => {
+    const total = data?.meta.total_count ?? 0
+    const ok = window.confirm(
+      `Gerar 10 perguntas + respostas com IA para TODOS os ${total} produtos? ` +
+        `Resultado: ~${total * 10} pares publicados direto. Roda em background, ` +
+        `pode levar alguns minutos por produto. Custo de IA proporcional.`,
+    )
+    if (ok) bulkQaAllMutation.mutate()
+  }
+
   const statsItems = [
     { label: 'Total de produtos', value: formatNumber(data?.meta.total_count ?? 0) },
     { label: 'Com avaliações', value: '—' },
@@ -160,23 +188,42 @@ export default function ProductsPage() {
         title="Produtos"
         subtitle="Gerencie seu catálogo e a saúde das avaliações"
         actions={
-          <button
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] sm:min-h-0"
-            style={{
-              background: 'var(--ur-accent-soft)',
-              border: '1px solid var(--ur-accent-soft-3)',
-              color: 'var(--ur-accent)',
-            }}
-          >
-            {syncMutation.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="w-3.5 h-3.5" />
-            )}
-            Sincronizar do WooCommerce
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={confirmBulkQa}
+              disabled={bulkQaAllMutation.isPending || (data?.meta.total_count ?? 0) === 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] sm:min-h-0"
+              style={{
+                background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
+                color: 'var(--ur-text-on-accent)',
+              }}
+              title="Gera 10 perguntas + respostas via Claude para cada produto, publicadas direto"
+            >
+              {bulkQaAllMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              Gerar Q&A em todos
+            </button>
+            <button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all min-h-[44px] sm:min-h-0"
+              style={{
+                background: 'var(--ur-accent-soft)',
+                border: '1px solid var(--ur-accent-soft-3)',
+                color: 'var(--ur-accent)',
+              }}
+            >
+              {syncMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              Sincronizar do WooCommerce
+            </button>
+          </div>
         }
       />
 

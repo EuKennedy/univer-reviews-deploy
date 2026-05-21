@@ -132,6 +132,13 @@ module Integrations
       get("/wp-json/wc/v3/products", per_page: per_page, page: page)
     end
 
+    # Fetch a single product with full detail — description, short_description,
+    # attributes, categories. Used by AI services to ground Q&A generation in
+    # the actual product page contents instead of just the bare title.
+    def product(id:)
+      get("/wp-json/wc/v3/products/#{id}")
+    end
+
     def products_count
       response = get("/wp-json/wc/v3/products", per_page: 1, page: 1)
       # WooCommerce returns X-WP-Total header — handled by inspecting response

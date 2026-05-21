@@ -38,8 +38,9 @@ Rails.application.routes.draw do
         post :moderate
         post :generate
         post "generate-variants",     action: :generate_variants
-        post "bulk-create-reviews",   action: :bulk_create_reviews
-        post "bulk-create-questions", action: :bulk_create_questions
+        post "bulk-create-reviews",       action: :bulk_create_reviews
+        post "bulk-create-questions",     action: :bulk_create_questions
+        post "bulk-create-questions-all", action: :bulk_create_questions_all
         post :reply
         post "auto-reply", action: :auto_reply
         get  :duplicates

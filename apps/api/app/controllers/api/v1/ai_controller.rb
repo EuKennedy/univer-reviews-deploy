@@ -160,6 +160,53 @@ module Api
         render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
       end
 
+      # POST /api/v1/ai/bulk-create-questions-all
+      # Body: {
+      #   count_per_product (1..30, default 10),
+      #   status? (pending|published, default published),
+      #   language? (default workspace.default_locale)
+      # }
+      #
+      # Fans out BulkGenerateQaJob for every active product in the workspace.
+      # Each job fetches WC product details (description, attributes, etc.)
+      # and feeds them to Claude so the Q&A is anchored in real product data.
+      # Returns immediately with the job count — generation runs in Sidekiq.
+      def bulk_create_questions_all
+        require_write!
+
+        count    = (params[:count_per_product] || 10).to_i.clamp(1, 30)
+        status   = %w[pending published].include?(params[:status]) ? params[:status] : "published"
+        language = params[:language].to_s.presence || current_workspace.default_locale
+
+        product_ids = current_workspace.products.where(active: true).pluck(:id)
+
+        product_ids.each do |pid|
+          BulkGenerateQaJob.perform_later(
+            current_workspace.id,
+            pid,
+            count: count,
+            status: status,
+            language: language
+          )
+        end
+
+        AuditLog.record(
+          workspace: current_workspace,
+          action: "ai.bulk_create_questions_all_dispatched",
+          metadata: { products: product_ids.length, count_per_product: count, status: status }
+        )
+
+        render json: {
+          message: "Bulk Q&A generation queued for #{product_ids.length} products (#{count} pairs each).",
+          meta: {
+            products_queued: product_ids.length,
+            count_per_product: count,
+            total_pairs_expected: product_ids.length * count,
+            status: status
+          }
+        }
+      end
+
       # POST /api/v1/ai/bulk-create-questions
       # Body: { product_id, count (1..30), language?, status? (pending|published) }
       #
