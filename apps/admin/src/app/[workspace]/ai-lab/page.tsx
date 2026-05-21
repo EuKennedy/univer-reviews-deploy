@@ -940,6 +940,25 @@ export default function AiLabPage() {
         loading={healthLoading}
       />
 
+      {/* Inline link to bulk generation flow on the Products page. The Lab
+          itself operates on existing reviews; generation lives on the
+          product surface because it needs a product context. */}
+      <div className="px-4 mt-3">
+        <Link
+          href={`/${workspace}/products`}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+          style={{
+            background: 'var(--ur-accent-soft)',
+            border: '1px solid var(--ur-accent-soft-3)',
+            color: 'var(--ur-accent)',
+          }}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          Gerar reviews ou Q&A em massa para um produto
+          <ChevronRight className="w-3.5 h-3.5 ml-auto" />
+        </Link>
+      </div>
+
       <Toolbar
         className="mt-3"
         left={

@@ -29,6 +29,48 @@ module Ai
       end
     end
 
+    # Generate plausible Q&A pairs for a product (questions a buyer might ask,
+    # paired with helpful answers a merchant would write). Persisted by the
+    # bulk_create_questions endpoint as Question rows.
+    def generate_qa_pairs(product:, count: 5, language: "pt-BR")
+      system_prompt = <<~PROMPT
+        You write authentic e-commerce product Q&A pairs in #{language}.
+        Each question must sound like a real buyer's pre-purchase doubt.
+        Each answer must be concise (1-3 sentences), helpful, accurate to the
+        product context. Vary topics: shipping, sizing/fit, materials, usage,
+        compatibility, durability, comparisons.
+
+        Return ONLY a JSON object:
+        { "pairs": [ { "question": "...", "answer": "..." }, ... ] }
+        No markdown, no explanation.#{workspace_voice_context}
+
+        Product context:
+        - Name: #{product.title}
+        #{"- Handle: #{product.handle}" if product.handle.present?}
+      PROMPT
+
+      user_content = "Generate #{count} unique Q&A pairs in #{language}."
+
+      text = call_claude(
+        model: SONNET,
+        system: system_prompt,
+        max_tokens: 2048,
+        messages: [{ role: "user", content: user_content }]
+      )
+
+      result = parse_json_response(text)
+      pairs  = result[:pairs] || result
+
+      raise "Expected array of pairs, got: #{text[0, 200]}" unless pairs.is_a?(Array)
+
+      pairs.first(count).map do |p|
+        {
+          question: p[:question].to_s,
+          answer:   p[:answer].to_s
+        }
+      end
+    end
+
     private
 
     def build_system_prompt(product)

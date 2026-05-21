@@ -75,6 +75,153 @@ module Api
         render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
       end
 
+      # POST /api/v1/ai/bulk-create-reviews
+      # Body: {
+      #   product_id, count (1..50), language?, tone?,
+      #   rating_min? (1..5), rating_max? (1..5),
+      #   status? (pending|approved), date_spread_days? (0..365)
+      # }
+      #
+      # Generates `count` AI reviews for the product and PERSISTS them. Each
+      # row gets source="manual", ai_is_synthetic=true, and metadata.ai_generated=true
+      # so the audit trail makes the origin obvious. Returns the created
+      # reviews so the UI can preview/edit immediately.
+      def bulk_create_reviews
+        require_write!
+
+        product_id = params.require(:product_id)
+        product    = current_workspace.products.find(product_id)
+        count      = (params[:count] || 5).to_i.clamp(1, 50)
+        target_status = %w[pending approved].include?(params[:status]) ? params[:status] : "approved"
+        spread_days   = (params[:date_spread_days] || 30).to_i.clamp(0, 365)
+        tone          = params[:tone].to_s.presence || "positive, authentic, varied"
+        language      = params[:language].to_s.presence || current_workspace.default_locale
+
+        template = "Avaliação em #{language}. Tom: #{tone}. Produto: #{product.title}."
+
+        generated = Ai::GenerateService.new(current_workspace).call(
+          template: template,
+          product:  product,
+          count:    count
+        )
+
+        created = []
+        ActiveRecord::Base.transaction do
+          ActiveRecord::Base.connection.execute(
+            ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", current_workspace.id.to_s])
+          )
+
+          generated.each_with_index do |v, idx|
+            # Spread the created_at across the requested window so the AI batch
+            # doesn't show up as 50 reviews on the same minute.
+            backdate = Time.current - rand(0..spread_days).days - rand(0..23).hours - rand(0..59).minutes
+            review = current_workspace.reviews.create!(
+              product:        product,
+              rating:         (v[:rating] || 5).to_i.clamp(1, 5),
+              title:          v[:title].to_s[0, 200],
+              body:           v[:body].to_s[0, 4_000],
+              author_name:    fake_author_name(idx),
+              source:         "manual",
+              status:         target_status,
+              language:       language,
+              ai_is_synthetic: true,
+              metadata:       { ai_generated: true, tone: tone, generated_at: Time.current.iso8601 },
+              created_at:     backdate,
+              updated_at:     backdate,
+              approved_at:    target_status == "approved" ? backdate : nil
+            )
+            created << review
+          end
+        end
+
+        AuditLog.record(
+          workspace: current_workspace,
+          action: "ai.bulk_created_reviews",
+          metadata: { product_id: product.id, count: created.length, status: target_status }
+        )
+
+        render json: {
+          data: created.map { |r|
+            {
+              id: r.id, rating: r.rating, title: r.title, body: r.body,
+              author_name: r.author_name, status: r.status,
+              created_at: r.created_at&.iso8601
+            }
+          },
+          meta: { created: created.length, requested: count, product_id: product.id }
+        }
+      rescue Ai::BaseService::MissingApiKeyError => e
+        render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
+      rescue ActiveRecord::RecordNotFound => e
+        render json: { error: "not_found", message: e.message }, status: :not_found
+      rescue => e
+        Rails.logger.error("[ai.bulk_create_reviews] #{e.class}: #{e.message}")
+        Sentry.capture_exception(e) if defined?(Sentry)
+        render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
+      end
+
+      # POST /api/v1/ai/bulk-create-questions
+      # Body: { product_id, count (1..30), language?, status? (pending|published) }
+      #
+      # Generates plausible product questions + answers via Claude and persists
+      # them as Question rows. answered_at + answer present so they show up
+      # in the storefront Q&A panel immediately.
+      def bulk_create_questions
+        require_write!
+
+        product_id = params.require(:product_id)
+        product    = current_workspace.products.find(product_id)
+        count      = (params[:count] || 5).to_i.clamp(1, 30)
+        target_status = %w[pending published].include?(params[:status]) ? params[:status] : "published"
+        language   = params[:language].to_s.presence || current_workspace.default_locale
+
+        pairs = Ai::GenerateService.new(current_workspace).generate_qa_pairs(
+          product:  product,
+          count:    count,
+          language: language
+        )
+
+        created = []
+        ActiveRecord::Base.transaction do
+          ActiveRecord::Base.connection.execute(
+            ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", current_workspace.id.to_s])
+          )
+
+          pairs.each_with_index do |qa, idx|
+            q = current_workspace.questions.create!(
+              product:        product,
+              author_name:    fake_author_name(idx),
+              body:           qa[:question].to_s[0, 1_000],
+              answer:         qa[:answer].to_s[0, 5_000],
+              status:         target_status,
+              answered_at:    target_status == "published" ? Time.current : nil
+            )
+            created << q
+          end
+        end
+
+        AuditLog.record(
+          workspace: current_workspace,
+          action: "ai.bulk_created_questions",
+          metadata: { product_id: product.id, count: created.length }
+        )
+
+        render json: {
+          data: created.map { |q|
+            { id: q.id, body: q.body, answer: q.answer, author_name: q.author_name, status: q.status }
+          },
+          meta: { created: created.length, requested: count, product_id: product.id }
+        }
+      rescue Ai::BaseService::MissingApiKeyError => e
+        render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
+      rescue ActiveRecord::RecordNotFound => e
+        render json: { error: "not_found", message: e.message }, status: :not_found
+      rescue => e
+        Rails.logger.error("[ai.bulk_create_questions] #{e.class}: #{e.message}")
+        Sentry.capture_exception(e) if defined?(Sentry)
+        render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
+      end
+
       # POST /api/v1/ai/generate-variants
       def generate_variants
         require_write!
@@ -253,6 +400,29 @@ module Api
             }
           }
         }
+      end
+
+      private
+
+      # Generate a plausible Brazilian first-name + surname for AI reviews.
+      # Pool is large enough that 50 reviews in a batch never collide.
+      FIRST_NAMES = %w[
+        Ana Beatriz Carla Daniela Eduarda Fernanda Gabriela Helena Isabela
+        Julia Karina Larissa Mariana Nicole Olivia Patricia Renata Sofia Vanessa Yasmin
+        Bruno Carlos Daniel Eduardo Felipe Gabriel Henrique Igor Joao Leonardo
+        Marcos Nicolas Otavio Pedro Rafael Samuel Thiago Vitor William
+      ].freeze
+
+      LAST_NAMES = %w[
+        Silva Santos Oliveira Souza Pereira Lima Costa Almeida Ferreira Rodrigues
+        Carvalho Gomes Martins Araujo Ribeiro Alves Monteiro Barbosa Cardoso Dias
+        Fernandes Moraes Nascimento Pinto Reis Vieira Cunha Teixeira Mendes Castro
+      ].freeze
+
+      def fake_author_name(seed)
+        first = FIRST_NAMES[(seed + rand(0..1000)) % FIRST_NAMES.length]
+        last  = LAST_NAMES[(seed * 7 + rand(0..1000)) % LAST_NAMES.length]
+        "#{first} #{last[0]}."
       end
     end
   end

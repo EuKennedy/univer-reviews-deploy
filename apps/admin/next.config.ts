@@ -36,7 +36,12 @@ const securityHeaders = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.univerreviews.com https://*.amazonaws.com https://*.r2.cloudflarestorage.com",
+      // img-src is permissive: product images come from arbitrary merchant
+      // domains (lizzon.com.br, *.myshopify.com, customer's own CDN). Locking
+      // this down to a whitelist would break the admin's product table the
+      // moment a new merchant connects. Keep https: open for images while
+      // staying tight on scripts/connects/frames.
+      "img-src 'self' data: blob: https: http:",
       "font-src 'self' data:",
       "connect-src 'self' https://api.univerreviews.com https://*.univerreviews.com https://api.stripe.com",
       "frame-src https://js.stripe.com https://hooks.stripe.com",

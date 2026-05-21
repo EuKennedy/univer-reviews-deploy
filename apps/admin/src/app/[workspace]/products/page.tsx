@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Package, ExternalLink, RefreshCw, Loader2 } from 'lucide-react'
+import { ProductReviewActions } from '@/components/products/ProductReviewActions'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { StatsBar } from '@/components/godmode/StatsBar'
@@ -93,19 +94,23 @@ const columns = [
   }),
   col.display({
     id: 'actions',
-    header: '',
-    cell: ({ row }) =>
-      row.original.external_id ? (
-        <button
-          type="button"
-          className="p-1.5 rounded"
-          style={{ color: 'var(--ur-text-muted)' }}
-          aria-label={`Abrir ${row.original.name} no WooCommerce`}
-          title="Abrir no WooCommerce"
-        >
-          <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-        </button>
-      ) : null,
+    header: 'Ações',
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2 justify-end">
+        <ProductReviewActions product={row.original} />
+        {row.original.external_id ? (
+          <button
+            type="button"
+            className="p-1.5 rounded"
+            style={{ color: 'var(--ur-text-muted)' }}
+            aria-label={`Abrir ${row.original.name} no WooCommerce`}
+            title="Abrir no WooCommerce"
+          >
+            <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+    ),
   }),
 ]
 

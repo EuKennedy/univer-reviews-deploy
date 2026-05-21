@@ -266,6 +266,51 @@ class ApiClient {
       this.request<{ data: DuplicateCluster[] }>('/ai/duplicate-clusters', {}, token)
         .then(r => r.data),
 
+    /**
+     * Generate AND persist N AI reviews for a product. Returns the created
+     * Review rows so the UI can preview them immediately.
+     */
+    bulkCreateReviews: (
+      input: {
+        product_id: string
+        count: number
+        language?: string
+        tone?: string
+        status?: 'pending' | 'approved'
+        date_spread_days?: number
+      },
+      token: string,
+    ) =>
+      this.request<{
+        data: Array<{ id: string; rating: number; title: string | null; body: string; author_name: string; status: string; created_at: string }>
+        meta: { created: number; requested: number; product_id: string }
+      }>(
+        '/ai/bulk-create-reviews',
+        { method: 'POST', body: JSON.stringify(input) },
+        token,
+      ),
+
+    /**
+     * Generate AND persist N AI Q&A pairs for a product.
+     */
+    bulkCreateQuestions: (
+      input: {
+        product_id: string
+        count: number
+        language?: string
+        status?: 'pending' | 'published'
+      },
+      token: string,
+    ) =>
+      this.request<{
+        data: Array<{ id: string; body: string; answer: string; author_name: string | null; status: string }>
+        meta: { created: number; requested: number; product_id: string }
+      }>(
+        '/ai/bulk-create-questions',
+        { method: 'POST', body: JSON.stringify(input) },
+        token,
+      ),
+
     cleanupDuplicates: (clusterIds: string[], token: string) =>
       this.request<{ message: string }>(
         '/ai/cleanup-duplicates',
