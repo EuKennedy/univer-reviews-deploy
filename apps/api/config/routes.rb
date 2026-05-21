@@ -20,6 +20,7 @@ Rails.application.routes.draw do
       resources :reviews, only: %i[index show create destroy] do
         collection do
           post :bulk
+          post :bulk_import, action: :bulk_import, path: "bulk_import"
           get  "export.csv", action: :export, as: :export_csv
         end
         member do
@@ -107,6 +108,9 @@ Rails.application.routes.draw do
       resources :questions, only: %i[index show update destroy] do
         member do
           post :helpful
+        end
+        collection do
+          post :bulk_import, action: :bulk_import, path: "bulk_import"
         end
       end
 

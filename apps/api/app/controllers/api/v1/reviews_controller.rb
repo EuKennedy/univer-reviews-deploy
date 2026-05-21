@@ -145,6 +145,86 @@ module Api
                   disposition: %(attachment; filename="reviews-#{Date.current}.csv")
       end
 
+      # POST /api/v1/reviews/bulk_import
+      # Body: { reviews: [{ product_id, rating, title?, body, author_name?, author_email?, status?, language?, created_at? }] }
+      #
+      # External-AI ingest: caller generates reviews off-server (their Claude
+      # session, n8n, etc.) and posts batches here. NO server-side Anthropic
+      # call — we persist as-is. ai_is_synthetic flag set so audit/admin
+      # filtering can identify generated content.
+      MAX_BULK_IMPORT = 500
+
+      def bulk_import
+        require_write!
+
+        input = params.require(:reviews)
+        unless input.is_a?(Array)
+          render json: { error: "invalid_payload", message: "reviews must be an array" }, status: :bad_request
+          return
+        end
+        if input.length > MAX_BULK_IMPORT
+          render json: { error: "too_many", message: "max #{MAX_BULK_IMPORT} per call" }, status: :bad_request
+          return
+        end
+
+        created = []
+        skipped = []
+
+        ActiveRecord::Base.transaction do
+          ActiveRecord::Base.connection.execute(
+            ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", current_workspace.id.to_s])
+          )
+
+          incoming_ids = input.map { |r| r[:product_id] || r["product_id"] }.compact.uniq
+          products_by_id = current_workspace.products.where(id: incoming_ids).index_by(&:id)
+
+          input.each_with_index do |raw, idx|
+            r = raw.is_a?(ActionController::Parameters) ? raw.permit!.to_h.with_indifferent_access : raw.with_indifferent_access
+            pid  = r[:product_id]
+            body = r[:body].to_s[0, 4_000]
+            product = products_by_id[pid]
+
+            if product.nil? || body.blank?
+              skipped << { index: idx, reason: product.nil? ? "product_not_found" : "missing_body", product_id: pid }
+              next
+            end
+
+            target_status = %w[pending approved hidden].include?(r[:status]) ? r[:status] : "approved"
+            rating        = r[:rating].to_i.clamp(1, 5)
+            created_at    = parse_optional_timestamp(r[:created_at]) || Time.current
+
+            review = current_workspace.reviews.create!(
+              product:         product,
+              rating:          rating,
+              title:           r[:title].to_s[0, 200].presence,
+              body:            body,
+              author_name:     r[:author_name].to_s[0, 120].presence || "Cliente",
+              author_email:    r[:author_email].to_s.downcase.strip[0, 254].presence,
+              source:          "manual",
+              status:          target_status,
+              language:        r[:language].to_s.presence || current_workspace.default_locale,
+              ai_is_synthetic: true,
+              metadata:        { ai_generated: true, imported_at: Time.current.iso8601 },
+              created_at:      created_at,
+              updated_at:      created_at,
+              approved_at:     target_status == "approved" ? created_at : nil
+            )
+            created << review
+          end
+        end
+
+        AuditLog.record(
+          workspace: current_workspace,
+          action: "reviews.bulk_imported",
+          metadata: { created: created.length, skipped: skipped.length }
+        )
+
+        render json: {
+          data: created.map { |r| { id: r.id, product_id: r.product_id, status: r.status, rating: r.rating } },
+          meta: { created: created.length, skipped: skipped.length, skipped_detail: skipped.first(50) }
+        }
+      end
+
       # POST /api/v1/reviews/bulk
       def bulk
         require_write!
@@ -195,6 +275,16 @@ module Api
       end
 
       private
+
+      # Parse "2025-12-31" / "2025-12-31T10:00:00Z" / nil → Time | nil.
+      # Used by bulk_import to backdate AI-generated reviews so a batch of 500
+      # doesn't show up on the same minute.
+      def parse_optional_timestamp(raw)
+        return nil if raw.blank?
+        Time.zone.parse(raw.to_s)
+      rescue ArgumentError
+        nil
+      end
 
       def set_review
         @review = current_workspace.reviews.find(params[:id])

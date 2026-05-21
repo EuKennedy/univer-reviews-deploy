@@ -58,6 +58,84 @@ module Api
         render json: { data: { id: @question.id, helpful_count: @question.helpful_count } }
       end
 
+      # POST /api/v1/questions/bulk_import
+      # Body: { questions: [{ product_id, question, answer, author_name?, status?, language? }] }
+      #
+      # External-AI flow: an off-server client (Claude tool, n8n, etc.) generates
+      # Q&A pairs in its own context and POSTs them here in batches. The endpoint
+      # does NO Anthropic call server-side — it just persists what the caller
+      # supplies, so the workspace's ANTHROPIC_API_KEY isn't charged.
+      #
+      # Capped at 500 per call to keep the transaction reasonable. Reject any
+      # row whose product_id doesn't belong to the workspace (cross-tenant
+      # protection beyond RLS).
+      MAX_BULK_IMPORT = 500
+
+      def bulk_import
+        require_write!
+
+        input = params.require(:questions)
+        unless input.is_a?(Array)
+          render json: { error: "invalid_payload", message: "questions must be an array" }, status: :bad_request
+          return
+        end
+        if input.length > MAX_BULK_IMPORT
+          render json: { error: "too_many", message: "max #{MAX_BULK_IMPORT} per call" }, status: :bad_request
+          return
+        end
+
+        created = []
+        skipped = []
+
+        ActiveRecord::Base.transaction do
+          ActiveRecord::Base.connection.execute(
+            ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", current_workspace.id.to_s])
+          )
+
+          # Pre-fetch products to avoid N+1 lookups. Filter by workspace —
+          # any product_id outside the workspace silently drops to `skipped`.
+          incoming_ids = input.map { |q| q[:product_id] || q["product_id"] }.compact.uniq
+          products_by_id = current_workspace.products.where(id: incoming_ids).index_by(&:id)
+
+          input.each_with_index do |raw, idx|
+            q = raw.is_a?(ActionController::Parameters) ? raw.permit!.to_h.with_indifferent_access : raw.with_indifferent_access
+            pid    = q[:product_id]
+            body   = q[:question].to_s[0, 1_000]
+            answer = q[:answer].to_s[0, 5_000]
+            product = products_by_id[pid]
+
+            if product.nil? || body.blank? || answer.blank?
+              skipped << { index: idx, reason: product.nil? ? "product_not_found" : "missing_body_or_answer", product_id: pid }
+              next
+            end
+
+            target_status = %w[pending published].include?(q[:status]) ? q[:status] : "published"
+
+            question = current_workspace.questions.create!(
+              product:       product,
+              author_name:   q[:author_name].to_s.presence&.slice(0, 120) || "Cliente",
+              author_email:  q[:author_email].to_s.presence&.downcase&.slice(0, 254),
+              body:          body,
+              answer:        answer,
+              status:        target_status,
+              answered_at:   target_status == "published" ? Time.current : nil
+            )
+            created << question
+          end
+        end
+
+        AuditLog.record(
+          workspace: current_workspace,
+          action: "questions.bulk_imported",
+          metadata: { created: created.length, skipped: skipped.length }
+        )
+
+        render json: {
+          data: created.map { |q| { id: q.id, product_id: q.product_id, status: q.status } },
+          meta: { created: created.length, skipped: skipped.length, skipped_detail: skipped.first(50) }
+        }
+      end
+
       private
 
       def set_question
