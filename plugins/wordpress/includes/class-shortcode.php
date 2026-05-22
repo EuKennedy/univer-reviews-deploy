@@ -111,11 +111,19 @@ class Univer_Shortcode {
             )
             : '';
 
+        // Stars group has a tight 1px gap; the outer wrapper keeps a wider
+        // gap between value / stars / count so the three blocks stay
+        // visually separated without spacing the individual stars apart.
+        $stars_group = sprintf(
+            '<span class="univer-rating-stars" style="display:inline-flex;align-items:center;gap:1px;">%s</span>',
+            $stars_html
+        );
+
         $inner = sprintf(
             '<span class="univer-rating-inline %s" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;line-height:1;">%s%s%s</span>',
             esc_attr( $extra_cls ),
             $value_html,
-            $stars_html,
+            $stars_group,
             $count_html
         );
 
