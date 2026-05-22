@@ -408,8 +408,11 @@ class Univer_Shortcode {
                 'layout'            => get_option( 'univer_widget_layout', 'default' ),
                 'locale'            => get_option( 'univer_widget_locale', 'pt-BR' ),
                 'theme_color'       => get_option( 'univer_widget_theme_color', '#d4a850' ),
-                'show_qa'           => 'true',
-                'show_write_review' => 'true',
+                'star_color'        => get_option( 'univer_widget_star_color', '#fbbf24' ),
+                'star_shape'        => get_option( 'univer_widget_star_shape', 'star' ),
+                'show_qa'           => (string) get_option( 'univer_widget_show_qa', '1' ) === '1' ? 'true' : 'false',
+                'show_write_review' => (string) get_option( 'univer_widget_show_write_review', '1' ) === '1' ? 'true' : 'false',
+                'per_page'          => (string) (int) get_option( 'univer_widget_per_page', 10 ),
                 'api_url'           => get_option( 'univer_api_url', UNIVER_API_URL ),
                 'class'             => '',
             ],
@@ -436,10 +439,14 @@ class Univer_Shortcode {
         $layout        = $this->sanitize_layout( $atts['layout'] );
         $locale        = in_array( $atts['locale'], [ 'pt-BR', 'en-US', 'es-AR' ], true ) ? $atts['locale'] : 'pt-BR';
         $theme_color   = sanitize_hex_color( $atts['theme_color'] ) ?: '#d4a850';
+        $star_color    = sanitize_hex_color( $atts['star_color'] ) ?: '#fbbf24';
+        $star_shape    = $this->sanitize_star_shape( (string) $atts['star_shape'] );
         $show_qa       = in_array( $atts['show_qa'], [ 'true', '1', 'yes' ], true ) ? 'true' : 'false';
         $show_wr       = in_array( $atts['show_write_review'], [ 'true', '1', 'yes' ], true ) ? 'true' : 'false';
+        $per_page      = max( 1, min( 100, (int) $atts['per_page'] ) );
         $api_url       = esc_url( $atts['api_url'] );
         $extra_class   = sanitize_html_class( $atts['class'] );
+        $custom_css    = (string) get_option( 'univer_widget_custom_css', '' );
 
         // Ensure widget script is loaded
         if ( ! wp_script_is( 'univer-reviews-widget', 'enqueued' ) ) {
@@ -452,6 +459,18 @@ class Univer_Shortcode {
             );
         }
 
+        // Custom CSS is rendered as a <template> child of the widget element.
+        // The widget reads template.innerHTML in connectedCallback and injects
+        // it into its shadow DOM. Using a template (instead of an attribute)
+        // avoids HTML escaping issues for larger CSS blobs.
+        $custom_css_html = '';
+        if ( ! empty( $custom_css ) ) {
+            $custom_css_html = sprintf(
+                '<template data-custom-css>%s</template>',
+                $custom_css // template content is parsed as raw, no escape needed
+            );
+        }
+
         return sprintf(
             '<div class="univer-reviews-wrapper %s">
                 <univer-reviews
@@ -461,9 +480,12 @@ class Univer_Shortcode {
                     layout="%s"
                     locale="%s"
                     theme-color="%s"
+                    star-color="%s"
+                    star-shape="%s"
                     show-qa="%s"
                     show-write-review="%s"
-                ></univer-reviews>
+                    per-page="%d"
+                >%s</univer-reviews>
             </div>',
             esc_attr( $extra_class ),
             esc_attr( $workspace_id ),
@@ -472,8 +494,12 @@ class Univer_Shortcode {
             esc_attr( $layout ),
             esc_attr( $locale ),
             esc_attr( $theme_color ),
+            esc_attr( $star_color ),
+            esc_attr( $star_shape ),
             esc_attr( $show_qa ),
-            esc_attr( $show_wr )
+            esc_attr( $show_wr ),
+            $per_page,
+            $custom_css_html
         );
     }
 

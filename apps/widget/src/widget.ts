@@ -710,10 +710,13 @@ class UniverReviewsWidget extends HTMLElement {
     layout: false,
     locale: false,
     themeColor: false,
+    starColor: false,
+    starShape: false,
     perPage: false,
     showQa: false,
     showWriteReview: false,
     showReviews: false,
+    customCss: false,
   }
 
   // Q&A-only mode. When show-reviews="false" we hide the reviews tab AND
@@ -755,8 +758,8 @@ class UniverReviewsWidget extends HTMLElement {
   static get observedAttributes(): string[] {
     return [
       'workspace-id', 'product-id', 'api-url', 'layout', 'locale',
-      'theme-color', 'show-qa', 'show-reviews', 'show-write-review', 'per-page',
-      'featured', 'limit', 'min-rating',
+      'theme-color', 'star-color', 'star-shape', 'show-qa', 'show-reviews',
+      'show-write-review', 'per-page', 'featured', 'limit', 'min-rating',
     ]
   }
 
@@ -790,6 +793,36 @@ class UniverReviewsWidget extends HTMLElement {
 
     const themeAttr = this.getAttribute('theme-color')
     if (themeAttr) { this.themeColor = themeAttr; this.attrSet.themeColor = true }
+
+    // Star color and shape are now per-element attributes too (in addition to
+    // the workspace-config fetch). Lets the host page override stars without
+    // touching the theme accent color used on buttons/links.
+    const starColorAttr = this.getAttribute('star-color')
+    if (starColorAttr) { this.starColor = starColorAttr; this.attrSet.starColor = true }
+    const starShapeAttr = this.getAttribute('star-shape') as StarShape | null
+    if (starShapeAttr && ['star','heart','flame','thumb','diamond'].includes(starShapeAttr)) {
+      this.starShape = starShapeAttr
+      this.attrSet.starShape = true
+    }
+
+    // Custom CSS — host page can inject site-specific styles via a child
+    // <template data-custom-css>…</template> element OR via the custom-css
+    // attribute (capped at 20 KB by the WP plugin). Both override the
+    // workspace-wide custom CSS from the dashboard config.
+    const customCssTpl = this.querySelector('template[data-custom-css]') as HTMLTemplateElement | null
+    if (customCssTpl?.content) {
+      const css = customCssTpl.innerHTML.trim()
+      if (css) {
+        this.customCss = css
+        this.attrSet.customCss = true
+      }
+    } else {
+      const customCssAttr = this.getAttribute('custom-css')
+      if (customCssAttr && customCssAttr.length > 0) {
+        this.customCss = customCssAttr
+        this.attrSet.customCss = true
+      }
+    }
 
     if (this.hasAttribute('show-write-review')) {
       this.showWriteReview = this.getAttribute('show-write-review') !== 'false'
@@ -843,11 +876,11 @@ class UniverReviewsWidget extends HTMLElement {
       if (!this.attrSet.perPage && typeof cfg.per_page === 'number' && cfg.per_page > 0)
         this.perPage = Math.min(cfg.per_page, 100)
 
-      // Star color / shape and custom CSS are workspace-only — no HTML
-      // attribute precedes them today.
-      if (cfg.star_color) this.starColor = cfg.star_color
-      if (cfg.star_shape) this.starShape = cfg.star_shape
-      if (cfg.custom_css) this.customCss = cfg.custom_css
+      // Star color + shape now have per-element attribute overrides — the
+      // workspace config is the fallback when the host page didn't set them.
+      if (!this.attrSet.starColor && cfg.star_color) this.starColor = cfg.star_color
+      if (!this.attrSet.starShape && cfg.star_shape) this.starShape = cfg.star_shape
+      if (!this.attrSet.customCss && cfg.custom_css) this.customCss = cfg.custom_css
     } catch (e) {
       console.warn('[univer-reviews] widget-config', e instanceof Error ? e.message : 'unknown')
     } finally {

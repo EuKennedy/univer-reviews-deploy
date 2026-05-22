@@ -86,6 +86,12 @@ class Univer_Admin {
             'univer_widget_layout'            => [ 'sanitize_callback' => [ $this, 'sanitize_layout' ] ],
             'univer_widget_locale'            => [ 'sanitize_callback' => 'sanitize_text_field' ],
             'univer_widget_theme_color'       => [ 'sanitize_callback' => 'sanitize_hex_color' ],
+            'univer_widget_star_color'        => [ 'sanitize_callback' => 'sanitize_hex_color' ],
+            'univer_widget_star_shape'        => [ 'sanitize_callback' => [ $this, 'sanitize_star_shape' ] ],
+            'univer_widget_show_qa'           => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_widget_show_write_review' => [ 'sanitize_callback' => 'sanitize_text_field' ],
+            'univer_widget_per_page'          => [ 'sanitize_callback' => 'absint' ],
+            'univer_widget_custom_css'        => [ 'sanitize_callback' => [ $this, 'sanitize_custom_css' ] ],
             'univer_sync_enabled'             => [ 'sanitize_callback' => 'sanitize_text_field' ],
             'univer_auto_pull'                => [ 'sanitize_callback' => 'sanitize_text_field' ],
             // ── WooCommerce auto-integration toggles ─────────────────────────
@@ -103,6 +109,35 @@ class Univer_Admin {
         // Keep this list in sync with apps/widget/src/widget.ts → type Layout.
         $valid = [ 'default', 'compact', 'grid', 'carousel' ];
         return in_array( $layout, $valid, true ) ? $layout : 'default';
+    }
+
+    public function sanitize_star_shape( string $shape ): string {
+        $valid = [ 'star', 'heart', 'flame', 'thumb', 'diamond' ];
+        return in_array( $shape, $valid, true ) ? $shape : 'star';
+    }
+
+    /**
+     * Allow CSS but strip the most obvious exfiltration vectors. The widget
+     * sandbox-renders this inside its shadow DOM, so the blast radius is
+     * already small — this just keeps a confused admin from pasting hostile
+     * payloads from random tutorials.
+     */
+    public function sanitize_custom_css( string $css ): string {
+        // Drop <script> / <style> tags and javascript: URLs.
+        $css = preg_replace( '/<\/?(script|style)[^>]*>/i', '', $css );
+        $css = preg_replace( '/javascript\s*:/i', '', $css );
+        // Cap at 20 KB to keep stylesheet bloat in check.
+        return substr( $css, 0, 20000 );
+    }
+
+    private function star_shape_choices(): array {
+        return [
+            'star'    => '★ Estrela',
+            'heart'   => '♥ Coração',
+            'flame'   => '🔥 Chama',
+            'thumb'   => '👍 Curtir',
+            'diamond' => '◆ Diamante',
+        ];
     }
 
     /**
@@ -367,14 +402,20 @@ class Univer_Admin {
     // ─── Settings Page ────────────────────────────────────────────────────────
 
     public function page_settings(): void {
-        $api_key       = get_option( 'univer_api_key', '' );
-        $workspace_id  = get_option( 'univer_workspace_id', '' );
-        $api_url       = get_option( 'univer_api_url', UNIVER_API_URL );
-        $layout        = get_option( 'univer_widget_layout', 'default' );
-        $locale        = get_option( 'univer_widget_locale', 'pt-BR' );
-        $theme_color   = get_option( 'univer_widget_theme_color', '#d4a850' );
-        $sync_enabled  = get_option( 'univer_sync_enabled', '1' );
-        $auto_pull     = get_option( 'univer_auto_pull', '1' );
+        $api_key            = get_option( 'univer_api_key', '' );
+        $workspace_id       = get_option( 'univer_workspace_id', '' );
+        $api_url            = get_option( 'univer_api_url', UNIVER_API_URL );
+        $layout             = get_option( 'univer_widget_layout', 'default' );
+        $locale             = get_option( 'univer_widget_locale', 'pt-BR' );
+        $theme_color        = get_option( 'univer_widget_theme_color', '#d4a850' );
+        $star_color         = get_option( 'univer_widget_star_color', '#fbbf24' );
+        $star_shape         = get_option( 'univer_widget_star_shape', 'star' );
+        $show_qa            = (string) get_option( 'univer_widget_show_qa', '1' );
+        $show_write_review  = (string) get_option( 'univer_widget_show_write_review', '1' );
+        $per_page           = (int) get_option( 'univer_widget_per_page', 10 );
+        $custom_css         = (string) get_option( 'univer_widget_custom_css', '' );
+        $sync_enabled       = get_option( 'univer_sync_enabled', '1' );
+        $auto_pull          = get_option( 'univer_auto_pull', '1' );
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'Configurações — UniverReviews', 'univer-reviews' ); ?></h1>
@@ -413,51 +454,12 @@ class Univer_Admin {
                 </p>
 
                 <hr>
-                <h2><?php esc_html_e( 'Widget', 'univer-reviews' ); ?></h2>
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row"><label for="univer_widget_layout"><?php esc_html_e( 'Layout das avaliações', 'univer-reviews' ); ?></label></th>
-                        <td>
-                            <select id="univer_widget_layout" name="univer_widget_layout" style="min-width:340px;">
-                                <?php foreach ( $this->layout_choices() as $id => $opt ) : ?>
-                                    <option value="<?php echo esc_attr( $id ); ?>" <?php selected( $layout, $id ); ?>>
-                                        <?php echo esc_html( $opt['label'] ); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <p class="description" id="univer-layout-hint">
-                                <?php
-                                $current = $this->layout_choices()[ $layout ] ?? $this->layout_choices()['default'];
-                                echo esc_html( $current['hint'] );
-                                ?>
-                            </p>
-                            <script>
-                            (function(){
-                                var hints = <?php echo wp_json_encode( array_map( function ( $o ) { return $o['hint']; }, $this->layout_choices() ) ); ?>;
-                                var sel = document.getElementById('univer_widget_layout');
-                                var hint = document.getElementById('univer-layout-hint');
-                                if (sel && hint) sel.addEventListener('change', function(){ hint.textContent = hints[sel.value] || ''; });
-                            })();
-                            </script>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><label for="univer_widget_locale"><?php esc_html_e( 'Idioma', 'univer-reviews' ); ?></label></th>
-                        <td>
-                            <select id="univer_widget_locale" name="univer_widget_locale">
-                                <option value="pt-BR" <?php selected( $locale, 'pt-BR' ); ?>>Português (Brasil)</option>
-                                <option value="en-US" <?php selected( $locale, 'en-US' ); ?>>English (US)</option>
-                                <option value="es-AR" <?php selected( $locale, 'es-AR' ); ?>>Español (Argentina)</option>
-                            </select>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row"><label for="univer_widget_theme_color"><?php esc_html_e( 'Cor do tema', 'univer-reviews' ); ?></label></th>
-                        <td>
-                            <input type="color" id="univer_widget_theme_color" name="univer_widget_theme_color" value="<?php echo esc_attr( $theme_color ); ?>">
-                        </td>
-                    </tr>
-                </table>
+
+                <?php $this->render_appearance_section( $layout, $locale, $theme_color, $star_color, $star_shape ); ?>
+
+                <?php $this->render_display_section( $show_qa, $show_write_review, $per_page ); ?>
+
+                <?php $this->render_custom_css_section( $custom_css ); ?>
 
                 <hr>
                 <h2><?php esc_html_e( 'WooCommerce', 'univer-reviews' ); ?></h2>
@@ -600,6 +602,178 @@ class Univer_Admin {
         } else {
             wp_send_json_error( [ 'message' => sprintf( __( 'HTTP %d', 'univer-reviews' ), $code ) ] );
         }
+    }
+
+    // ─── Settings sections (rendered HTML) ──────────────────────────────────
+
+    /**
+     * Personalização visual — layout + paleta + ícone das estrelas.
+     * Renderiza um card com 3 sub-grupos para evitar a sensação de um
+     * único "tema" que muda tudo de uma vez.
+     */
+    private function render_appearance_section(
+        string $layout,
+        string $locale,
+        string $theme_color,
+        string $star_color,
+        string $star_shape
+    ): void {
+        $layouts        = $this->layout_choices();
+        $star_shapes    = $this->star_shape_choices();
+        $layout_hints   = array_map( function ( $o ) { return $o['hint']; }, $layouts );
+        ?>
+        <div class="univer-section-card" style="background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:20px 24px;margin:16px 0;">
+            <h2 style="margin-top:0;border-bottom:1px solid #f0f0f1;padding-bottom:12px;"><?php esc_html_e( 'Aparência do widget', 'univer-reviews' ); ?></h2>
+            <p class="description" style="margin-bottom:20px;">
+                <?php esc_html_e( 'Cada item controla uma parte específica do visual. As cores são independentes — alterar a cor primária não afeta as estrelas.', 'univer-reviews' ); ?>
+            </p>
+
+            <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:#646970;margin:0 0 12px;"><?php esc_html_e( 'Layout e idioma', 'univer-reviews' ); ?></h3>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><label for="univer_widget_layout"><?php esc_html_e( 'Layout das avaliações', 'univer-reviews' ); ?></label></th>
+                    <td>
+                        <select id="univer_widget_layout" name="univer_widget_layout" style="min-width:340px;">
+                            <?php foreach ( $layouts as $id => $opt ) : ?>
+                                <option value="<?php echo esc_attr( $id ); ?>" <?php selected( $layout, $id ); ?>>
+                                    <?php echo esc_html( $opt['label'] ); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <p class="description" id="univer-layout-hint">
+                            <?php echo esc_html( $layouts[ $layout ]['hint'] ?? $layouts['default']['hint'] ); ?>
+                        </p>
+                        <script>
+                        (function(){
+                            var hints = <?php echo wp_json_encode( $layout_hints ); ?>;
+                            var sel = document.getElementById('univer_widget_layout');
+                            var hint = document.getElementById('univer-layout-hint');
+                            if (sel && hint) sel.addEventListener('change', function(){ hint.textContent = hints[sel.value] || ''; });
+                        })();
+                        </script>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="univer_widget_locale"><?php esc_html_e( 'Idioma', 'univer-reviews' ); ?></label></th>
+                    <td>
+                        <select id="univer_widget_locale" name="univer_widget_locale">
+                            <option value="pt-BR" <?php selected( $locale, 'pt-BR' ); ?>>Português (Brasil)</option>
+                            <option value="en-US" <?php selected( $locale, 'en-US' ); ?>>English (US)</option>
+                            <option value="es-AR" <?php selected( $locale, 'es-AR' ); ?>>Español (Argentina)</option>
+                        </select>
+                    </td>
+                </tr>
+            </table>
+
+            <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:#646970;margin:24px 0 12px;"><?php esc_html_e( 'Cores', 'univer-reviews' ); ?></h3>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><label for="univer_widget_theme_color"><?php esc_html_e( 'Cor primária', 'univer-reviews' ); ?></label></th>
+                    <td>
+                        <input type="color" id="univer_widget_theme_color" name="univer_widget_theme_color" value="<?php echo esc_attr( $theme_color ); ?>">
+                        <p class="description"><?php esc_html_e( 'Usada em botões, links, foco e elementos de destaque do widget. NÃO afeta as estrelas.', 'univer-reviews' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="univer_widget_star_color"><?php esc_html_e( 'Cor das estrelas', 'univer-reviews' ); ?></label></th>
+                    <td>
+                        <input type="color" id="univer_widget_star_color" name="univer_widget_star_color" value="<?php echo esc_attr( $star_color ); ?>">
+                        <p class="description"><?php esc_html_e( 'Controla apenas o preenchimento dos ícones de avaliação. Padrão dourado #fbbf24 funciona bem com a maioria dos temas.', 'univer-reviews' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:#646970;margin:24px 0 12px;"><?php esc_html_e( 'Ícones', 'univer-reviews' ); ?></h3>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><label><?php esc_html_e( 'Formato das estrelas', 'univer-reviews' ); ?></label></th>
+                    <td>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <?php foreach ( $star_shapes as $id => $label ) : ?>
+                                <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:2px solid <?php echo $star_shape === $id ? '#d4a850' : '#dcdcde'; ?>;border-radius:6px;background:<?php echo $star_shape === $id ? '#fef9ea' : '#fff'; ?>;cursor:pointer;">
+                                    <input type="radio" name="univer_widget_star_shape" value="<?php echo esc_attr( $id ); ?>" <?php checked( $star_shape, $id ); ?> style="margin:0;">
+                                    <span style="font-size:16px;"><?php echo esc_html( $label ); ?></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                        <p class="description" style="margin-top:10px;"><?php esc_html_e( 'Define o glifo usado em todos os indicadores de nota — distribuição, header, lista, formulário.', 'univer-reviews' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <?php
+    }
+
+    /**
+     * Exibição — toggles que mudam o conteúdo do widget (Q&A, escrever review,
+     * paginação). Mantido em card separado para reduzir ruído visual.
+     */
+    private function render_display_section(
+        string $show_qa,
+        string $show_write_review,
+        int $per_page
+    ): void {
+        ?>
+        <div class="univer-section-card" style="background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:20px 24px;margin:16px 0;">
+            <h2 style="margin-top:0;border-bottom:1px solid #f0f0f1;padding-bottom:12px;"><?php esc_html_e( 'Exibição', 'univer-reviews' ); ?></h2>
+            <p class="description" style="margin-bottom:20px;">
+                <?php esc_html_e( 'Decide o que aparece no widget. Cada toggle pode ser sobrescrito por atributo no shortcode.', 'univer-reviews' ); ?>
+            </p>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Aba "Perguntas e respostas"', 'univer-reviews' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="univer_widget_show_qa" value="1" <?php checked( $show_qa, '1' ); ?>>
+                            <?php esc_html_e( 'Exibir aba Q&A junto com as avaliações', 'univer-reviews' ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Quando ativo, o widget mostra tabs "Avaliações | Perguntas". Para Q&A standalone use o shortcode [univer_qa].', 'univer-reviews' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Botão "Escrever avaliação"', 'univer-reviews' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="univer_widget_show_write_review" value="1" <?php checked( $show_write_review, '1' ); ?>>
+                            <?php esc_html_e( 'Permitir que clientes enviem novas avaliações pelo widget', 'univer-reviews' ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Desative se as avaliações são coletadas exclusivamente por email/WhatsApp.', 'univer-reviews' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="univer_widget_per_page"><?php esc_html_e( 'Avaliações por página', 'univer-reviews' ); ?></label></th>
+                    <td>
+                        <input type="number" id="univer_widget_per_page" name="univer_widget_per_page" min="1" max="100" value="<?php echo esc_attr( (string) $per_page ); ?>" class="small-text">
+                        <p class="description"><?php esc_html_e( 'Quantidade exibida por carregamento. Mínimo 1, máximo 100. Padrão 10.', 'univer-reviews' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <?php
+    }
+
+    /**
+     * CSS customizado — fechado por padrão (collapsible).
+     */
+    private function render_custom_css_section( string $custom_css ): void {
+        ?>
+        <div class="univer-section-card" style="background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:20px 24px;margin:16px 0;">
+            <details>
+                <summary style="cursor:pointer;font-size:1.3em;font-weight:600;padding:0;outline:none;">
+                    <?php esc_html_e( 'CSS customizado (avançado)', 'univer-reviews' ); ?>
+                </summary>
+                <p class="description" style="margin:12px 0;">
+                    <?php esc_html_e( 'Sobrescreve estilos do widget. O CSS é injetado dentro do shadow DOM — afeta apenas o widget, não o resto da página. Variáveis disponíveis:', 'univer-reviews' ); ?>
+                    <code style="display:inline-block;background:#f0f0f1;padding:2px 6px;border-radius:3px;font-size:12px;">--ur-accent</code>
+                    <code style="display:inline-block;background:#f0f0f1;padding:2px 6px;border-radius:3px;font-size:12px;">--ur-star</code>
+                    <code style="display:inline-block;background:#f0f0f1;padding:2px 6px;border-radius:3px;font-size:12px;">--ur-text</code>
+                    <code style="display:inline-block;background:#f0f0f1;padding:2px 6px;border-radius:3px;font-size:12px;">--ur-surface</code>
+                </p>
+                <textarea name="univer_widget_custom_css" rows="10" style="width:100%;font-family:Monaco,Consolas,monospace;font-size:13px;" placeholder=".ur-card { border-radius: 16px; }&#10;.ur-write-btn { text-transform: uppercase; }"><?php echo esc_textarea( $custom_css ); ?></textarea>
+                <p class="description" style="margin-top:8px;"><?php esc_html_e( 'Máximo 20 KB. Tags <script> e <style> e URLs javascript: são removidas no save.', 'univer-reviews' ); ?></p>
+            </details>
+        </div>
+        <?php
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

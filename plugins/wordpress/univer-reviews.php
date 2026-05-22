@@ -3,7 +3,7 @@
  * Plugin Name:       UniverReviews
  * Plugin URI:        https://univerreviews.com
  * Description:       Integração com a plataforma UniverReviews — sincronize avaliações com IA, exiba o widget e gerencie respostas diretamente no WordPress.
- * Version:           0.3.2
+ * Version:           0.4.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            UniverReviews
@@ -24,7 +24,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-define( 'UNIVER_VERSION',     '0.3.2' );
+define( 'UNIVER_VERSION',     '0.4.0' );
 define( 'UNIVER_PLUGIN_DIR',  plugin_dir_path( __FILE__ ) );
 define( 'UNIVER_PLUGIN_URL',  plugin_dir_url( __FILE__ ) );
 define( 'UNIVER_API_URL',     'https://api.univerreviews.com' );
