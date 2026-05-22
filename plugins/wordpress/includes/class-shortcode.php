@@ -440,7 +440,10 @@ class Univer_Shortcode {
         $locale        = in_array( $atts['locale'], [ 'pt-BR', 'en-US', 'es-AR' ], true ) ? $atts['locale'] : 'pt-BR';
         $theme_color   = sanitize_hex_color( $atts['theme_color'] ) ?: '#d4a850';
         $star_color    = sanitize_hex_color( $atts['star_color'] ) ?: '#fbbf24';
-        $star_shape    = $this->sanitize_star_shape( (string) $atts['star_shape'] );
+        // Inline shape allow-list — keep in sync with widget StarShape type
+        // and Univer_Admin::sanitize_star_shape().
+        $valid_shapes  = [ 'star', 'heart', 'flame', 'thumb', 'diamond' ];
+        $star_shape    = in_array( (string) $atts['star_shape'], $valid_shapes, true ) ? $atts['star_shape'] : 'star';
         $show_qa       = in_array( $atts['show_qa'], [ 'true', '1', 'yes' ], true ) ? 'true' : 'false';
         $show_wr       = in_array( $atts['show_write_review'], [ 'true', '1', 'yes' ], true ) ? 'true' : 'false';
         $per_page      = max( 1, min( 100, (int) $atts['per_page'] ) );
