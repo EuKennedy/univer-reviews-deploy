@@ -18,9 +18,203 @@ class Univer_Shortcode {
         add_shortcode( 'univer_featured_reviews', [ $this, 'render_featured' ] );
         add_shortcode( 'univer_reviews_summary',  [ $this, 'render_summary' ] );
         add_shortcode( 'univer_qa',               [ $this, 'render_qa' ] );
+        add_shortcode( 'univer_rating',           [ $this, 'render_rating' ] );
 
         // Also support Gutenberg block as a classic shortcode wrapper
         add_action( 'init', [ $this, 'register_block' ] );
+    }
+
+    /**
+     * [univer_rating] — minimal inline star + review-count rating.
+     *
+     * Output example: ⭐⭐⭐⭐⭐ (48 avaliações)
+     *
+     * Server-side render — fetches /public/summary/:product_id, caches the
+     * result in a WP transient (5 min) and outputs plain HTML. No widget
+     * script load, no JS execution, no layout shift. Ideal for placing
+     * directly under the product title.
+     *
+     * Attributes:
+     *   product_id     UUID, handle/slug, or platform_product_id (defaults to current WC product)
+     *   workspace_id   workspace UUID (defaults to plugin settings)
+     *   api_url        override SaaS base URL (defaults to plugin settings)
+     *   color          fill color for stars (defaults to widget theme_color)
+     *   size           star size in px (default 16)
+     *   show_count     'true' | 'false' — toggles the "(N avaliações)" suffix
+     *   show_value     'true' | 'false' — show numeric avg (e.g. "4.8") before the stars
+     *   label          custom label suffix (default "avaliações")
+     *   link           URL to link the rating to (e.g. anchor to reviews section)
+     *   class          extra CSS class
+     */
+    public function render_rating( array|string $atts, ?string $content = null ): string {
+        $atts = shortcode_atts(
+            [
+                'product_id'   => '',
+                'workspace_id' => get_option( 'univer_workspace_id', '' ),
+                'api_url'      => get_option( 'univer_api_url', UNIVER_API_URL ),
+                'color'        => get_option( 'univer_widget_theme_color', '#d4a850' ),
+                'size'         => '16',
+                'show_count'   => 'true',
+                'show_value'   => 'false',
+                'label'        => 'avaliações',
+                'link'         => '',
+                'class'        => '',
+            ],
+            $atts,
+            'univer_rating'
+        );
+
+        $product_id = sanitize_text_field( $atts['product_id'] );
+        if ( empty( $product_id ) ) {
+            $product_id = $this->get_current_product_id();
+        }
+        if ( empty( $product_id ) ) {
+            return '';
+        }
+
+        $workspace_id = sanitize_text_field( $atts['workspace_id'] );
+        $api_url      = esc_url_raw( $atts['api_url'] );
+        if ( empty( $workspace_id ) || empty( $api_url ) ) {
+            return '';
+        }
+
+        $summary = $this->fetch_summary( $api_url, $workspace_id, $product_id );
+
+        // Surface nothing when the product has no reviews yet — avoids
+        // showing "0 avaliações" on every product page.
+        if ( ! $summary || ! isset( $summary['total_reviews'] ) || (int) $summary['total_reviews'] === 0 ) {
+            return '';
+        }
+
+        $avg        = (float) ( $summary['avg_rating'] ?? 0 );
+        $total      = (int) $summary['total_reviews'];
+        $color      = sanitize_hex_color( $atts['color'] ) ?: '#d4a850';
+        $size       = max( 8, min( 64, (int) $atts['size'] ) );
+        $show_count = in_array( $atts['show_count'], [ 'true', '1', 'yes' ], true );
+        $show_value = in_array( $atts['show_value'], [ 'true', '1', 'yes' ], true );
+        $label      = sanitize_text_field( $atts['label'] );
+        $extra_cls  = sanitize_html_class( $atts['class'] );
+        $link       = esc_url( $atts['link'] );
+
+        $stars_html = $this->render_stars_inline( $avg, $color, $size );
+
+        $value_html = $show_value
+            ? sprintf( '<span class="univer-rating-value" style="font-weight:600;color:#222;">%s</span>', esc_html( number_format( $avg, 1 ) ) )
+            : '';
+
+        $count_html = $show_count
+            ? sprintf(
+                '<span class="univer-rating-count" style="color:#666;font-size:%dpx;">(%d %s)</span>',
+                max( 11, (int) ( $size * 0.85 ) ),
+                $total,
+                esc_html( $label )
+            )
+            : '';
+
+        $inner = sprintf(
+            '<span class="univer-rating-inline %s" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;line-height:1;">%s%s%s</span>',
+            esc_attr( $extra_cls ),
+            $value_html,
+            $stars_html,
+            $count_html
+        );
+
+        if ( ! empty( $link ) ) {
+            return sprintf(
+                '<a href="%s" style="text-decoration:none;color:inherit;">%s</a>',
+                $link,
+                $inner
+            );
+        }
+
+        return $inner;
+    }
+
+    /**
+     * Render inline SVG stars with fractional fill support (4.5 → 4 full + half).
+     */
+    private function render_stars_inline( float $avg, string $color, int $size ): string {
+        $avg = max( 0.0, min( 5.0, $avg ) );
+        $stroke = '#cbd1d8';
+
+        $stars = '';
+        for ( $i = 1; $i <= 5; $i++ ) {
+            $diff = $avg - ( $i - 1 );
+            if ( $diff >= 1 ) {
+                $fill_pct = 100;
+            } elseif ( $diff > 0 ) {
+                $fill_pct = (int) round( $diff * 100 );
+            } else {
+                $fill_pct = 0;
+            }
+
+            $grad_id = 'unvr-star-' . wp_generate_uuid4();
+            $stars  .= sprintf(
+                '<svg width="%1$d" height="%1$d" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">'
+                . '<defs><linearGradient id="%2$s" x1="0" x2="1" y1="0" y2="0">'
+                . '<stop offset="%3$d%%" stop-color="%4$s"/>'
+                . '<stop offset="%3$d%%" stop-color="transparent"/>'
+                . '</linearGradient></defs>'
+                . '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" '
+                . 'fill="url(#%2$s)" stroke="%5$s" stroke-width="1" stroke-linejoin="round"/>'
+                . '</svg>',
+                $size,
+                esc_attr( $grad_id ),
+                $fill_pct,
+                esc_attr( $color ),
+                esc_attr( $stroke )
+            );
+        }
+
+        return $stars;
+    }
+
+    /**
+     * GET /api/v1/public/summary/:product_id with 5-min WP transient cache.
+     * Cache key is per (workspace, product) so multiple workspaces share the
+     * same WordPress install without leaking summaries.
+     */
+    private function fetch_summary( string $api_url, string $workspace_id, string $product_id ): ?array {
+        $cache_key = 'univer_rating_' . md5( $workspace_id . ':' . $product_id );
+        $cached    = get_transient( $cache_key );
+        if ( false !== $cached ) {
+            return is_array( $cached ) ? $cached : null;
+        }
+
+        $endpoint = rtrim( $api_url, '/' ) . '/api/v1/public/summary/' . rawurlencode( $product_id );
+        $response = wp_remote_get(
+            $endpoint,
+            [
+                'timeout' => 3,
+                'headers' => [
+                    'X-Univer-Domain'   => isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '',
+                    'X-Univer-Workspace' => $workspace_id,
+                    'Accept'             => 'application/json',
+                ],
+            ]
+        );
+
+        if ( is_wp_error( $response ) ) {
+            // Cache a short null result so a misconfigured product doesn't hammer the API.
+            set_transient( $cache_key, 'null', 60 );
+            return null;
+        }
+
+        $code = (int) wp_remote_retrieve_response_code( $response );
+        if ( 200 !== $code ) {
+            set_transient( $cache_key, 'null', 60 );
+            return null;
+        }
+
+        $body = wp_remote_retrieve_body( $response );
+        $json = json_decode( $body, true );
+        $data = is_array( $json ) && isset( $json['data'] ) && is_array( $json['data'] ) ? $json['data'] : null;
+
+        // Cache for 5 minutes — keeps the product page snappy without
+        // showing stale review counts for too long.
+        set_transient( $cache_key, $data ?: 'null', 5 * MINUTE_IN_SECONDS );
+
+        return $data;
     }
 
     /**
