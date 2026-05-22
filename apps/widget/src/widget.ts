@@ -406,7 +406,9 @@ button { font-family: inherit; cursor: pointer; }
 .ur-list { padding: 20px 0; }
 .ur-list.layout-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  /* Desktop: fixed 4-column grid. Tablet/mobile breakpoints below collapse
+     to 2 and 1 columns respectively. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 .ur-list.layout-default { display: flex; flex-direction: column; gap: 12px; }
@@ -667,16 +669,18 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
+/* Tablet: 2 columns */
+@media (max-width: 1023px) {
+  .ur-list.layout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+}
+/* Mobile: 1 column (vertical stack) */
+@media (max-width: 640px) {
   .ur-summary {
     grid-template-columns: 1fr; gap: 20px; text-align: left;
   }
   .ur-hero { align-items: flex-start; }
   .ur-write-btn { width: 100%; }
-  .ur-list.layout-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
-}
-@media (max-width: 480px) {
-  .ur-list.layout-grid { grid-template-columns: 1fr; }
+  .ur-list.layout-grid { grid-template-columns: 1fr; gap: 12px; }
   .ur-toolbar { flex-direction: column; align-items: flex-start; }
 }
 `
