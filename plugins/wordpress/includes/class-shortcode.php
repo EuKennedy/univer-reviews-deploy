@@ -52,7 +52,10 @@ class Univer_Shortcode {
                 'product_id'   => '',
                 'workspace_id' => get_option( 'univer_workspace_id', '' ),
                 'api_url'      => get_option( 'univer_api_url', UNIVER_API_URL ),
-                'color'        => get_option( 'univer_widget_theme_color', '#d4a850' ),
+                // Inline rating stars use the dedicated star_color setting,
+                // NOT theme_color — otherwise picking a dark accent (e.g.
+                // black for buttons) paints every rating star black too.
+                'color'        => get_option( 'univer_widget_star_color', '#fbbf24' ),
                 'size'         => '16',
                 'show_count'   => 'true',
                 'show_value'   => 'false',
