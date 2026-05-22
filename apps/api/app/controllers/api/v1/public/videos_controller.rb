@@ -7,7 +7,13 @@ module Api
 
         # GET /api/v1/public/videos/:product_id
         def index
-          product = @workspace.products.find(params[:product_id])
+          product = resolve_product(params[:product_id])
+          # No videos for products that don't exist — return empty rather
+          # than 404 so the storefront widget can render gracefully without
+          # showing an error alert.
+          unless product
+            return render json: { data: [] }
+          end
 
           videos = ReviewMedium.joins(:review)
                                .where(type: "video")
@@ -27,11 +33,25 @@ module Api
               }
             }
           }
-        rescue ActiveRecord::RecordNotFound
-          render json: { error: "not_found" }, status: :not_found
         end
 
         private
+
+        # Mirror of Public::ReviewsController#resolve_product — accepts our
+        # internal UUID, the product handle/slug, or the storefront's native
+        # platform_product_id (e.g. the WooCommerce post ID).
+        def resolve_product(identifier)
+          ident = identifier.to_s
+          return nil if ident.blank?
+
+          if ident.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+            p = @workspace.products.find_by(id: ident)
+            return p if p
+          end
+          p = @workspace.products.find_by(handle: ident)
+          return p if p
+          @workspace.products.find_by(platform_product_id: ident)
+        end
 
         def resolve_workspace
           domain_header = request.headers["X-Univer-Domain"] ||
