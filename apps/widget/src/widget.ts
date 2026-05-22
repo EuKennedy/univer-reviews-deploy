@@ -273,7 +273,11 @@ const buildCSS = (themeColor: string, starColor: string): string => `
 * { box-sizing: border-box; }
 button { font-family: inherit; cursor: pointer; }
 
-.ur-root { max-width: 1280px; margin: 0 auto; padding: 24px 16px; }
+/* Widget root has no own padding/max-width — the host page container
+   decides the width and breathing room. Avoids the "double padding"
+   look when the widget sits inside a theme container that already has
+   spacing. */
+.ur-root { width: 100%; margin: 0; padding: 0; }
 
 /* ── Summary header ───────────────────────────────────────────────────────── */
 .ur-summary {
