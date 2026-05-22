@@ -38,10 +38,12 @@ module Api
           reviews = scope.order(updated_at: :desc)
                         .limit(per_page)
                         .offset((page - 1) * per_page)
-                        .includes(:product)
+                        .includes(:product, :review_media)
 
           render json: {
             data: reviews.map { |r|
+              has_photo = r.review_media.any? { |m| m.type == "image" }
+              has_video = r.review_media.any? { |m| m.type == "video" }
               {
                 id:                   r.id,
                 external_id:          r.external_id,
@@ -53,6 +55,14 @@ module Api
                 title:                r.title,
                 body:                 r.body,
                 status:               r.status,
+                # Fields below feed the Univer Loyalty bridge in the WP plugin
+                # — has_photo/video drive media bonuses, is_verified_purchase
+                # drives the verified-buyer bonus. Including them here means
+                # the loyalty integration works off the existing hourly pull
+                # without needing a separate webhook channel.
+                has_photo:            has_photo,
+                has_video:            has_video,
+                is_verified_purchase: r.is_verified_purchase,
                 created_at:           r.created_at&.iso8601,
                 updated_at:           r.updated_at&.iso8601,
               }

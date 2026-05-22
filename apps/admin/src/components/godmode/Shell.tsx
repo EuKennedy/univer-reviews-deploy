@@ -14,6 +14,7 @@ import {
   Megaphone,
   Plug,
   Gift,
+  Award,
   Settings,
   CreditCard,
   ChevronLeft,
@@ -44,6 +45,7 @@ const navItems: NavItem[] = [
   { label: 'Campanhas', href: 'campaigns', icon: Megaphone },
   { label: 'Integrações', href: 'integrations', icon: Plug },
   { label: 'Recompensas', href: 'rewards', icon: Gift },
+  { label: 'Fidelidade', href: 'loyalty', icon: Award },
 ]
 
 const bottomNavItems: NavItem[] = [

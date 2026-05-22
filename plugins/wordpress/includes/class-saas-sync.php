@@ -264,6 +264,50 @@ class Univer_SaaS_Sync {
         if ( ! empty( $review['reply']['body'] ) ) {
             $this->upsert_reply_to_wp( $comment_id, $review['reply'] );
         }
+
+        // Bridge: notify integrations (e.g. Univer Loyalty) that a review was
+        // approved. The bridge is responsible for idempotency via the
+        // `_ulp_points_awarded` comment meta, so re-pulls don't double-award.
+        $this->emit_review_approved_action( $comment_id, $review );
+    }
+
+    /**
+     * Fire `univer_review_approved` action for downstream integrations.
+     *
+     * @param int   $comment_id WP comment ID corresponding to this review.
+     * @param array $review     SaaS review payload.
+     */
+    private function emit_review_approved_action( int $comment_id, array $review ): void {
+        $email     = sanitize_email( (string) ( $review['author_email'] ?? '' ) );
+        $wp_user   = $email ? get_user_by( 'email', $email ) : null;
+        $author_id = $wp_user ? (int) $wp_user->ID : 0;
+
+        /**
+         * @param array $payload {
+         *     @type int    comment_id    WP comment ID.
+         *     @type string review_id     SaaS review ID.
+         *     @type int    product_id    WP post ID (product).
+         *     @type int    rating        1..5.
+         *     @type string body          Review text.
+         *     @type string author_email
+         *     @type int    wp_user_id    Logged-in user ID or 0.
+         *     @type bool   has_photo
+         *     @type bool   has_video
+         *     @type bool   is_verified
+         * }
+         */
+        do_action( 'univer_review_approved', [
+            'comment_id'   => $comment_id,
+            'review_id'    => (string) ( $review['id'] ?? '' ),
+            'product_id'   => (int) ( $review['product_external_id'] ?? 0 ),
+            'rating'       => (int) ( $review['rating'] ?? 0 ),
+            'body'         => (string) ( $review['body'] ?? '' ),
+            'author_email' => $email,
+            'wp_user_id'   => $author_id,
+            'has_photo'    => ! empty( $review['has_photo'] ),
+            'has_video'    => ! empty( $review['has_video'] ),
+            'is_verified'  => ! empty( $review['is_verified_purchase'] ),
+        ] );
     }
 
     private function upsert_reply_to_wp( int $parent_id, array $reply ): void {
@@ -298,6 +342,10 @@ class Univer_SaaS_Sync {
         }
         $comment_id = (int) $data['external_id'];
         wp_set_comment_status( $comment_id, 'approve' );
+
+        // Forward to integrations bridge — same action as the pull path so
+        // downstream listeners (Univer Loyalty) treat both flows uniformly.
+        $this->emit_review_approved_action( $comment_id, $data );
     }
 
     public function handle_review_rejected( array $data ): void {

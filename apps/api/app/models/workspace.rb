@@ -17,6 +17,7 @@ class Workspace < ApplicationRecord
   has_many :audit_logs,         dependent: :destroy
   has_many :questions,          dependent: :destroy
   has_many :question_groups,    dependent: :destroy
+  has_many :loyalty_configs,    dependent: :destroy
   has_one  :subscription,       dependent: :destroy
 
   PLANS   = %w[free starter pro enterprise].freeze

@@ -692,6 +692,34 @@ class ApiClient {
         token,
       ).then((r) => r.data),
   }
+
+  loyalty = {
+    list: (token: string) =>
+      this.request<{
+        data: Array<{
+          id: string
+          source_campaign_id: number
+          name: string
+          description: string | null
+          is_active: boolean
+          base_points: number
+          min_chars: number
+          only_logged_in: boolean
+          bonus_photo: number
+          bonus_video: number
+          bonus_verified: number
+          priority: number
+          synced_at: string | null
+          updated_at: string | null
+        }>
+        meta: {
+          count: number
+          active_count: number
+          last_synced_at: string | null
+          plugin_connected: boolean
+        }
+      }>('/loyalty', {}, token),
+  }
 }
 
 /**

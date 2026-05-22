@@ -150,7 +150,14 @@ Rails.application.routes.draw do
         get  :reviews, to: "sync#reviews"
         patch "reviews/:id/status", to: "sync#update_status"
         post  "reviews/:id/reply",  to: "sync#add_reply"
+
+        # Univer Loyalty plugin → SaaS dashboard mirror.
+        put    "loyalty/sync",                     to: "loyalty#sync"
+        delete "loyalty/:source_campaign_id",      to: "loyalty#destroy"
       end
+
+      # Loyalty config (read-only, surfaced in dashboard).
+      get "loyalty", to: "loyalty#index"
 
       # Public (no auth) - storefront/widget
       namespace :public do
