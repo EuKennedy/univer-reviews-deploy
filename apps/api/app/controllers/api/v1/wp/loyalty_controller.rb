@@ -58,19 +58,35 @@ module Api
 
         private
 
+        MAX_POINTS = 1_000_000
+
         def permitted_attrs
+          legacy_base   = params[:base_points].to_i.clamp(0, MAX_POINTS)
+          legacy_bphoto = params[:bonus_photo].to_i.clamp(0, MAX_POINTS)
+          legacy_bvideo = params[:bonus_video].to_i.clamp(0, MAX_POINTS)
+
+          # Tier values: prefer explicit (review_tiers schema), fall back to
+          # additive backfill if plugin is on an older version.
+          points_text  = params.key?(:points_text)  ? params[:points_text].to_i.clamp(0, MAX_POINTS)  : legacy_base
+          points_photo = params.key?(:points_photo) ? params[:points_photo].to_i.clamp(0, MAX_POINTS) : (legacy_base + legacy_bphoto)
+          points_video = params.key?(:points_video) ? params[:points_video].to_i.clamp(0, MAX_POINTS) : (legacy_base + legacy_bvideo)
+
           {
             source_campaign_id: params[:campaign_id].to_i,
             name:               params[:name].to_s[0, 180],
             description:        params[:description].to_s[0, 4_000],
             is_active:          ActiveModel::Type::Boolean.new.cast(params[:is_active]),
-            base_points:        params[:base_points].to_i.clamp(0, 1_000_000),
+            rule_type:          params[:rule_type].presence || "review_tiers",
+            points_text:        points_text,
+            points_photo:       points_photo,
+            points_video:       points_video,
+            base_points:        legacy_base,
             min_chars:          params[:min_chars].to_i.clamp(0, 100_000),
             only_logged_in:     ActiveModel::Type::Boolean.new.cast(params[:only_logged_in]),
-            bonus_photo:        params[:bonus_photo].to_i.clamp(0, 1_000_000),
-            bonus_video:        params[:bonus_video].to_i.clamp(0, 1_000_000),
-            bonus_verified:     params[:bonus_verified].to_i.clamp(0, 1_000_000),
-            priority:           params[:priority].to_i.clamp(0, 1_000_000),
+            bonus_photo:        legacy_bphoto,
+            bonus_video:        legacy_bvideo,
+            bonus_verified:     params[:bonus_verified].to_i.clamp(0, MAX_POINTS),
+            priority:           params[:priority].to_i.clamp(0, MAX_POINTS),
           }
         end
 
@@ -81,6 +97,10 @@ module Api
             name:               config.name,
             description:        config.description,
             is_active:          config.is_active,
+            rule_type:          config.rule_type,
+            points_text:        config.points_text,
+            points_photo:       config.points_photo,
+            points_video:       config.points_video,
             base_points:        config.base_points,
             min_chars:          config.min_chars,
             only_logged_in:     config.only_logged_in,

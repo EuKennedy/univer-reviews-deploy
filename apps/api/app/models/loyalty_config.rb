@@ -11,6 +11,7 @@ class LoyaltyConfig < ApplicationRecord
 
   validates :base_points, :min_chars,
             :bonus_photo, :bonus_video, :bonus_verified,
+            :points_text, :points_photo, :points_video,
             :priority,
             numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 

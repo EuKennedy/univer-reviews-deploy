@@ -5,12 +5,16 @@ FactoryBot.define do
     name           { "Avaliação com pontos" }
     description    { "Pontos por avaliação aprovada" }
     is_active      { true }
-    base_points    { 50 }
+    rule_type      { "review_tiers" }
+    points_text    { 100 }
+    points_photo   { 200 }
+    points_video   { 300 }
+    base_points    { 100 }
     min_chars      { 50 }
     only_logged_in { true }
-    bonus_photo    { 10 }
-    bonus_video    { 25 }
-    bonus_verified { 15 }
+    bonus_photo    { 0 }
+    bonus_video    { 0 }
+    bonus_verified { 50 }
     priority       { 0 }
   end
 end

@@ -145,6 +145,10 @@ function ConfigCard({
     name: string
     description: string | null
     is_active: boolean
+    rule_type: string
+    points_text: number
+    points_photo: number
+    points_video: number
     base_points: number
     min_chars: number
     only_logged_in: boolean
@@ -194,26 +198,23 @@ function ConfigCard({
         </span>
       </div>
 
-      {/* Base points */}
-      <div
-        className="rounded-lg p-4 mb-4 text-center"
-        style={{
-          background: 'var(--ur-accent-glow)',
-          border: '1px solid var(--ur-accent-soft-2)',
-        }}
-      >
-        <div
-          className="text-3xl font-bold"
-          style={{ color: 'var(--ur-accent)' }}
-        >
-          {config.base_points}
-        </div>
-        <div
-          className="text-[10px] uppercase tracking-wider mt-1"
-          style={{ color: 'var(--ur-text-muted)' }}
-        >
-          pontos base por avaliação
-        </div>
+      {/* Tier breakdown — three categorical brackets, video > photo > text */}
+      <div className="grid grid-cols-3 gap-2 mb-4">
+        <TierBox
+          icon={<Type className="w-3.5 h-3.5" />}
+          label="Texto"
+          points={config.points_text}
+        />
+        <TierBox
+          icon={<Camera className="w-3.5 h-3.5" />}
+          label="Foto"
+          points={config.points_photo}
+        />
+        <TierBox
+          icon={<Video className="w-3.5 h-3.5" />}
+          label="Vídeo"
+          points={config.points_video}
+        />
       </div>
 
       {/* Conditions */}
@@ -230,42 +231,58 @@ function ConfigCard({
         )}
       </div>
 
-      {/* Bonuses */}
-      {(config.bonus_photo > 0 ||
-        config.bonus_video > 0 ||
-        config.bonus_verified > 0) && (
+      {/* Verified-purchase bonus (additive, orthogonal to tier) */}
+      {config.bonus_verified > 0 && (
         <>
           <div
             className="text-[10px] uppercase tracking-wider mb-2"
             style={{ color: 'var(--ur-text-muted)' }}
           >
-            Bônus
+            Bônus adicional
           </div>
           <div className="space-y-1.5">
-            {config.bonus_photo > 0 && (
-              <BonusRow
-                icon={<Camera className="w-3.5 h-3.5" />}
-                label="Com foto"
-                points={config.bonus_photo}
-              />
-            )}
-            {config.bonus_video > 0 && (
-              <BonusRow
-                icon={<Video className="w-3.5 h-3.5" />}
-                label="Com vídeo"
-                points={config.bonus_video}
-              />
-            )}
-            {config.bonus_verified > 0 && (
-              <BonusRow
-                icon={<ShieldCheck className="w-3.5 h-3.5" />}
-                label="Compra verificada"
-                points={config.bonus_verified}
-              />
-            )}
+            <BonusRow
+              icon={<ShieldCheck className="w-3.5 h-3.5" />}
+              label="Compra verificada"
+              points={config.bonus_verified}
+            />
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function TierBox({
+  icon,
+  label,
+  points,
+}: {
+  icon: React.ReactNode
+  label: string
+  points: number
+}) {
+  return (
+    <div
+      className="rounded-lg p-3 text-center"
+      style={{
+        background: 'var(--ur-accent-glow)',
+        border: '1px solid var(--ur-accent-soft-2)',
+      }}
+    >
+      <div
+        className="flex items-center justify-center gap-1 mb-1"
+        style={{ color: 'var(--ur-text-muted)' }}
+      >
+        {icon}
+        <span className="text-[10px] uppercase tracking-wider">{label}</span>
+      </div>
+      <div
+        className="text-xl font-bold"
+        style={{ color: 'var(--ur-accent)' }}
+      >
+        {points}
+      </div>
     </div>
   )
 }

@@ -702,6 +702,10 @@ class ApiClient {
           name: string
           description: string | null
           is_active: boolean
+          rule_type: string
+          points_text: number
+          points_photo: number
+          points_video: number
           base_points: number
           min_chars: number
           only_logged_in: boolean
