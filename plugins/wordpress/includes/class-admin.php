@@ -100,8 +100,35 @@ class Univer_Admin {
     }
 
     public function sanitize_layout( string $layout ): string {
-        $valid = [ 'default', 'compact', 'grid', 'carousel', 'side-summary' ];
+        // Keep this list in sync with apps/widget/src/widget.ts → type Layout.
+        $valid = [ 'default', 'compact', 'grid', 'carousel' ];
         return in_array( $layout, $valid, true ) ? $layout : 'default';
+    }
+
+    /**
+     * Layout options with PT-BR labels and short descriptions for the
+     * settings UI. Adding a key here AND in sanitize_layout() above is
+     * enough to expose a new layout — keep this synced with the widget.
+     */
+    private function layout_choices(): array {
+        return [
+            'default'  => [
+                'label' => __( 'Padrão (lista vertical)', 'univer-reviews' ),
+                'hint'  => __( 'Avaliações empilhadas em coluna única — formato tradicional.', 'univer-reviews' ),
+            ],
+            'compact'  => [
+                'label' => __( 'Compacto (lista densa)', 'univer-reviews' ),
+                'hint'  => __( 'Mesma estrutura vertical do padrão, sem espaçamento entre cards.', 'univer-reviews' ),
+            ],
+            'grid'     => [
+                'label' => __( 'Grade (4 colunas desktop, 1 no mobile)', 'univer-reviews' ),
+                'hint'  => __( 'Recomendado para páginas de produto: 4 colunas no desktop, 2 no tablet, 1 no celular.', 'univer-reviews' ),
+            ],
+            'carousel' => [
+                'label' => __( 'Carrossel (scroll horizontal)', 'univer-reviews' ),
+                'hint'  => __( 'Cards rolam horizontalmente — bom para destacar reviews em landing pages.', 'univer-reviews' ),
+            ],
+        ];
     }
 
     // ─── Assets ──────────────────────────────────────────────────────────────
@@ -389,15 +416,29 @@ class Univer_Admin {
                 <h2><?php esc_html_e( 'Widget', 'univer-reviews' ); ?></h2>
                 <table class="form-table" role="presentation">
                     <tr>
-                        <th scope="row"><label for="univer_widget_layout"><?php esc_html_e( 'Layout', 'univer-reviews' ); ?></label></th>
+                        <th scope="row"><label for="univer_widget_layout"><?php esc_html_e( 'Layout das avaliações', 'univer-reviews' ); ?></label></th>
                         <td>
-                            <select id="univer_widget_layout" name="univer_widget_layout">
-                                <?php foreach ( [ 'default', 'compact', 'grid', 'carousel', 'side-summary' ] as $l ) : ?>
-                                    <option value="<?php echo esc_attr( $l ); ?>" <?php selected( $layout, $l ); ?>>
-                                        <?php echo esc_html( ucfirst( $l ) ); ?>
+                            <select id="univer_widget_layout" name="univer_widget_layout" style="min-width:340px;">
+                                <?php foreach ( $this->layout_choices() as $id => $opt ) : ?>
+                                    <option value="<?php echo esc_attr( $id ); ?>" <?php selected( $layout, $id ); ?>>
+                                        <?php echo esc_html( $opt['label'] ); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <p class="description" id="univer-layout-hint">
+                                <?php
+                                $current = $this->layout_choices()[ $layout ] ?? $this->layout_choices()['default'];
+                                echo esc_html( $current['hint'] );
+                                ?>
+                            </p>
+                            <script>
+                            (function(){
+                                var hints = <?php echo wp_json_encode( array_map( function ( $o ) { return $o['hint']; }, $this->layout_choices() ) ); ?>;
+                                var sel = document.getElementById('univer_widget_layout');
+                                var hint = document.getElementById('univer-layout-hint');
+                                if (sel && hint) sel.addEventListener('change', function(){ hint.textContent = hints[sel.value] || ''; });
+                            })();
+                            </script>
                         </td>
                     </tr>
                     <tr>
