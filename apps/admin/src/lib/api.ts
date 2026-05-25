@@ -27,6 +27,7 @@ import type {
   Question,
   QuestionStatus,
   QuestionGroup,
+  ProductGroup,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -567,6 +568,65 @@ class ApiClient {
     detachProducts: (id: string, productIds: string[], token: string) =>
       this.request<{ data: QuestionGroup; detached: number }>(
         `/question_groups/${id}/detach_products`,
+        { method: 'POST', body: JSON.stringify({ product_ids: productIds }) },
+        token,
+      ),
+  }
+
+  // ─── Product Groups ─────────────────────────────────────────────────────────
+  // Share reviews across product variations (Judge.me-style). The SaaS picks
+  // up the grouping at every public endpoint (reviews/summary/videos) so
+  // changing membership is the only knob the merchant has to touch.
+  productGroups = {
+    list: (params: { page?: number; per_page?: number; q?: string } = {}, token: string) =>
+      this.request<PaginatedResponse<ProductGroup>>(
+        '/product_groups',
+        { params: params as Record<string, string | number | boolean | undefined> },
+        token,
+      ),
+    get: (id: string, token: string) =>
+      this.request<{ data: ProductGroup }>(`/product_groups/${id}`, {}, token).then((r) => r.data),
+    create: (
+      data: { name: string; slug?: string; description?: string; primary_product_id?: string; product_ids?: string[] },
+      token: string,
+    ) =>
+      this.request<{ data: ProductGroup }>(
+        '/product_groups',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            product_group: {
+              name: data.name,
+              slug: data.slug,
+              description: data.description,
+              primary_product_id: data.primary_product_id,
+            },
+            product_ids: data.product_ids,
+          }),
+        },
+        token,
+      ).then((r) => r.data),
+    update: (
+      id: string,
+      data: { name?: string; slug?: string; description?: string; primary_product_id?: string | null },
+      token: string,
+    ) =>
+      this.request<{ data: ProductGroup }>(
+        `/product_groups/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ product_group: data }) },
+        token,
+      ).then((r) => r.data),
+    delete: (id: string, token: string) =>
+      this.request(`/product_groups/${id}`, { method: 'DELETE' }, token),
+    attachProducts: (id: string, productIds: string[], token: string) =>
+      this.request<{ data: ProductGroup; attached: number }>(
+        `/product_groups/${id}/attach_products`,
+        { method: 'POST', body: JSON.stringify({ product_ids: productIds }) },
+        token,
+      ),
+    detachProducts: (id: string, productIds: string[], token: string) =>
+      this.request<{ data: ProductGroup; detached: number }>(
+        `/product_groups/${id}/detach_products`,
         { method: 'POST', body: JSON.stringify({ product_ids: productIds }) },
         token,
       ),

@@ -8,6 +8,7 @@ class Workspace < ApplicationRecord
   has_many :workspace_api_keys, dependent: :destroy
   has_many :workspace_domains,  dependent: :destroy
   has_many :products,           dependent: :destroy
+  has_many :product_groups,     dependent: :destroy
   has_many :reviews,            dependent: :destroy
   has_many :campaigns,          dependent: :destroy
   has_many :reward_rules,       dependent: :destroy

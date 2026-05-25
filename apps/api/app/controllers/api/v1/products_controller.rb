@@ -98,7 +98,10 @@ module Api
           # Counters cheap to compute even on lists for now; counter_cache later.
           review_count: p.reviews_count, reviews_count: p.reviews_count,
           avg_rating:   p.avg_rating,
-          source:       p.platform
+          source:       p.platform,
+          # Surface group membership so the admin list can show "shares reviews
+          # with N siblings" badges without an N+1 round trip.
+          product_group_id: p.product_group_id
         }
 
         data[:metadata] = p.metadata if full

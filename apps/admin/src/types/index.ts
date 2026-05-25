@@ -240,6 +240,7 @@ export interface Product {
   review_count: number
   avg_rating: number | null
   source: string
+  product_group_id: string | null
   created_at: string
   updated_at: string
 }
@@ -275,6 +276,30 @@ export interface QuestionGroup {
     title: string
     handle: string | null
     image_url: string | null
+  }>
+}
+
+// ─── Product Group ────────────────────────────────────────────────────────────
+// Mirrors Judge.me "Groups": one canonical entity that aggregates reviews
+// across N storefront SKUs (e.g. 8 variations of "Colorizze" all sharing
+// the same review pool).
+export interface ProductGroup {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  primary_product_id: string | null
+  products_count: number
+  reviews_count: number
+  avg_rating: number | null
+  created_at: string
+  updated_at: string
+  products?: Array<{
+    id: string
+    title: string
+    handle: string | null
+    image_url: string | null
+    platform_product_id: string | null
   }>
 }
 

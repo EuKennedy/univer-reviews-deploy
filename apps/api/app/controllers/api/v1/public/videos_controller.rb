@@ -15,9 +15,11 @@ module Api
             return render json: { data: [] }
           end
 
+          # Fan out to grouped products so variants share the same video wall.
+          product_ids = product.review_scope_product_ids
           videos = ReviewMedium.joins(:review)
                                .where(type: "video")
-                               .where(reviews: { product_id: product.id, status: "approved", workspace_id: @workspace.id })
+                               .where(reviews: { product_id: product_ids, status: "approved", workspace_id: @workspace.id })
                                .order("review_media.created_at DESC")
                                .limit(20)
 

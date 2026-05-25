@@ -122,6 +122,14 @@ Rails.application.routes.draw do
         end
       end
 
+      # Product groups (admin) — share reviews across product variations.
+      resources :product_groups, only: %i[index show create update destroy] do
+        member do
+          post :attach_products
+          post :detach_products
+        end
+      end
+
       # Integrations
       namespace :integrations do
         resource :woocommerce, controller: "woocommerce", only: %i[show create update destroy] do

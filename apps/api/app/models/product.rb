@@ -1,5 +1,6 @@
 class Product < ApplicationRecord
   belongs_to :workspace
+  belongs_to :product_group, optional: true
   has_many :reviews,   dependent: :nullify
   has_many :questions, dependent: :nullify
 
@@ -25,12 +26,26 @@ class Product < ApplicationRecord
   scope :by_platform,  ->(p) { where(platform: p) }
   scope :recently_synced, -> { order(last_synced_at: :desc) }
 
+  # Pool of product ids to aggregate reviews over. If the product belongs to
+  # a ProductGroup, every member shares the same pool; otherwise it's just
+  # this product. Centralises the "grouped products share reviews" rule so
+  # controllers don't branch.
+  def review_scope_product_ids
+    return [id] unless product_group_id.present?
+    workspace.products.where(product_group_id: product_group_id).pluck(:id)
+  end
+
+  # Approved reviews across the group (or this product alone if ungrouped).
+  def aggregated_reviews
+    workspace.reviews.where(product_id: review_scope_product_ids, status: "approved")
+  end
+
   def avg_rating
-    reviews.where(status: "approved").average(:rating)&.round(2)
+    aggregated_reviews.average(:rating)&.round(2)
   end
 
   def reviews_count
-    reviews.where(status: "approved").count
+    aggregated_reviews.count
   end
 
   def stale_sync?(threshold: 24.hours)

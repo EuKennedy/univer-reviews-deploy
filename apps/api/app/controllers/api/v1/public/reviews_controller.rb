@@ -28,8 +28,11 @@ module Api
           product = resolve_product(params[:product_id])
           raise ActiveRecord::RecordNotFound unless product
 
-          scope = product.reviews.approved
-                         .includes(:review_media, :replies)
+          # If the product belongs to a ProductGroup, fan out to every member
+          # so storefront variants share the same review pool (Judge.me-style).
+          scope = @workspace.reviews.approved
+                            .where(product_id: product.review_scope_product_ids)
+                            .includes(:review_media, :replies)
 
           # Filters
           scope = scope.where(rating: params[:rating].to_i)        if params[:rating].present?
@@ -68,7 +71,9 @@ module Api
         def summary
           product = resolve_product(params[:product_id])
           raise ActiveRecord::RecordNotFound unless product
-          approved = product.reviews.approved
+          # Aggregate across ProductGroup members when applicable.
+          approved = @workspace.reviews.approved
+                               .where(product_id: product.review_scope_product_ids)
 
           total = approved.count
           avg   = approved.average(:rating)&.round(2) || 0.0
