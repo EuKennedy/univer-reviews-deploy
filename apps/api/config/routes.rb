@@ -39,6 +39,8 @@ Rails.application.routes.draw do
         get  :health
         post :moderate
         post "moderate-pending", action: :moderate_pending
+        post "generate-summary-topics",      action: :generate_summary_topics
+        post "generate-summary-topics-bulk", action: :generate_summary_topics_bulk
         post :generate
         post "generate-variants",     action: :generate_variants
         post "bulk-create-reviews",       action: :bulk_create_reviews
@@ -140,6 +142,11 @@ Rails.application.routes.draw do
           post :detach_reviews
         end
       end
+
+      # AI Summaries dashboard — index of products + their generation status.
+      # Lives under /ai (not /ai_summary_topics) because it crosses Product
+      # and the topics controller is scoped to a single product.
+      get "ai_summaries", to: "ai#summaries_index"
 
       # Integrations
       namespace :integrations do

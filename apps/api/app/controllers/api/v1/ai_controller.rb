@@ -382,6 +382,78 @@ module Api
         render json: { message: "Dedup job queued", review_id: review.id }
       end
 
+      # POST /api/v1/ai/generate-summary-topics
+      # Body: { product_id }
+      def generate_summary_topics
+        require_write!
+        product = current_workspace.products.find(params.require(:product_id))
+        AiGenerateSummaryTopicsJob.perform_later(product.id)
+        render json: { message: "Summary topic extraction queued", product_id: product.id }
+      end
+
+      # POST /api/v1/ai/generate-summary-topics-bulk
+      # Body: { product_ids?: [...]  } (omit to enqueue for ALL products with
+      # at least MIN_REVIEWS_FOR_BULK approved reviews)
+      MIN_REVIEWS_FOR_BULK = 5
+      def generate_summary_topics_bulk
+        require_write!
+
+        ids = Array(params[:product_ids]).compact_blank
+        scope = if ids.any?
+                  current_workspace.products.where(id: ids)
+                else
+                  # Only products with enough material to extract meaningful topics.
+                  current_workspace.products
+                                   .joins(:reviews)
+                                   .where(reviews: { status: "approved" })
+                                   .group("products.id")
+                                   .having("COUNT(reviews.id) >= ?", MIN_REVIEWS_FOR_BULK)
+                end
+
+        queued_ids = scope.pluck(:id)
+        queued_ids.each { |pid| AiGenerateSummaryTopicsJob.perform_later(pid) }
+
+        render json: {
+          message: "Bulk summary topic extraction queued for #{queued_ids.length} product(s).",
+          queued:  queued_ids.length,
+        }
+      end
+
+      # GET /api/v1/ai_summaries — index of products with summary status,
+      # used by the admin /ai-summaries dashboard. Lives under /ai because
+      # it crosses Product + AiSummaryTopic and the topics controller is
+      # scoped to a single product.
+      def summaries_index
+        rows = current_workspace.products.left_outer_joins(:reviews)
+                                .left_outer_joins(:ai_summary_topics)
+                                .select(
+                                  "products.id, products.title, products.handle, products.image_url, " \
+                                  "COUNT(DISTINCT reviews.id) FILTER (WHERE reviews.status = 'approved') AS approved_count, " \
+                                  "COUNT(DISTINCT ai_summary_topics.id) AS topic_count, " \
+                                  "MAX(ai_summary_topics.generated_at) AS last_generated_at, " \
+                                  "BOOL_OR(ai_summary_topics.source = 'ai') AS has_ai_topic"
+                                )
+                                .group("products.id")
+                                .order("approved_count DESC")
+                                .limit(500)
+
+        render json: {
+          data: rows.map { |p|
+            {
+              id:                p.id,
+              title:             p.title,
+              handle:            p.handle,
+              image_url:         p.image_url,
+              approved_reviews:  p.approved_count.to_i,
+              topic_count:       p.topic_count.to_i,
+              last_generated_at: p.last_generated_at&.iso8601,
+              has_ai_topic:      !!p.has_ai_topic,
+              status: topic_status(p),
+            }
+          }
+        }
+      end
+
       # POST /api/v1/ai/moderate-pending
       # Enqueue AiModerateJob for every review still in `pending` status in
       # the current workspace. Caps to MAX_BULK_MODERATE per call so a single
@@ -467,6 +539,16 @@ module Api
       end
 
       private
+
+      # Status label for the ai_summaries dashboard. Reflects whether the
+      # product has enough reviews to extract, has been processed, or is
+      # waiting for the merchant to hit "Gerar para todos".
+      def topic_status(row)
+        approved = row.approved_count.to_i
+        return "insufficient" if approved < MIN_REVIEWS_FOR_BULK
+        return "generated"    if row.topic_count.to_i > 0
+        "pending"
+      end
 
       # Generate a plausible Brazilian first-name + surname for AI reviews.
       # Pool is large enough that 50 reviews in a batch never collide.

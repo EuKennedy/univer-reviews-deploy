@@ -29,11 +29,15 @@ module Api
         require_write!
 
         product = current_workspace.products.find(params.require(:product_id))
-        topic   = current_workspace.ai_summary_topics.new(
-          product:   product,
-          title:     params.require(:title),
-          source:    "manual",
-          position:  next_position_for(product),
+        # Pass title directly (not require) so empty/missing values surface as
+        # a model 422 with the "Title can't be blank" issue, matching the
+        # rest of our CRUD endpoints. require() would short-circuit with 400
+        # and lose the per-field error message.
+        topic = current_workspace.ai_summary_topics.new(
+          product:  product,
+          title:    params[:title].to_s,
+          source:   "manual",
+          position: next_position_for(product),
         )
 
         if topic.save
