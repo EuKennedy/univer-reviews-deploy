@@ -8,7 +8,7 @@ RSpec.describe Api::V1::Wp::LoyaltyController, type: :request do
            workspace: workspace,
            key_hash: Digest::SHA256.hexdigest(raw_key),
            key_prefix: raw_key[0, 8],
-           scopes: %w[read write])
+           scopes: "read,write")
   end
 
   let(:headers) do
@@ -106,7 +106,7 @@ RSpec.describe Api::V1::Wp::LoyaltyController, type: :request do
              workspace: other_ws,
              key_hash: Digest::SHA256.hexdigest(other_raw),
              key_prefix: other_raw[0, 8],
-             scopes: %w[read write])
+             scopes: "read,write")
 
       put "/api/v1/wp/loyalty/sync",
           params: payload.merge(base_points: 999).to_json,

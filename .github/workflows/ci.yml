@@ -92,9 +92,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # pnpm version comes from the root package.json `packageManager` field
+      # — passing `version:` here too would error with ERR_PNPM_BAD_PM_VERSION.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v5
         with:
@@ -120,17 +120,23 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # setup-node@v5 auto-honors the root packageManager field via Corepack,
+      # which means `npm install` in any sub-package fails with "pnpm not
+      # found" unless pnpm is on PATH. Just use pnpm here too — the widget
+      # workspace is a member of the monorepo's pnpm workspace anyway.
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version: 20
+          cache: pnpm
 
       - name: Install dependencies
-        working-directory: apps/widget
-        run: npm install --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
 
       - name: Build widget
         working-directory: apps/widget
-        run: npm run build
+        run: pnpm run build
 
       - name: Verify bundle exists and is under 60KB
         working-directory: apps/widget

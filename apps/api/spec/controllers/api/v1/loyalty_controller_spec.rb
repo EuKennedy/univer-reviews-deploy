@@ -8,7 +8,7 @@ RSpec.describe Api::V1::LoyaltyController, type: :request do
            workspace: workspace,
            key_hash: Digest::SHA256.hexdigest(raw_key),
            key_prefix: raw_key[0, 8],
-           scopes: %w[read write])
+           scopes: "read,write")
   end
 
   let(:headers) do
