@@ -1740,6 +1740,24 @@ interface CarouselReview {
   } | null
 }
 
+// Topic-mode payload (preset="topics"). One topic = one horizontal carousel.
+interface TopicReview {
+  id: string
+  rating: number
+  title: string | null
+  body: string
+  author_name: string | null
+  created_at: string
+}
+interface SummaryTopic {
+  id: string
+  title: string
+  ai_summary: string | null
+  review_count: number
+  stars_avg: number | string | null
+  reviews: TopicReview[]
+}
+
 class UniverAiCarousel extends HTMLElement {
   private shadow: ShadowRoot
   private productId = ''
@@ -1748,7 +1766,9 @@ class UniverAiCarousel extends HTMLElement {
   private limit = 15
   private themeColor = '#d4a850'
   private starColor = '#fbbf24'
+  private preset: 'carousel' | 'topics' = 'carousel'
   private reviews: CarouselReview[] = []
+  private topics: SummaryTopic[] = []
   private selected: CarouselReview | null = null
 
   constructor() {
@@ -1764,12 +1784,27 @@ class UniverAiCarousel extends HTMLElement {
     this.starColor = this.getAttribute('star-color') || this.starColor
     const lim = parseInt(this.getAttribute('limit') || '', 10)
     if (lim > 0 && lim <= 30) this.limit = lim
+    const presetAttr = this.getAttribute('preset')
+    if (presetAttr === 'topics') this.preset = 'topics'
     if (!this.productId) return
     void this.fetchAndRender()
   }
 
   private async fetchAndRender() {
     try {
+      if (this.preset === 'topics') {
+        const url = `${this.apiUrl}/api/v1/public/ai-summary-topics/${encodeURIComponent(this.productId)}`
+        const r = await fetch(url, { headers: { 'X-Univer-Domain': window.location.hostname } })
+        if (!r.ok) return
+        const json = await r.json()
+        this.topics = (Array.isArray(json.data) ? json.data : []) as SummaryTopic[]
+        // Filter out topics with zero reviews — they'd render as empty carousels.
+        this.topics = this.topics.filter(t => Array.isArray(t.reviews) && t.reviews.length > 0)
+        if (this.topics.length === 0) { this.shadow.innerHTML = ''; return }
+        this.renderTopics()
+        return
+      }
+
       const url = `${this.apiUrl}/api/v1/public/ai-carousel/${encodeURIComponent(this.productId)}?limit=${this.limit}`
       const r = await fetch(url, { headers: { 'X-Univer-Domain': window.location.hostname } })
       if (!r.ok) return
@@ -1778,6 +1813,91 @@ class UniverAiCarousel extends HTMLElement {
       if (this.reviews.length === 0) { this.shadow.innerHTML = ''; return }
       this.render()
     } catch { /* swallow — fail-quiet on storefront */ }
+  }
+
+  // ── preset="topics" — multiple horizontal carousels stacked vertically ───
+  private topicCardHtml(r: TopicReview): string {
+    const author = (r.author_name || 'Cliente').split(' ')[0]
+    const body = (r.body || '').replace(/\s+/g, ' ').trim()
+    return `
+<div class="t-card">
+  <div class="t-stars">${this.starsHtml(r.rating)}</div>
+  ${r.title ? `<p class="t-title">${escapeHtml(r.title)}</p>` : ''}
+  <p class="t-body">${escapeHtml(body)}</p>
+  <p class="t-author">${escapeHtml(author)}</p>
+</div>`
+  }
+
+  private renderTopics() {
+    const sectionsHtml = this.topics.map(topic => {
+      const stars = topic.stars_avg != null ? Number(topic.stars_avg) : null
+      const headerStars = stars != null ? this.starsHtml(Math.round(stars)) : ''
+      const cards = topic.reviews.map(r => this.topicCardHtml(r)).join('')
+      return `
+<section class="topic">
+  <div class="topic-head">
+    <span class="topic-stars">${headerStars}</span>
+    <h3 class="topic-title">${escapeHtml(topic.title)}</h3>
+    <span class="topic-count">· ${topic.review_count} avaliações</span>
+  </div>
+  ${topic.ai_summary ? `<p class="topic-summary">${escapeHtml(topic.ai_summary)}</p>` : ''}
+  <div class="topic-scroller" role="list">${cards}</div>
+</section>`
+    }).join('')
+
+    this.shadow.innerHTML = `
+<style>
+  :host { display: block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; margin: 32px 0; }
+  * { box-sizing: border-box; }
+  .head { margin: 0 0 24px; }
+  .head h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: 0; line-height: 1.2; }
+  .head p { margin: 4px 0 0; font-size: 13px; color: #6b7280; }
+
+  .topic { margin: 28px 0; }
+  .topic-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
+  .topic-stars { color: ${this.starColor}; font-size: 14px; letter-spacing: 1px; line-height: 1; }
+  .topic-stars .empty { color: #e5e7eb; }
+  .topic-title { font-size: 17px; font-weight: 700; margin: 0; color: #111827; letter-spacing: -0.01em; }
+  .topic-count { font-size: 12px; color: #6b7280; }
+  .topic-summary { margin: 4px 0 12px; font-size: 13px; color: #4b5563; font-style: italic; }
+
+  .topic-scroller {
+    display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 12px;
+    scroll-snap-type: x mandatory; scrollbar-width: thin;
+  }
+  .topic-scroller::-webkit-scrollbar { height: 6px; }
+  .topic-scroller::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; }
+
+  .t-card {
+    flex: 0 0 260px; scroll-snap-align: start;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+  }
+  .t-card:hover { border-color: ${this.themeColor}; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+  .t-stars { color: ${this.starColor}; font-size: 13px; letter-spacing: 1px; line-height: 1; }
+  .t-stars .empty { color: #e5e7eb; }
+  .t-title { font-size: 14px; font-weight: 600; margin: 0; color: #111827; line-height: 1.3; }
+  .t-body {
+    margin: 0; font-size: 13px; line-height: 1.5; color: #374151;
+    display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .t-author { margin: 4px 0 0; font-size: 12px; color: #6b7280; font-weight: 500; }
+
+  @media (max-width: 640px) {
+    .head h2 { font-size: 20px; }
+    .topic-title { font-size: 15px; }
+    .t-card { flex-basis: 220px; padding: 12px; }
+    .t-body { -webkit-line-clamp: 4; }
+  }
+</style>
+
+<div class="head">
+  <h2>${escapeHtml(this.titleText)}</h2>
+  <p>${this.topics.length} ${this.topics.length === 1 ? 'tópico' : 'tópicos'} extraídos das avaliações</p>
+</div>
+${sectionsHtml}
+`
   }
 
   private starsHtml(rating: number): string {

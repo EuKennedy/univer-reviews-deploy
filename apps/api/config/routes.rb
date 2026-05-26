@@ -189,7 +189,8 @@ Rails.application.routes.draw do
       namespace :public do
         get  "reviews/:product_id",     to: "reviews#index"
         get  "summary/:product_id",     to: "reviews#summary"
-        get  "ai-carousel/:product_id", to: "reviews#ai_carousel"
+        get  "ai-carousel/:product_id",       to: "reviews#ai_carousel"
+        get  "ai-summary-topics/:product_id", to: "ai_summary_topics#index"
         get  "featured",                to: "reviews#featured"
         post "submit",                  to: "reviews#submit"
         post "reviews/:id/helpful",     to: "reviews#helpful"

@@ -428,6 +428,9 @@ class Univer_Shortcode {
                 'api_url'      => get_option( 'univer_api_url', UNIVER_API_URL ),
                 'title'        => 'Veja o que estão falando',
                 'limit'        => '15',
+                // preset = "carousel" (default, media-first) | "topics" (multiple
+                // horizontal carousels grouped by AI-extracted topic)
+                'preset'       => 'carousel',
                 'theme_color'  => get_option( 'univer_widget_theme_color', '#d4a850' ),
                 'star_color'   => get_option( 'univer_widget_star_color', '#fbbf24' ),
                 'class'        => '',
@@ -449,16 +452,18 @@ class Univer_Shortcode {
 
         $this->ensure_widget_enqueued();
 
-        $limit = max( 1, min( 30, (int) $atts['limit'] ) );
+        $limit  = max( 1, min( 30, (int) $atts['limit'] ) );
+        $preset = in_array( $atts['preset'], [ 'carousel', 'topics' ], true ) ? $atts['preset'] : 'carousel';
 
         return sprintf(
-            '<div class="univer-ai-carousel-wrapper %s"><univer-ai-carousel workspace-id="%s" product-id="%s" api-url="%s" title="%s" limit="%d" theme-color="%s" star-color="%s"></univer-ai-carousel></div>',
+            '<div class="univer-ai-carousel-wrapper %s"><univer-ai-carousel workspace-id="%s" product-id="%s" api-url="%s" title="%s" limit="%d" preset="%s" theme-color="%s" star-color="%s"></univer-ai-carousel></div>',
             esc_attr( sanitize_html_class( $atts['class'] ) ),
             esc_attr( $workspace_id ),
             esc_attr( $product_id ),
             esc_url( $api_url ),
             esc_attr( $atts['title'] ),
             $limit,
+            esc_attr( $preset ),
             esc_attr( sanitize_hex_color( $atts['theme_color'] ) ?: '#d4a850' ),
             esc_attr( sanitize_hex_color( $atts['star_color'] ) ?: '#fbbf24' )
         );
