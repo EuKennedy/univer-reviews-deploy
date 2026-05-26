@@ -17,6 +17,12 @@ COPY . .
 ARG NEXT_PUBLIC_API_URL=https://api.univerreviews.com
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
+# Cap the Node heap so `next build` + standalone tracing fits on the
+# Coolify host. Default V8 limit on Node 20 grows unbounded toward host
+# RAM, which on a 4 GB VPS gets the docker build SIGKILLed during the
+# final "Collecting build traces" step (exit code 255). 2 GB is enough
+# headroom for Next 15 + the dashboard's bundle.
+ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN npm run build
 
 # ─── Stage 3: runner ────────────────────────────────────────────────────────
