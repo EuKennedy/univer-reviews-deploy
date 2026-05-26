@@ -125,14 +125,14 @@ export function ReviewCard({ review, onClick }: ReviewCardProps) {
       {/* Footer */}
       <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--ur-surface-soft)' }}>
         <div className="flex items-center gap-3">
-          {review.media.length > 0 && (
+          {(review.media?.length ?? 0) > 0 && (
             <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-              {review.media.length} {review.media.length === 1 ? 'mídia' : 'mídias'}
+              {review.media!.length} {review.media!.length === 1 ? 'mídia' : 'mídias'}
             </span>
           )}
-          {review.replies.length > 0 && (
+          {(review.replies?.length ?? 0) > 0 && (
             <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-              {review.replies.length} {review.replies.length === 1 ? 'resposta' : 'respostas'}
+              {review.replies!.length} {review.replies!.length === 1 ? 'resposta' : 'respostas'}
             </span>
           )}
           {review.helpful_count > 0 && (

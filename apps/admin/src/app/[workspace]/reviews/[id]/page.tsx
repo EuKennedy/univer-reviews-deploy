@@ -243,13 +243,13 @@ export default function ReviewDetailPage() {
               </p>
 
               {/* Media */}
-              {review.media.length > 0 && (
+              {(review.media?.length ?? 0) > 0 && (
                 <div className="mt-5">
                   <p className="text-xs font-medium mb-2" style={{ color: 'var(--ur-text-muted)' }}>
-                    Mídias ({review.media.length})
+                    Mídias ({review.media!.length})
                   </p>
                   <div className="flex gap-2 flex-wrap">
-                    {review.media.map((m) => (
+                    {review.media!.map((m) => (
                       <div
                         key={m.id}
                         className="w-20 h-20 rounded-lg overflow-hidden"
@@ -331,9 +331,9 @@ export default function ReviewDetailPage() {
 
               <div className="p-5">
                 {/* Existing replies */}
-                {review.replies.length > 0 && (
+                {(review.replies?.length ?? 0) > 0 && (
                   <div className="space-y-3 mb-4">
-                    {review.replies.map((reply) => (
+                    {review.replies!.map((reply) => (
                       <div
                         key={reply.id}
                         className="rounded-lg px-4 py-3"
@@ -485,13 +485,13 @@ export default function ReviewDetailPage() {
                     </div>
                   )}
 
-                  {review.ai_analysis.moderation_flags.length > 0 && (
+                  {(review.ai_analysis.moderation_flags?.length ?? 0) > 0 && (
                     <div>
                       <p className="text-xs mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                         Sinalizações
                       </p>
                       <div className="flex flex-wrap gap-1">
-                        {review.ai_analysis.moderation_flags.map((f) => (
+                        {review.ai_analysis.moderation_flags!.map((f) => (
                           <span
                             key={f}
                             className="text-xs px-2 py-0.5 rounded-full"
@@ -508,13 +508,13 @@ export default function ReviewDetailPage() {
                     </div>
                   )}
 
-                  {review.ai_analysis.topics.length > 0 && (
+                  {(review.ai_analysis.topics?.length ?? 0) > 0 && (
                     <div>
                       <p className="text-xs mb-1.5" style={{ color: 'var(--ur-text-muted)' }}>
                         Tópicos
                       </p>
                       <div className="flex flex-wrap gap-1">
-                        {review.ai_analysis.topics.map((t) => (
+                        {review.ai_analysis.topics!.map((t) => (
                           <span
                             key={t}
                             className="text-xs px-2 py-0.5 rounded-full"
@@ -555,7 +555,7 @@ export default function ReviewDetailPage() {
                     value: format(new Date(review.created_at), "d 'de' MMM, yyyy HH:mm", { locale: ptBR }),
                   },
                   { label: 'Votos úteis', value: String(review.helpful_count) },
-                  { label: 'Anexos de mídia', value: String(review.media.length) },
+                  { label: 'Anexos de mídia', value: String(review.media?.length ?? 0) },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-xs">
                     <span style={{ color: 'var(--ur-text-muted)' }}>{label}</span>

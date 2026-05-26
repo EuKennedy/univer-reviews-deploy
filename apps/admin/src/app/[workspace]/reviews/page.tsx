@@ -632,7 +632,7 @@ export default function ReviewsPage() {
                         </div>
                       )}
                     </div>
-                    {slidePanel.ai_analysis.topics.length > 0 && (
+                    {(slidePanel.ai_analysis.topics?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {slidePanel.ai_analysis.topics.map((t) => (
                           <span
@@ -653,7 +653,7 @@ export default function ReviewsPage() {
                 )}
 
                 {/* Replies */}
-                {slidePanel.replies.length > 0 && (
+                {(slidePanel.replies?.length ?? 0) > 0 && (
                   <div>
                     <p className="ur-overline mb-2">Respostas</p>
                     <div className="space-y-2">

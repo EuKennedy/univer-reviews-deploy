@@ -473,9 +473,9 @@ function ModerateResultCard({
         )}
       </div>
 
-      {result.topics.length > 0 && (
+      {(result.topics?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {result.topics.map((t) => (
+          {result.topics!.map((t) => (
             <span
               key={t}
               className="text-xs px-2 py-0.5 rounded-full"
@@ -491,9 +491,9 @@ function ModerateResultCard({
         </div>
       )}
 
-      {result.moderation_flags.length > 0 && (
+      {(result.moderation_flags?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {result.moderation_flags.map((f) => (
+          {result.moderation_flags!.map((f) => (
             <span
               key={f}
               className="text-xs px-2 py-0.5 rounded-full"
