@@ -1,20 +1,14 @@
 'use client'
 
 /**
- * Sumário de IA — edição por produto
+ * Sumário de IA — editor por produto
  *
- * Mostra os tópicos atuais do produto (manuais + gerados por IA), permite:
- *   - renomear tópico inline
- *   - adicionar tópico manual
- *   - anexar/desanexar reviews por tópico (drawer com search + filtros)
- *   - gerar/regenerar todos os tópicos com IA (substitui só os 'ai',
- *     manuais ficam)
- *   - deletar tópico
- *
- * URL: /[workspace]/ai-summaries/[productId]
+ * Editorial hero, generation pulse banner, topic cards with hierarchy,
+ * crossfade-to-skeleton when AI is running, refined review picker with
+ * chip filters and animated cards. Every interaction has feedback.
  */
 
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -26,15 +20,23 @@ import {
   Loader2,
   ArrowLeft,
   ChevronDown,
-  ChevronUp,
-  Star,
   Edit2,
   Save,
-  Filter,
+  Search,
+  Image as ImageIcon,
+  CheckCircle2,
+  Camera,
+  Video,
+  Package,
 } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/godmode/PageHeader'
 import { ActionButton } from '@/components/godmode/Toolbar'
+import { StatusPill } from '@/components/ai-summary/StatusPill'
+import { TopicSkeleton } from '@/components/ai-summary/TopicSkeleton'
+import { StarsAvg } from '@/components/ai-summary/StarsAvg'
+import { FilterChips } from '@/components/ai-summary/FilterChips'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { useFocusTrap } from '@/lib/useFocusTrap'
@@ -47,46 +49,54 @@ export default function AiSummaryEditPage() {
   const productId = params?.productId as string
   const { getToken, isAuthenticated } = useAuth()
   const queryClient = useQueryClient()
+  const [generating, setGenerating] = useState(false)
 
   const { data: topics, isLoading } = useQuery({
     queryKey: ['ai-summary-topics', productId],
     queryFn: () => api.aiSummaryTopics.list(productId, getToken()).then(r => r.data),
     enabled: isAuthenticated && !!productId,
-    refetchInterval: (q) => {
-      // While the AI job is enqueued, the list will be empty or stale; keep
-      // polling fast for the first 90 s so the merchant sees results fill in.
-      const tops = q.state.data
-      return Array.isArray(tops) && tops.some(t => t.source === 'ai') ? false : 8000
-    },
+    // While we're explicitly generating, poll fast so the skeleton flips
+    // to real cards the moment Sidekiq lands. After 90s, fall back to slow.
+    refetchInterval: () => (generating ? 4000 : false),
   })
 
   const { data: product } = useQuery({
     queryKey: ['product', productId],
-    queryFn: () => api.products.list({ }, getToken()).then(r =>
-      r.data.find(p => p.id === productId) ?? null,
-    ),
+    queryFn: () => api.products.list({}, getToken()).then(r => r.data.find(p => p.id === productId) ?? null),
     enabled: isAuthenticated && !!productId,
   })
+
+  // When the AI topics arrive (any source='ai' topic that wasn't there
+  // before), exit the generating state.
+  useEffect(() => {
+    if (!generating || !topics) return
+    if (topics.some(t => t.source === 'ai')) setGenerating(false)
+  }, [topics, generating])
 
   const inv = () => queryClient.invalidateQueries({ queryKey: ['ai-summary-topics', productId] })
 
   const generateMut = useMutation({
     mutationFn: () => api.ai.generateSummaryTopics(productId, getToken()),
+    onMutate: () => setGenerating(true),
     onSuccess: () => {
       toast.success('Geração com IA iniciada — tópicos aparecem em ~30s.')
       void inv()
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Falha ao gerar'),
+    onError: (e: unknown) => {
+      setGenerating(false)
+      toast.error(e instanceof Error ? e.message : 'Falha ao gerar')
+    },
   })
 
   const createMut = useMutation({
-    mutationFn: (title: string) =>
-      api.aiSummaryTopics.create({ product_id: productId, title }, getToken()),
+    mutationFn: (title: string) => api.aiSummaryTopics.create({ product_id: productId, title }, getToken()),
     onSuccess: () => { toast.success('Tópico criado'); void inv() },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Falha ao criar tópico'),
   })
 
   const [newTitle, setNewTitle] = useState('')
+  const hasTopics = (topics ?? []).length > 0
+  const hasAiTopic = (topics ?? []).some(t => t.source === 'ai')
 
   return (
     <div className="flex flex-col h-full">
@@ -99,7 +109,8 @@ export default function AiSummaryEditPage() {
             <button
               type="button"
               onClick={() => router.push(`/${workspace}/ai-summaries`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+              aria-label="Voltar para lista"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer min-h-[44px] sm:min-h-0"
               style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -108,69 +119,125 @@ export default function AiSummaryEditPage() {
             <ActionButton
               variant="primary"
               onClick={() => generateMut.mutate()}
-              disabled={generateMut.isPending}
+              disabled={generateMut.isPending || generating}
             >
-              {generateMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-              {(topics?.some(t => t.source === 'ai') ? 'Regenerar' : 'Gerar')} com IA
+              {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+              {hasAiTopic ? 'Regenerar com IA' : 'Gerar com IA'}
             </ActionButton>
           </div>
         }
       />
 
-      <div className="flex-1 overflow-y-auto px-5 py-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20" style={{ color: 'var(--ur-text-muted)' }}>
-            <Loader2 className="w-5 h-5 animate-spin" />
-          </div>
-        ) : (
-          <div className="space-y-3 max-w-4xl">
-            {(topics ?? []).map(t => (
-              <TopicCard key={t.id} topic={t} productId={productId} />
-            ))}
+      <div className="flex-1 overflow-y-auto px-5 pt-2 pb-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Hero — product context strip */}
+          {product && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="flex items-center gap-3 mb-5 px-1"
+            >
+              {product.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.image_url} alt="" className="w-9 h-9 rounded-lg object-cover" style={{ border: '1px solid var(--ur-border-strong)' }} />
+              ) : (
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border)' }}>
+                  <Package className="w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  {generating ? (
+                    <StatusPill status="processing" label="Extraindo tópicos…" />
+                  ) : hasAiTopic ? (
+                    <StatusPill status="generated" />
+                  ) : hasTopics ? (
+                    <StatusPill status="pending" label="Só manuais" />
+                  ) : (
+                    <StatusPill status="pending" />
+                  )}
+                  <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+                    {product.review_count != null ? `${product.review_count} avaliações aprovadas` : ''}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
-            {/* Manual create row */}
-            <div
-              className="flex gap-2 p-3 rounded-lg"
-              style={{ background: 'var(--ur-bg-soft)', border: '1px dashed var(--ur-border)' }}
+          {/* Topics */}
+          <AnimatePresence mode="wait">
+            {isLoading && !generating ? (
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="rounded-xl p-4 h-20" style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border)' }} />
+                ))}
+              </motion.div>
+            ) : generating ? (
+              <motion.div key="generating" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <TopicSkeleton count={4} />
+              </motion.div>
+            ) : hasTopics ? (
+              <motion.div key="topics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                <AnimatePresence mode="popLayout">
+                  {(topics ?? []).map((t, i) => (
+                    <TopicCard key={t.id} topic={t} productId={productId} index={i} />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            ) : (
+              <EmptyState
+                onGenerate={() => generateMut.mutate()}
+                generating={generating}
+                onFocusManual={() => document.getElementById('manual-topic-input')?.focus()}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Manual create row */}
+          {(hasTopics || generating) && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="mt-4 flex gap-2 p-3 rounded-xl"
+              style={{ background: 'var(--ur-bg)', border: '1px dashed var(--ur-border-strong)' }}
             >
               <input
+                id="manual-topic-input"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Adicionar tópico manualmente…"
-                className="flex-1 text-sm rounded p-2 outline-none"
-                style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text)' }}
+                placeholder="Adicionar tópico manualmente — ex: Cabelo fica mais brilhoso"
+                className="flex-1 text-sm rounded-lg px-3 py-2 outline-none"
+                style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border)', color: 'var(--ur-text)' }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && newTitle.trim()) {
-                    createMut.mutate(newTitle.trim())
-                    setNewTitle('')
+                    createMut.mutate(newTitle.trim()); setNewTitle('')
                   }
+                }}
+                onFocus={(e) => {
+                  e.target.style.border = '1px solid var(--ur-accent-ring)'
+                  e.target.style.boxShadow = '0 0 0 3px var(--ur-accent-glow)'
+                }}
+                onBlur={(e) => {
+                  e.target.style.border = '1px solid var(--ur-border)'
+                  e.target.style.boxShadow = 'none'
                 }}
               />
               <ActionButton
                 variant="primary"
                 onClick={() => {
                   if (!newTitle.trim()) return
-                  createMut.mutate(newTitle.trim())
-                  setNewTitle('')
+                  createMut.mutate(newTitle.trim()); setNewTitle('')
                 }}
                 disabled={!newTitle.trim() || createMut.isPending}
               >
-                <Plus className="w-3.5 h-3.5" />
-                Adicionar
+                {createMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                Adicionar tópico
               </ActionButton>
-            </div>
-
-            {(topics ?? []).length === 0 && (
-              <p
-                className="text-center text-xs mt-6"
-                style={{ color: 'var(--ur-text-muted)' }}
-              >
-                Nenhum tópico ainda. Clique em <b>Gerar com IA</b> para criar 3-6 tópicos automaticamente
-                ou digite um título acima para curar manualmente.
-              </p>
-            )}
-          </div>
-        )}
+            </motion.div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -178,15 +245,15 @@ export default function AiSummaryEditPage() {
 
 // ─── Topic card ──────────────────────────────────────────────────────────────
 
-function TopicCard({ topic, productId }: { topic: AiSummaryTopic; productId: string }) {
+function TopicCard({ topic, productId, index }: { topic: AiSummaryTopic; productId: string; index: number }) {
   const { getToken } = useAuth()
   const queryClient = useQueryClient()
+  const [expanded, setExpanded] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [title, setTitle] = useState(topic.title)
-  const [expanded, setExpanded] = useState(false)
   const [attachingOpen, setAttachingOpen] = useState(false)
 
-  const { data: detail } = useQuery({
+  const { data: detail, isFetching: fetchingDetail } = useQuery({
     queryKey: ['ai-summary-topic', topic.id],
     queryFn: () => api.aiSummaryTopics.get(topic.id, getToken()),
     enabled: expanded,
@@ -209,43 +276,51 @@ function TopicCard({ topic, productId }: { topic: AiSummaryTopic; productId: str
   })
 
   const detachMut = useMutation({
-    mutationFn: (reviewId: string) =>
-      api.aiSummaryTopics.detachReviews(topic.id, [reviewId], getToken()),
-    onSuccess: () => { toast.success('Review removida'); inv() },
+    mutationFn: (reviewId: string) => api.aiSummaryTopics.detachReviews(topic.id, [reviewId], getToken()),
+    onSuccess: () => inv(),
   })
 
-  const stars = topic.stars_avg != null ? Number(topic.stars_avg) : null
-  const reviews = detail?.reviews ?? []
+  const sourceMeta = topic.source === 'ai'
+    ? { label: 'Gerado por IA', bg: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0.05))', color: '#7e22ce', border: 'rgba(168, 85, 247, 0.3)' }
+    : { label: 'Manual', bg: 'var(--ur-surface-soft)', color: 'var(--ur-text-secondary)', border: 'var(--ur-border)' }
 
   return (
-    <div
-      className="rounded-lg overflow-hidden"
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.4), ease: [0.2, 0.0, 0.2, 1] }}
+      className="rounded-xl overflow-hidden group"
       style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border)' }}
+      whileHover={{ y: -1, boxShadow: 'var(--ur-shadow-md)' }}
     >
-      <div className="flex items-center gap-3 p-4">
+      {/* Header */}
+      <div className="p-4 flex items-center gap-3">
         <button
           type="button"
-          onClick={() => setExpanded(v => !v)}
+          onClick={() => setExpanded((v) => !v)}
           aria-label={expanded ? 'Recolher' : 'Expandir'}
-          className="p-1 rounded"
+          className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center transition-colors cursor-pointer"
           style={{ color: 'var(--ur-text-muted)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ur-surface-soft)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
         >
-          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+            <ChevronDown className="w-4 h-4" />
+          </motion.div>
         </button>
 
-        {/* Source badge */}
+        {/* Source pill */}
         <span
-          className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
-          style={{
-            background: topic.source === 'ai' ? 'var(--ur-accent-glow)' : 'var(--ur-surface-soft)',
-            color: topic.source === 'ai' ? 'var(--ur-accent)' : 'var(--ur-text-muted)',
-          }}
+          className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full shrink-0"
+          style={{ background: sourceMeta.bg, color: sourceMeta.color, border: `1px solid ${sourceMeta.border}` }}
         >
-          {topic.source === 'ai' ? <Sparkles className="w-2.5 h-2.5" /> : null}
-          {topic.source === 'ai' ? 'IA' : 'Manual'}
+          {topic.source === 'ai' && <Sparkles className="w-2.5 h-2.5" />}
+          {sourceMeta.label}
         </span>
 
-        {/* Title (renameable) */}
+        {/* Title */}
         {renaming ? (
           <input
             value={title}
@@ -255,31 +330,37 @@ function TopicCard({ topic, productId }: { topic: AiSummaryTopic; productId: str
               if (e.key === 'Enter' && title.trim()) updateMut.mutate()
               if (e.key === 'Escape') { setRenaming(false); setTitle(topic.title) }
             }}
-            className="flex-1 text-sm rounded p-1.5 outline-none"
-            style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-accent-soft-3)', color: 'var(--ur-text)' }}
+            className="flex-1 text-sm font-semibold rounded-md px-2 py-1 outline-none"
+            style={{
+              background: 'var(--ur-bg)',
+              border: '1px solid var(--ur-accent-ring)',
+              boxShadow: '0 0 0 3px var(--ur-accent-glow)',
+              color: 'var(--ur-text)',
+            }}
           />
         ) : (
           <button
             type="button"
             onClick={() => setRenaming(true)}
-            className="flex-1 text-left text-sm font-medium"
-            style={{ color: 'var(--ur-text)' }}
-            title="Clique pra renomear"
+            className="flex-1 text-left min-w-0 cursor-pointer"
+            title="Clique para renomear"
           >
-            {topic.title}
+            <p className="text-sm font-semibold truncate tracking-tight" style={{ color: 'var(--ur-text)' }}>
+              {topic.title}
+            </p>
           </button>
         )}
 
-        {/* Stats */}
-        <div className="flex items-center gap-2 shrink-0">
-          {stars != null && (
-            <span className="inline-flex items-center gap-0.5 text-xs" style={{ color: 'var(--ur-warn)' }}>
-              <Star className="w-3 h-3 fill-current" />
-              {stars.toFixed(1)}
-            </span>
+        {/* Stars + count */}
+        <div className="hidden md:flex items-center gap-3 shrink-0">
+          {topic.stars_avg != null && (
+            <StarsAvg value={topic.stars_avg} />
           )}
-          <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-            {topic.review_count} reviews
+          <span
+            className="text-xs tabular-nums font-medium px-2 py-0.5 rounded-full"
+            style={{ background: 'var(--ur-surface-soft)', color: 'var(--ur-text-secondary)' }}
+          >
+            {topic.review_count} {topic.review_count === 1 ? 'review' : 'reviews'}
           </span>
         </div>
 
@@ -290,8 +371,11 @@ function TopicCard({ topic, productId }: { topic: AiSummaryTopic; productId: str
               type="button"
               onClick={() => updateMut.mutate()}
               disabled={!title.trim() || updateMut.isPending}
-              className="p-1.5 rounded"
+              aria-label="Salvar"
+              className="p-1.5 rounded-md cursor-pointer transition-colors"
               style={{ color: 'var(--ur-accent)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ur-accent-glow)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
             >
               {updateMut.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             </button>
@@ -299,9 +383,11 @@ function TopicCard({ topic, productId }: { topic: AiSummaryTopic; productId: str
             <button
               type="button"
               onClick={() => setRenaming(true)}
-              className="p-1.5 rounded"
-              style={{ color: 'var(--ur-text-muted)' }}
               aria-label="Renomear"
+              className="p-1.5 rounded-md cursor-pointer transition-colors"
+              style={{ color: 'var(--ur-text-muted)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ur-surface-soft)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
             >
               <Edit2 className="w-3.5 h-3.5" />
             </button>
@@ -311,119 +397,237 @@ function TopicCard({ topic, productId }: { topic: AiSummaryTopic; productId: str
             onClick={() => {
               if (window.confirm(`Remover tópico "${topic.title}"?`)) deleteMut.mutate()
             }}
-            className="p-1.5 rounded"
+            aria-label="Remover tópico"
+            className="p-1.5 rounded-md cursor-pointer transition-colors"
             style={{ color: 'var(--ur-danger)' }}
-            aria-label="Remover"
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ur-danger-bg)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {expanded && (
-        <div className="px-4 pb-4 border-t" style={{ borderColor: 'var(--ur-border)' }}>
-          {topic.ai_summary && (
-            <p className="text-xs italic mt-3 mb-3" style={{ color: 'var(--ur-text-soft)' }}>
-              {topic.ai_summary}
-            </p>
-          )}
+      {/* Stars on mobile (below header) */}
+      <div className="md:hidden px-4 -mt-1 mb-3 flex items-center gap-3">
+        {topic.stars_avg != null && <StarsAvg value={topic.stars_avg} />}
+        <span className="text-xs tabular-nums" style={{ color: 'var(--ur-text-muted)' }}>
+          {topic.review_count} {topic.review_count === 1 ? 'review' : 'reviews'}
+        </span>
+      </div>
 
-          {reviews.length === 0 ? (
-            <p className="text-xs my-3" style={{ color: 'var(--ur-text-muted)' }}>
-              Nenhuma review anexada.
-            </p>
-          ) : (
-            <div className="space-y-2 mt-3">
-              {reviews.map(r => (
-                <div
-                  key={r.id}
-                  className="flex items-start gap-2 p-2 rounded"
-                  style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)' }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 text-xs mb-0.5">
-                      <span style={{ color: 'var(--ur-warn)' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
-                      <strong style={{ color: 'var(--ur-text)' }}>{r.author_name ?? '—'}</strong>
-                    </div>
-                    {r.title && (
-                      <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>{r.title}</p>
-                    )}
-                    <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--ur-text-soft)' }}>{r.body}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => detachMut.mutate(r.id)}
-                    className="p-1"
-                    style={{ color: 'var(--ur-danger)' }}
-                    aria-label="Desanexar"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setAttachingOpen(true)}
-            className="mt-3 flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded"
-            style={{ background: 'var(--ur-accent-soft)', color: 'var(--ur-accent)', border: '1px solid var(--ur-accent-soft-3)' }}
-          >
-            <Plus className="w-3 h-3" />
-            Adicionar reviews
-          </button>
+      {/* AI summary subline (always visible if exists) */}
+      {topic.ai_summary && (
+        <div className="px-4 pb-3 -mt-1">
+          <p className="text-xs italic leading-relaxed" style={{ color: 'var(--ur-text-soft)' }}>
+            {topic.ai_summary}
+          </p>
         </div>
       )}
+
+      {/* Expanded reviews */}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.2, 0.0, 0.2, 1] }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div className="px-4 pb-4 pt-2" style={{ borderTop: '1px solid var(--ur-border)' }}>
+              {fetchingDetail && !detail ? (
+                <div className="flex items-center gap-2 py-4 text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Carregando reviews…
+                </div>
+              ) : (detail?.reviews ?? []).length === 0 ? (
+                <div className="py-4 text-center">
+                  <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+                    Nenhuma review anexada a este tópico ainda.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 mt-2">
+                  {(detail?.reviews ?? []).map((r) => (
+                    <ReviewMiniCard key={r.id} review={r} onDetach={() => detachMut.mutate(r.id)} />
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setAttachingOpen(true)}
+                className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg cursor-pointer transition-all min-h-[44px] sm:min-h-0"
+                style={{
+                  background: 'var(--ur-accent-glow)',
+                  color: 'var(--ur-accent)',
+                  border: '1px solid var(--ur-accent-soft-2)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ur-accent-soft)'; e.currentTarget.style.borderColor = 'var(--ur-accent-soft-3)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--ur-accent-glow)'; e.currentTarget.style.borderColor = 'var(--ur-accent-soft-2)' }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Adicionar reviews ao tópico
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {attachingOpen && (
         <ReviewPickerModal
           productId={productId}
           topicId={topic.id}
-          excludeIds={(detail?.reviews ?? []).map(r => r.id)}
+          topicTitle={topic.title}
+          excludeIds={(detail?.reviews ?? []).map((r) => r.id)}
           onClose={() => setAttachingOpen(false)}
           onAttached={inv}
         />
       )}
-    </div>
+    </motion.div>
   )
 }
 
-// ─── Review picker (modal with search + filters + checkboxes) ────────────────
+// ─── Mini review card ────────────────────────────────────────────────────────
+
+function ReviewMiniCard({ review, onDetach }: {
+  review: { id: string; rating: number; title: string | null; body: string; author_name: string | null; created_at: string }
+  onDetach: () => void
+}) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 8 }}
+      transition={{ duration: 0.2 }}
+      className="flex items-start gap-3 p-3 rounded-lg group/r"
+      style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)' }}
+    >
+      <StarsAvg value={review.rating} showNumber={false} size="xs" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2 mb-0.5">
+          <span className="text-xs font-semibold tracking-wide" style={{ color: 'var(--ur-text)' }}>
+            {review.author_name ?? 'Cliente anônimo'}
+          </span>
+        </div>
+        {review.title && (
+          <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>
+            {review.title}
+          </p>
+        )}
+        <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--ur-text-soft)' }}>
+          {review.body}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onDetach}
+        aria-label="Desanexar review"
+        className="shrink-0 p-1.5 rounded-md opacity-0 group-hover/r:opacity-100 transition-all cursor-pointer"
+        style={{ color: 'var(--ur-danger)' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ur-danger-bg)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </motion.div>
+  )
+}
+
+// ─── Empty state ─────────────────────────────────────────────────────────────
+
+function EmptyState({ onGenerate, generating, onFocusManual }: { onGenerate: () => void; generating: boolean; onFocusManual: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative rounded-2xl overflow-hidden text-center py-16 px-6"
+      style={{
+        background: 'linear-gradient(135deg, var(--ur-bg-soft), transparent)',
+        border: '1px solid var(--ur-border)',
+      }}
+    >
+      <div className="relative w-20 h-20 mx-auto mb-5 flex items-center justify-center">
+        <motion.div
+          className="absolute inset-0 rounded-3xl"
+          style={{ background: 'var(--ur-accent-ring)', filter: 'blur(28px)' }}
+          animate={{ scale: [1, 1.2, 1], opacity: [0.35, 0.55, 0.35] }}
+          transition={{ duration: 3.4, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <div
+          className="relative w-16 h-16 rounded-2xl flex items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))',
+            boxShadow: '0 10px 30px var(--ur-accent-ring)',
+          }}
+        >
+          <Sparkles className="w-7 h-7" style={{ color: 'var(--ur-text-on-accent)' }} />
+        </div>
+      </div>
+      <h3 className="text-lg font-semibold tracking-tight" style={{ color: 'var(--ur-text)' }}>
+        Comece criando os tópicos deste produto
+      </h3>
+      <p className="text-sm mt-2 max-w-md mx-auto" style={{ color: 'var(--ur-text-muted)' }}>
+        Deixe a IA ler as avaliações e propor 3 a 6 tópicos automaticamente,
+        ou crie tópicos manualmente para curar o que aparece na loja.
+      </p>
+      <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
+        <ActionButton variant="primary" onClick={onGenerate} disabled={generating}>
+          {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+          Gerar com IA
+        </ActionButton>
+        <button
+          type="button"
+          onClick={onFocusManual}
+          className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer transition-colors"
+          style={{ background: 'transparent', color: 'var(--ur-text-soft)', border: '1px solid var(--ur-border)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--ur-accent-soft-3)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--ur-border)' }}
+        >
+          Ou criar manualmente
+        </button>
+      </div>
+    </motion.div>
+  )
+}
+
+// ─── Review picker modal ────────────────────────────────────────────────────
 
 function ReviewPickerModal({
   productId,
   topicId,
+  topicTitle,
   excludeIds,
   onClose,
   onAttached,
 }: {
   productId: string
   topicId: string
+  topicTitle: string
   excludeIds: string[]
   onClose: () => void
   onAttached: () => void
 }) {
   const { getToken } = useAuth()
   const [query, setQuery] = useState('')
-  const [minRating, setMinRating] = useState<number | null>(null)
+  const [minRating, setMinRating] = useState<'' | 1 | 2 | 3 | 4 | 5>('')
   const [withMedia, setWithMedia] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
 
   const { data, isLoading } = useQuery({
     queryKey: ['reviews-pick', productId, query, minRating, withMedia],
-    queryFn: () =>
-      api.reviews.list(
-        {
-          product_id: productId,
-          status: 'approved',
-          per_page: 50,
-          q: query || undefined,
-          rating: minRating ?? undefined,
-          with_media: withMedia ? 'true' : undefined,
-        },
-        getToken(),
-      ),
+    queryFn: () => api.reviews.list(
+      {
+        product_id: productId,
+        status: 'approved',
+        per_page: 50,
+        q: query || undefined,
+        rating: minRating === '' ? undefined : minRating,
+        with_media: withMedia ? 'true' : undefined,
+      },
+      getToken(),
+    ),
   })
 
   const items = useMemo(
@@ -434,102 +638,137 @@ function ReviewPickerModal({
   const attachMut = useMutation({
     mutationFn: () => api.aiSummaryTopics.attachReviews(topicId, selected, getToken()),
     onSuccess: (r) => {
-      toast.success(`${r.attached} review(s) anexada(s)`)
+      toast.success(`${r.attached} ${r.attached === 1 ? 'review anexada' : 'reviews anexadas'}`)
       onAttached()
       onClose()
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Falha ao anexar'),
   })
 
-  const toggle = (id: string) =>
-    setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
+  const toggle = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
 
   return (
-    <Modal title="Anexar reviews ao tópico" onClose={onClose} wide>
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar no corpo da review…"
-            className="flex-1 text-sm rounded-lg p-2 outline-none"
-            style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text)' }}
-          />
-          <select
-            value={minRating ?? ''}
-            onChange={(e) => setMinRating(e.target.value ? Number(e.target.value) : null)}
-            className="text-sm rounded-lg p-2"
-            style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text)' }}
-          >
-            <option value="">Todas estrelas</option>
-            <option value="5">5★</option>
-            <option value="4">4★</option>
-            <option value="3">3★</option>
-            <option value="2">2★</option>
-            <option value="1">1★</option>
-          </select>
-          <label className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded cursor-pointer"
-                 style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}>
+    <Modal title="Anexar reviews ao tópico" subtitle={topicTitle} onClose={onClose} wide>
+      <div className="space-y-4">
+        {/* Search + chip filters */}
+        <div className="space-y-2.5">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
             <input
-              type="checkbox"
-              checked={withMedia}
-              onChange={(e) => setWithMedia(e.target.checked)}
-              className="accent-[var(--ur-accent)]"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar no corpo, título ou autor…"
+              className="w-full text-sm rounded-lg pl-9 pr-3 py-2.5 outline-none"
+              style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text)' }}
+              onFocus={(e) => { e.target.style.border = '1px solid var(--ur-accent-ring)'; e.target.style.boxShadow = '0 0 0 3px var(--ur-accent-glow)' }}
+              onBlur={(e) => { e.target.style.border = '1px solid var(--ur-border)'; e.target.style.boxShadow = 'none' }}
             />
-            Com mídia
-          </label>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <FilterChips
+              value={String(minRating) as '' | '1' | '2' | '3' | '4' | '5'}
+              onChange={(v) => setMinRating(v === '' ? '' : Number(v) as 1 | 2 | 3 | 4 | 5)}
+              options={[
+                { value: '',  label: 'Todas estrelas' },
+                { value: '5', label: '5★' },
+                { value: '4', label: '4★+' },
+                { value: '3', label: '3★+' },
+              ]}
+              ariaLabel="Filtrar por estrelas"
+            />
+            <button
+              type="button"
+              onClick={() => setWithMedia((v) => !v)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer transition-all"
+              style={{
+                background: withMedia ? 'var(--ur-accent-glow)' : 'var(--ur-bg)',
+                color: withMedia ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
+                border: `1px solid ${withMedia ? 'var(--ur-accent-soft-3)' : 'var(--ur-border)'}`,
+              }}
+              aria-pressed={withMedia}
+            >
+              <ImageIcon className="w-3 h-3" />
+              Com mídia
+            </button>
+          </div>
         </div>
 
+        {/* Reviews list */}
         <div
-          className="rounded-lg overflow-hidden"
-          style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)' }}
+          className="rounded-xl overflow-hidden"
+          style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border)' }}
         >
-          <div className="max-h-96 overflow-y-auto divide-y" style={{ borderColor: 'var(--ur-border)' }}>
+          <div className="max-h-[420px] overflow-y-auto">
             {isLoading ? (
-              <div className="p-6 flex items-center justify-center" style={{ color: 'var(--ur-text-muted)' }}>
+              <div className="p-10 flex items-center justify-center" style={{ color: 'var(--ur-text-muted)' }}>
                 <Loader2 className="w-5 h-5 animate-spin" />
               </div>
             ) : items.length === 0 ? (
-              <p className="p-6 text-xs text-center" style={{ color: 'var(--ur-text-muted)' }}>
-                Nenhuma review bate com esse filtro.
-              </p>
+              <div className="p-10 text-center">
+                <p className="text-sm" style={{ color: 'var(--ur-text-muted)' }}>Nenhuma review bate com esse filtro.</p>
+              </div>
             ) : (
-              items.map((r: Review) => {
-                const checked = selected.includes(r.id)
-                return (
-                  <label
-                    key={r.id}
-                    className="flex items-start gap-2 p-3 cursor-pointer transition-colors"
-                    style={{ background: checked ? 'var(--ur-accent-glow)' : 'transparent' }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggle(r.id)}
-                      className="mt-1 accent-[var(--ur-accent)]"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-xs mb-0.5">
-                        <span style={{ color: 'var(--ur-warn)' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
-                        <strong style={{ color: 'var(--ur-text)' }}>{r.author_name ?? '—'}</strong>
+              <div className="divide-y" style={{ borderColor: 'var(--ur-border)' }}>
+                {items.map((r: Review) => {
+                  const checked = selected.includes(r.id)
+                  const hasMedia = (r.media?.length ?? 0) > 0
+                  const hasVideo = (r.media ?? []).some(m => m.type === 'video')
+                  return (
+                    <label
+                      key={r.id}
+                      className="flex items-start gap-3 p-3.5 cursor-pointer transition-colors"
+                      style={{ background: checked ? 'var(--ur-accent-glow)' : 'transparent' }}
+                      onMouseEnter={(e) => { if (!checked) e.currentTarget.style.background = 'var(--ur-surface-soft)' }}
+                      onMouseLeave={(e) => { if (!checked) e.currentTarget.style.background = 'transparent' }}
+                    >
+                      <Checkbox checked={checked} onChange={() => toggle(r.id)} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <StarsAvg value={r.rating} showNumber={false} size="xs" />
+                          <span className="text-xs font-semibold" style={{ color: 'var(--ur-text)' }}>
+                            {r.author_name ?? 'Cliente anônimo'}
+                          </span>
+                          {r.verified_purchase && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                                  style={{ background: 'var(--ur-success-bg)', color: 'var(--ur-success)' }}>
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              Verificada
+                            </span>
+                          )}
+                          {hasMedia && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                                  style={{ background: 'var(--ur-info-bg)', color: 'var(--ur-info)' }}>
+                              {hasVideo ? <Video className="w-2.5 h-2.5" /> : <Camera className="w-2.5 h-2.5" />}
+                              {hasVideo ? 'Vídeo' : 'Foto'}
+                            </span>
+                          )}
+                        </div>
+                        {r.title && (
+                          <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>{r.title}</p>
+                        )}
+                        <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--ur-text-soft)' }}>{r.body}</p>
                       </div>
-                      {r.title && <p className="text-sm font-medium" style={{ color: 'var(--ur-text)' }}>{r.title}</p>}
-                      <p className="text-xs mt-0.5 line-clamp-2" style={{ color: 'var(--ur-text-soft)' }}>{r.body}</p>
-                    </div>
-                  </label>
-                )
-              })
+                    </label>
+                  )
+                })}
+              </div>
             )}
           </div>
           {selected.length > 0 && (
-            <div className="px-3 py-1.5 text-xs" style={{ background: 'var(--ur-bg-soft)', borderTop: '1px solid var(--ur-border)', color: 'var(--ur-accent)' }}>
-              {selected.length} selecionada(s)
+            <div
+              className="px-4 py-2 text-xs font-medium flex items-center justify-between"
+              style={{ background: 'var(--ur-accent-glow)', borderTop: '1px solid var(--ur-accent-soft-2)', color: 'var(--ur-accent)' }}
+            >
+              <span>{selected.length} {selected.length === 1 ? 'selecionada' : 'selecionadas'}</span>
+              <button type="button" onClick={() => setSelected([])} className="underline cursor-pointer">
+                limpar
+              </button>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-2 mt-4">
+      <div className="flex items-center justify-end gap-2 mt-5">
         <ActionButton onClick={onClose}>Cancelar</ActionButton>
         <ActionButton
           variant="primary"
@@ -537,64 +776,108 @@ function ReviewPickerModal({
           disabled={selected.length === 0 || attachMut.isPending}
         >
           {attachMut.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          Anexar {selected.length || ''}
+          Anexar {selected.length > 0 ? `(${selected.length})` : ''}
         </ActionButton>
       </div>
     </Modal>
   )
 }
 
-// ─── Modal helper ────────────────────────────────────────────────────────────
+// ─── Animated checkbox ───────────────────────────────────────────────────────
 
-function Modal({
-  title,
-  children,
-  onClose,
-  wide,
-}: {
-  title: string
-  children: React.ReactNode
-  onClose: () => void
-  wide?: boolean
-}) {
+function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <span
+      role="checkbox"
+      aria-checked={checked}
+      onClick={(e) => { e.preventDefault(); onChange() }}
+      className="shrink-0 w-5 h-5 rounded-md relative mt-0.5 cursor-pointer flex items-center justify-center transition-all"
+      style={{
+        background: checked ? 'linear-gradient(135deg, var(--ur-accent), var(--ur-accent-strong))' : 'var(--ur-bg)',
+        border: checked ? 'none' : '1.5px solid var(--ur-border-strong)',
+        boxShadow: checked ? '0 1px 3px var(--ur-accent-ring)' : 'none',
+      }}
+    >
+      <AnimatePresence>
+        {checked && (
+          <motion.svg
+            key="check"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            style={{ color: 'var(--ur-text-on-accent)' }}
+          >
+            <path d="M2.5 6.2 4.8 8.5 9.5 3.5" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </motion.svg>
+        )}
+      </AnimatePresence>
+    </span>
+  )
+}
+
+// ─── Modal shell ─────────────────────────────────────────────────────────────
+
+function Modal({ title, subtitle, children, onClose, wide }: { title: string; subtitle?: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
   const titleId = useId()
   const ref = useFocusTrap<HTMLDivElement>(true, onClose)
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'var(--ur-overlay)' }}
-      onClick={onClose}
-    >
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="w-full rounded-xl p-5 max-h-[90vh] overflow-y-auto"
-        style={{
-          background: 'var(--ur-bg-soft)',
-          border: '1px solid var(--ur-border)',
-          maxWidth: wide ? 720 : 480,
-        }}
-        onClick={(e) => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style={{ background: 'rgba(8, 10, 14, 0.6)', backdropFilter: 'blur(8px)' }}
+        onClick={onClose}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 id={titleId} className="text-base font-semibold" style={{ color: 'var(--ur-text)' }}>
-            {title}
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar"
-            className="p-1.5 rounded-md"
-            style={{ color: 'var(--ur-text-soft)' }}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+        <motion.div
+          ref={ref}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          initial={{ scale: 0.96, y: 10, opacity: 0 }}
+          animate={{ scale: 1, y: 0, opacity: 1 }}
+          exit={{ scale: 0.97, opacity: 0 }}
+          transition={{ duration: 0.22, ease: [0.2, 0.0, 0.2, 1] }}
+          className="w-full rounded-2xl p-6 max-h-[92vh] overflow-y-auto"
+          style={{
+            background: 'var(--ur-surface)',
+            border: '1px solid var(--ur-border)',
+            boxShadow: 'var(--ur-shadow-lg)',
+            maxWidth: wide ? 760 : 480,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between mb-5">
+            <div>
+              <h3 id={titleId} className="text-lg font-semibold tracking-tight" style={{ color: 'var(--ur-text)' }}>
+                {title}
+              </h3>
+              {subtitle && (
+                <p className="text-xs mt-0.5" style={{ color: 'var(--ur-text-muted)' }}>{subtitle}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fechar"
+              className="w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+              style={{ color: 'var(--ur-text-soft)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ur-surface-soft)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {children}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   )
 }

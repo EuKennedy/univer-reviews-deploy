@@ -1816,30 +1816,41 @@ class UniverAiCarousel extends HTMLElement {
   }
 
   // ── preset="topics" — multiple horizontal carousels stacked vertically ───
+  //
+  // Editorial card: rating row → bold title → body in proper line-height →
+  // author in tracked caps. Subtle border, lift on hover, accent edge on
+  // the left to anchor the rhythm of stacked sections.
   private topicCardHtml(r: TopicReview): string {
     const author = (r.author_name || 'Cliente').split(' ')[0]
     const body = (r.body || '').replace(/\s+/g, ' ').trim()
     return `
-<div class="t-card">
+<article class="t-card" role="listitem">
   <div class="t-stars">${this.starsHtml(r.rating)}</div>
-  ${r.title ? `<p class="t-title">${escapeHtml(r.title)}</p>` : ''}
+  ${r.title ? `<h4 class="t-title">${escapeHtml(r.title)}</h4>` : ''}
   <p class="t-body">${escapeHtml(body)}</p>
-  <p class="t-author">${escapeHtml(author)}</p>
-</div>`
+  <div class="t-foot">
+    <span class="t-avatar" aria-hidden="true">${escapeHtml(author.charAt(0).toUpperCase())}</span>
+    <span class="t-author">${escapeHtml(author)}</span>
+  </div>
+</article>`
   }
 
   private renderTopics() {
-    const sectionsHtml = this.topics.map(topic => {
+    const sectionsHtml = this.topics.map((topic, idx) => {
       const stars = topic.stars_avg != null ? Number(topic.stars_avg) : null
       const headerStars = stars != null ? this.starsHtml(Math.round(stars)) : ''
+      const avg = stars != null ? stars.toFixed(1) : ''
       const cards = topic.reviews.map(r => this.topicCardHtml(r)).join('')
       return `
-<section class="topic">
-  <div class="topic-head">
-    <span class="topic-stars">${headerStars}</span>
+<section class="topic" style="--delay:${idx * 0.06}s">
+  <header class="topic-head">
+    <div class="topic-rating">
+      <span class="topic-stars">${headerStars}</span>
+      ${avg ? `<span class="topic-avg">${avg}</span>` : ''}
+    </div>
     <h3 class="topic-title">${escapeHtml(topic.title)}</h3>
-    <span class="topic-count">· ${topic.review_count} avaliações</span>
-  </div>
+    <span class="topic-count" aria-label="${topic.review_count} avaliações">${topic.review_count}</span>
+  </header>
   ${topic.ai_summary ? `<p class="topic-summary">${escapeHtml(topic.ai_summary)}</p>` : ''}
   <div class="topic-scroller" role="list">${cards}</div>
 </section>`
@@ -1847,55 +1858,171 @@ class UniverAiCarousel extends HTMLElement {
 
     this.shadow.innerHTML = `
 <style>
-  :host { display: block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; margin: 32px 0; }
+  :host {
+    display: block;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #0f172a;
+    margin: 40px 0;
+    --accent: ${this.themeColor};
+    --star: ${this.starColor};
+  }
   * { box-sizing: border-box; }
-  .head { margin: 0 0 24px; }
-  .head h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin: 0; line-height: 1.2; }
-  .head p { margin: 4px 0 0; font-size: 13px; color: #6b7280; }
+  @keyframes ur-fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
-  .topic { margin: 28px 0; }
-  .topic-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }
-  .topic-stars { color: ${this.starColor}; font-size: 14px; letter-spacing: 1px; line-height: 1; }
-  .topic-stars .empty { color: #e5e7eb; }
-  .topic-title { font-size: 17px; font-weight: 700; margin: 0; color: #111827; letter-spacing: -0.01em; }
-  .topic-count { font-size: 12px; color: #6b7280; }
-  .topic-summary { margin: 4px 0 12px; font-size: 13px; color: #4b5563; font-style: italic; }
+  /* ─── Section head ─────────────────────────────────────────────────────── */
+  .head {
+    margin: 0 0 28px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .head-eyebrow {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .head-eyebrow svg { width: 12px; height: 12px; }
+  .head h2 {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
+    margin: 0; line-height: 1.15; color: #0f172a;
+  }
+  .head p {
+    margin: 6px 0 0; font-size: 14px; color: #64748b;
+  }
 
+  /* ─── Topic section ────────────────────────────────────────────────────── */
+  .topic {
+    margin: 32px 0;
+    animation: ur-fade-up 0.5s ease-out both;
+    animation-delay: var(--delay);
+  }
+  .topic-head {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin: 0 0 4px;
+  }
+  .topic-rating { display: inline-flex; align-items: center; gap: 6px; }
+  .topic-stars { color: var(--star); font-size: 14px; letter-spacing: 1.5px; line-height: 1; white-space: nowrap; }
+  .topic-stars .empty { color: #e2e8f0; }
+  .topic-avg {
+    font-size: 13px; font-weight: 700; color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+  .topic-title {
+    font-size: 19px; font-weight: 700; margin: 0;
+    color: #0f172a; letter-spacing: -0.015em; line-height: 1.25;
+    flex: 1; min-width: 0;
+  }
+  .topic-count {
+    font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: #475569; background: #f1f5f9; padding: 3px 10px; border-radius: 999px;
+    letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .topic-summary {
+    margin: 4px 0 14px; font-size: 14px; line-height: 1.55;
+    color: #475569; font-style: italic; max-width: 70ch;
+  }
+
+  /* ─── Scroller ─────────────────────────────────────────────────────────── */
   .topic-scroller {
-    display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 12px;
-    scroll-snap-type: x mandatory; scrollbar-width: thin;
+    display: flex; gap: 14px;
+    overflow-x: auto; overflow-y: visible;
+    padding: 8px 2px 18px;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
+    scroll-padding-left: 2px;
+    /* Soft fade on the right edge to hint scrollability */
+    mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
   }
   .topic-scroller::-webkit-scrollbar { height: 6px; }
-  .topic-scroller::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; }
+  .topic-scroller::-webkit-scrollbar-track { background: transparent; }
+  .topic-scroller::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+  .topic-scroller::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
+  /* ─── Card ─────────────────────────────────────────────────────────────── */
   .t-card {
-    flex: 0 0 260px; scroll-snap-align: start;
-    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
-    padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
-    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+    flex: 0 0 280px; scroll-snap-align: start;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 18px 18px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+    transition: transform .2s cubic-bezier(0.2, 0, 0.2, 1),
+                border-color .2s ease,
+                box-shadow .2s ease;
+    position: relative;
+    overflow: hidden;
   }
-  .t-card:hover { border-color: ${this.themeColor}; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-  .t-stars { color: ${this.starColor}; font-size: 13px; letter-spacing: 1px; line-height: 1; }
-  .t-stars .empty { color: #e5e7eb; }
-  .t-title { font-size: 14px; font-weight: 600; margin: 0; color: #111827; line-height: 1.3; }
-  .t-body {
-    margin: 0; font-size: 13px; line-height: 1.5; color: #374151;
-    display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+  .t-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 16px; bottom: 16px;
+    width: 2px;
+    background: linear-gradient(180deg, var(--accent), transparent);
+    border-radius: 0 2px 2px 0;
+    opacity: 0;
+    transition: opacity .2s ease;
   }
-  .t-author { margin: 4px 0 0; font-size: 12px; color: #6b7280; font-weight: 500; }
+  .t-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.12), 0 2px 4px rgba(15, 23, 42, 0.04);
+  }
+  .t-card:hover::before { opacity: 1; }
 
+  .t-stars { color: var(--star); font-size: 12px; letter-spacing: 1.5px; line-height: 1; }
+  .t-stars .empty { color: #e2e8f0; }
+  .t-title {
+    font-size: 14px; font-weight: 700; margin: 0;
+    color: #0f172a; line-height: 1.35; letter-spacing: -0.005em;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .t-body {
+    margin: 0; font-size: 13.5px; line-height: 1.55; color: #334155;
+    display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+    flex: 1;
+  }
+  .t-foot {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 6px; padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+  }
+  .t-avatar {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #000));
+    color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0;
+    flex-shrink: 0;
+  }
+  .t-author {
+    font-size: 12px; font-weight: 600; color: #475569;
+    letter-spacing: 0.02em;
+  }
+
+  /* ─── Responsive ───────────────────────────────────────────────────────── */
   @media (max-width: 640px) {
-    .head h2 { font-size: 20px; }
-    .topic-title { font-size: 15px; }
-    .t-card { flex-basis: 220px; padding: 12px; }
-    .t-body { -webkit-line-clamp: 4; }
+    :host { margin: 28px 0; }
+    .head h2 { font-size: 22px; }
+    .head p { font-size: 13px; }
+    .topic { margin: 26px 0; }
+    .topic-title { font-size: 16px; }
+    .topic-summary { font-size: 13px; }
+    .t-card { flex-basis: 240px; padding: 16px; }
+    .t-body { -webkit-line-clamp: 4; font-size: 13px; }
   }
 </style>
 
-<div class="head">
+<header class="head">
+  <span class="head-eyebrow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+    </svg>
+    Sumário com IA
+  </span>
   <h2>${escapeHtml(this.titleText)}</h2>
-  <p>${this.topics.length} ${this.topics.length === 1 ? 'tópico' : 'tópicos'} extraídos das avaliações</p>
-</div>
+  <p>${this.topics.length} ${this.topics.length === 1 ? 'tópico identificado' : 'tópicos identificados'} a partir das avaliações reais</p>
+</header>
 ${sectionsHtml}
 `
   }
