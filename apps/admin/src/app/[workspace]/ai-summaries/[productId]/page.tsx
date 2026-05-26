@@ -117,6 +117,11 @@ export default function AiSummaryEditPage() {
   })
 
   const [newTitle, setNewTitle] = useState('')
+  // When the user picks "Ou criar manualmente" from the empty state, we
+  // flip this flag so the manual-input slot mounts and we can focus it
+  // inside the same tick. (The slot is otherwise hidden until topics
+  // exist, to avoid cluttering the empty state.)
+  const [showManualSlot, setShowManualSlot] = useState(false)
   const hasTopics = (topics ?? []).length > 0
   const hasAiTopic = (topics ?? []).some(t => t.source === 'ai')
 
@@ -211,13 +216,19 @@ export default function AiSummaryEditPage() {
               <EmptyState
                 onGenerate={() => generateMut.mutate()}
                 generating={generating}
-                onFocusManual={() => document.getElementById('manual-topic-input')?.focus()}
+                onFocusManual={() => {
+                  setShowManualSlot(true)
+                  // Wait for the slot to mount, then focus.
+                  requestAnimationFrame(() => {
+                    document.getElementById('manual-topic-input')?.focus()
+                  })
+                }}
               />
             )}
           </AnimatePresence>
 
           {/* Manual create row */}
-          {(hasTopics || generating) && (
+          {(hasTopics || generating || showManualSlot) && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
