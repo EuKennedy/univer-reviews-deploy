@@ -130,15 +130,32 @@ class Univer_Shortcode {
             $count_html
         );
 
-        if ( ! empty( $link ) ) {
-            return sprintf(
-                '<a href="%s" style="text-decoration:none;color:inherit;">%s</a>',
-                $link,
-                $inner
-            );
+        // If no explicit link was provided, default to scrolling to the
+        // <univer-reviews> wall mounted on the page (id="univer-reviews-anchor",
+        // injected by render() and the featured wall). When the wall lives
+        // inside a WooCommerce product tab (the typical placement), the tab
+        // is closed by default — we activate it first, then scroll. Inline
+        // click handler keeps the snippet self-contained so themes don't
+        // need to load extra JS.
+        $href     = ! empty( $link ) ? $link : '#univer-reviews-anchor';
+        $on_click = '';
+        if ( empty( $link ) ) {
+            $on_click = ' onclick="(function(e){'
+                . "var t=document.getElementById('univer-reviews-anchor');"
+                . 'if(!t){return;}'
+                . "var tab=document.querySelector('.woocommerce-tabs li.univer-reviews_tab a, .woocommerce-tabs li.reviews_tab a, .wc-tabs li.univer-reviews_tab a, .wc-tabs li.reviews_tab a, .tabs li.univer-reviews_tab a, .tabs li.reviews_tab a');"
+                . 'if(tab){tab.click();}'
+                . "setTimeout(function(){t.scrollIntoView({behavior:'smooth',block:'start'});}, tab?160:0);"
+                . 'e.preventDefault();'
+                . '})(event)"';
         }
 
-        return $inner;
+        return sprintf(
+            '<a href="%s" class="univer-rating-link" style="text-decoration:none;color:inherit;cursor:pointer;"%s>%s</a>',
+            esc_attr( $href ),
+            $on_click,
+            $inner
+        );
     }
 
     /**
@@ -328,7 +345,7 @@ class Univer_Shortcode {
         $this->ensure_widget_enqueued();
 
         return sprintf(
-            '<div class="univer-reviews-wrapper %s">
+            '<div id="univer-reviews-anchor" class="univer-reviews-wrapper %s">
                 <univer-reviews
                     workspace-id="%s"
                     featured="true"
@@ -478,7 +495,7 @@ class Univer_Shortcode {
         }
 
         return sprintf(
-            '<div class="univer-reviews-wrapper %s">
+            '<div id="univer-reviews-anchor" class="univer-reviews-wrapper %s">
                 <univer-reviews
                     workspace-id="%s"
                     product-id="%s"
