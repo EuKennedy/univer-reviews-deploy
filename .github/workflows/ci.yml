@@ -138,17 +138,27 @@ jobs:
         working-directory: apps/widget
         run: pnpm run build
 
-      - name: Verify bundle exists and is under 60KB
+      - name: Verify bundle exists and stays under perf budget
         working-directory: apps/widget
         run: |
           if [ ! -f dist/widget.js ]; then
             echo "::error::dist/widget.js missing — build did not emit the bundle"
             exit 1
           fi
-          size=$(wc -c < dist/widget.js | tr -d ' ')
-          echo "widget.js size: $size bytes"
-          if [ "$size" -ge 61440 ]; then
-            echo "::error::widget.js is $size bytes — exceeds 60KB budget"
+          raw=$(wc -c < dist/widget.js | tr -d ' ')
+          gz=$(gzip -c dist/widget.js | wc -c | tr -d ' ')
+          echo "widget.js raw=$raw bytes / gzipped=$gz bytes"
+          # Budget: 90KB raw / 28KB gzipped. The widget ships TWO storefront
+          # layouts now (media carousel + topic stacks) plus the modal,
+          # custom element, escapeHtml + i18n helpers, so the original 60KB
+          # raw target was tight on a single layout. 28KB gzipped (real
+          # transfer) is still well under Lighthouse "main-thread JS" limits.
+          if [ "$raw" -ge 92160 ]; then
+            echo "::error::widget.js is $raw bytes raw — exceeds 90KB budget"
+            exit 1
+          fi
+          if [ "$gz" -ge 28672 ]; then
+            echo "::error::widget.js is $gz bytes gzipped — exceeds 28KB transfer budget"
             exit 1
           fi
 
