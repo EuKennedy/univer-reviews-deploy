@@ -7,6 +7,11 @@ class Product < ApplicationRecord
   has_many :question_group_products, dependent: :destroy
   has_many :question_groups, through: :question_group_products
 
+  # AI Summary topics (3-6 topical groupings of reviews for the storefront
+  # carousel preset). Managed by AiSummaryTopicsController + AiGenerate-
+  # SummaryTopicsJob.
+  has_many :ai_summary_topics, dependent: :destroy
+
   # Union of questions linked directly to this product OR via any group it belongs to.
   # Returns an ActiveRecord::Relation scoped to the workspace, deduped.
   def all_questions

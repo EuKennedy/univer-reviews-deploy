@@ -132,6 +132,15 @@ Rails.application.routes.draw do
         end
       end
 
+      # AI Summary topics (admin) — "Sumário de IA" topical groupings of
+      # reviews per product. Public endpoint lives under /public/...
+      resources :ai_summary_topics, only: %i[index show create update destroy] do
+        member do
+          post :attach_reviews
+          post :detach_reviews
+        end
+      end
+
       # Integrations
       namespace :integrations do
         resource :woocommerce, controller: "woocommerce", only: %i[show create update destroy] do

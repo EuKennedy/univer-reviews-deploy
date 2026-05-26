@@ -19,6 +19,7 @@ class Workspace < ApplicationRecord
   has_many :questions,          dependent: :destroy
   has_many :question_groups,    dependent: :destroy
   has_many :loyalty_configs,    dependent: :destroy
+  has_many :ai_summary_topics,  dependent: :destroy
   has_many :platform_events,    dependent: :destroy
   has_one  :subscription,       dependent: :destroy
 
