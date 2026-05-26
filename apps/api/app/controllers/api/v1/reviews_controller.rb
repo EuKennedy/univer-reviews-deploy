@@ -1,7 +1,7 @@
 module Api
   module V1
     class ReviewsController < ApplicationController
-      before_action :set_review, only: %i[show destroy status]
+      before_action :set_review, only: %i[show destroy status attach_media]
 
       # GET /api/v1/reviews
       def index
@@ -120,6 +120,56 @@ module Api
         )
 
         render json: { data: serialize_review(@review) }
+      end
+
+      # POST /api/v1/reviews/:id/attach_media
+      # Bulk-attach existing media URLs (e.g. from a Ryviu / Judge.me /
+      # Loox migration) to a review without re-uploading the bytes. Useful
+      # when the source CDN keeps hosting the files and we just need our
+      # widget to render them. Idempotent on (review_id, url).
+      #
+      # Body: { media: [{ type: "image"|"video", url: "...", thumb_url?: "..." }, ...] }
+      def attach_media
+        require_write!
+
+        items = Array(params[:media]).first(20)
+        attached = 0
+        skipped  = 0
+
+        items.each do |item|
+          item = item.to_unsafe_h if item.respond_to?(:to_unsafe_h)
+          type = item["type"].to_s
+          url  = item["url"].to_s.strip
+          next if url.blank? || !%w[image video].include?(type)
+
+          # Idempotent: skip if this exact url already attached.
+          if @review.review_media.exists?(url: url)
+            skipped += 1
+            next
+          end
+
+          ReviewMedium.create!(
+            workspace: current_workspace,
+            review:    @review,
+            type:      type,
+            storage_key: "external:" + url, # marker — not in our bucket
+            url:       url,
+            thumb_url: (item["thumb_url"].presence || url),
+          )
+          attached += 1
+        end
+
+        AuditLog.record(
+          workspace: current_workspace,
+          action:    "review.media_attached",
+          entity:    @review,
+          metadata:  { attached: attached, skipped: skipped, source: params[:source].to_s.presence },
+          request:   request,
+        )
+
+        render json: {
+          data: { id: @review.id, attached: attached, skipped: skipped, total_media: @review.review_media.reload.count },
+        }
       end
 
       # GET /api/v1/reviews/export.csv
