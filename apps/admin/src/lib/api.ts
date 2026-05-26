@@ -31,6 +31,8 @@ import type {
   RewardRule,
   RewardRulePayload,
   RewardGrant,
+  AiSummaryTopic,
+  AiSummaryProductRow,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -208,6 +210,42 @@ class ApiClient {
       this.request<{ queued: number; message: string }>(
         '/ai/moderate-pending',
         { method: 'POST' },
+        token,
+      ),
+
+    /**
+     * Enqueue topic extraction for a single product. Use for "Regenerar"
+     * buttons on the per-product edit page.
+     */
+    generateSummaryTopics: (productId: string, token: string) =>
+      this.request<{ message: string; product_id: string }>(
+        '/ai/generate-summary-topics',
+        { method: 'POST', body: JSON.stringify({ product_id: productId }) },
+        token,
+      ),
+
+    /**
+     * Enqueue topic extraction in bulk. When productIds is omitted, the
+     * backend selects every product with at least MIN_REVIEWS_FOR_BULK
+     * approved reviews — the "Gerar para todos" button on the dashboard.
+     */
+    generateSummaryTopicsBulk: (productIds: string[] | undefined, token: string) =>
+      this.request<{ message: string; queued: number }>(
+        '/ai/generate-summary-topics-bulk',
+        {
+          method: 'POST',
+          body: JSON.stringify(productIds ? { product_ids: productIds } : {}),
+        },
+        token,
+      ),
+
+    /**
+     * Dashboard list — every product with its summary status.
+     */
+    summariesIndex: (token: string) =>
+      this.request<{ data: AiSummaryProductRow[] }>(
+        '/ai_summaries',
+        {},
         token,
       ),
 
@@ -798,6 +836,63 @@ class ApiClient {
           plugin_connected: boolean
         }
       }>('/loyalty', {}, token),
+  }
+
+  // ─── AI Summary Topics ─────────────────────────────────────────────────────
+  // CRUD for the per-product topical groupings that power the storefront
+  // "Sumário de IA" carousel preset.
+  aiSummaryTopics = {
+    list: (productId: string, token: string) =>
+      this.request<{ data: AiSummaryTopic[] }>(
+        '/ai_summary_topics',
+        { params: { product_id: productId } },
+        token,
+      ),
+
+    get: (id: string, token: string) =>
+      this.request<{ data: AiSummaryTopic }>(
+        `/ai_summary_topics/${id}`,
+        {},
+        token,
+      ).then(r => r.data),
+
+    create: (
+      data: { product_id: string; title: string; review_ids?: string[] },
+      token: string,
+    ) =>
+      this.request<{ data: AiSummaryTopic }>(
+        '/ai_summary_topics',
+        { method: 'POST', body: JSON.stringify(data) },
+        token,
+      ).then(r => r.data),
+
+    update: (
+      id: string,
+      data: { title?: string; position?: number; ai_summary?: string | null },
+      token: string,
+    ) =>
+      this.request<{ data: AiSummaryTopic }>(
+        `/ai_summary_topics/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ ai_summary_topic: data }) },
+        token,
+      ).then(r => r.data),
+
+    delete: (id: string, token: string) =>
+      this.request(`/ai_summary_topics/${id}`, { method: 'DELETE' }, token),
+
+    attachReviews: (id: string, reviewIds: string[], token: string) =>
+      this.request<{ data: AiSummaryTopic; attached: number }>(
+        `/ai_summary_topics/${id}/attach_reviews`,
+        { method: 'POST', body: JSON.stringify({ review_ids: reviewIds }) },
+        token,
+      ),
+
+    detachReviews: (id: string, reviewIds: string[], token: string) =>
+      this.request<{ data: AiSummaryTopic; detached: number }>(
+        `/ai_summary_topics/${id}/detach_reviews`,
+        { method: 'POST', body: JSON.stringify({ review_ids: reviewIds }) },
+        token,
+      ),
   }
 
   // ─── Billing ────────────────────────────────────────────────────────────────

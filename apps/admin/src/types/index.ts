@@ -64,6 +64,10 @@ export interface ReviewListParams {
   to?: string
   sort?: string
   direction?: 'asc' | 'desc'
+  // Carousel / Summary admin filter: reviews that have any attached media.
+  // Sent as ILIKE-friendly string ("true") because the API param parser
+  // does string comparison.
+  with_media?: 'true' | undefined
 }
 
 export interface ReviewVariant {
@@ -462,6 +466,42 @@ export interface ApiKey {
   created_at: string
   last_used_at: string | null
   expires_at: string | null
+}
+
+// ─── AI Summary Topics ───────────────────────────────────────────────────────
+
+export interface AiSummaryTopic {
+  id: string
+  product_id: string
+  title: string
+  position: number
+  source: 'manual' | 'ai'
+  review_count: number
+  stars_avg: number | string | null
+  ai_summary: string | null
+  generated_at: string | null
+  created_at: string
+  updated_at: string
+  reviews?: Array<{
+    id: string
+    rating: number
+    title: string | null
+    body: string
+    author_name: string | null
+    created_at: string
+  }>
+}
+
+export interface AiSummaryProductRow {
+  id: string
+  title: string
+  handle: string | null
+  image_url: string | null
+  approved_reviews: number
+  topic_count: number
+  last_generated_at: string | null
+  has_ai_topic: boolean
+  status: 'insufficient' | 'pending' | 'generated'
 }
 
 // ─── Reward Rules & Grants ────────────────────────────────────────────────────
