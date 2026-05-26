@@ -115,7 +115,12 @@ RSpec.describe Api::V1::Wp::LoyaltyController, type: :request do
       first  = LoyaltyConfig.find_by(workspace: workspace, source_campaign_id: 42)
       second = LoyaltyConfig.find_by(workspace: other_ws, source_campaign_id: 42)
 
-      expect(first.base_points).to eq(50)
+      # First push omits base_points (the payload uses the review_tiers
+      # schema), so the legacy column stays at its zero default. The second
+      # workspace's push DOES set base_points=999 — assert both that the
+      # value lands on the second config AND that it doesn't leak back into
+      # the first workspace's row.
+      expect(first.base_points).to  eq(0)
       expect(second.base_points).to eq(999)
     end
   end
