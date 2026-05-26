@@ -1700,4 +1700,251 @@ if (!customElements.get('univer-reviews-summary')) {
   customElements.define('univer-reviews-summary', UniverReviewsSummary)
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// <univer-ai-carousel> — AI-curated horizontal carousel
+// ────────────────────────────────────────────────────────────────────────────
+// Renders "Veja o que estão falando" with the best reviews (media + quality
+// scored server-side). Self-contained, light-DOM-friendly, no external CSS.
+//
+// Attrs:
+//   workspace-id   uuid (required)
+//   product-id     uuid | handle | platform id (required)
+//   api-url        defaults to https://api.univerreviews.com
+//   title          PT-BR default "Veja o que estão falando"
+//   limit          int, capped at 30 (default 15)
+//   theme-color    hex, used on hover/CTA accents
+//   star-color     hex
+//
+// Renders nothing if the endpoint returns zero items, so it's safe to drop
+// onto every product page without conditional logic.
+
+interface CarouselReviewMedia { type: 'image' | 'video'; url: string; thumb_url: string }
+interface CarouselReview {
+  id: string
+  rating: number
+  title: string | null
+  body: string
+  author_name: string | null
+  is_verified_purchase: boolean
+  is_featured: boolean
+  helpful_count: number
+  ai_quality_score: number | null
+  created_at: string
+  media: CarouselReviewMedia[]
+  primary_media: CarouselReviewMedia | null
+  product: {
+    id: string
+    title: string | null
+    handle: string | null
+    image_url: string | null
+  } | null
+}
+
+class UniverAiCarousel extends HTMLElement {
+  private shadow: ShadowRoot
+  private productId = ''
+  private apiUrl = 'https://api.univerreviews.com'
+  private titleText = 'Veja o que estão falando'
+  private limit = 15
+  private themeColor = '#d4a850'
+  private starColor = '#fbbf24'
+  private reviews: CarouselReview[] = []
+  private selected: CarouselReview | null = null
+
+  constructor() {
+    super()
+    this.shadow = this.attachShadow({ mode: 'open' })
+  }
+
+  connectedCallback() {
+    this.productId = this.getAttribute('product-id') || ''
+    this.apiUrl = this.getAttribute('api-url') || this.apiUrl
+    this.titleText = this.getAttribute('title') || this.titleText
+    this.themeColor = this.getAttribute('theme-color') || this.themeColor
+    this.starColor = this.getAttribute('star-color') || this.starColor
+    const lim = parseInt(this.getAttribute('limit') || '', 10)
+    if (lim > 0 && lim <= 30) this.limit = lim
+    if (!this.productId) return
+    void this.fetchAndRender()
+  }
+
+  private async fetchAndRender() {
+    try {
+      const url = `${this.apiUrl}/api/v1/public/ai-carousel/${encodeURIComponent(this.productId)}?limit=${this.limit}`
+      const r = await fetch(url, { headers: { 'X-Univer-Domain': window.location.hostname } })
+      if (!r.ok) return
+      const json = await r.json()
+      this.reviews = Array.isArray(json.data) ? json.data : []
+      if (this.reviews.length === 0) { this.shadow.innerHTML = ''; return }
+      this.render()
+    } catch { /* swallow — fail-quiet on storefront */ }
+  }
+
+  private starsHtml(rating: number): string {
+    const full = Math.round(rating)
+    let html = ''
+    for (let i = 1; i <= 5; i++) {
+      html += `<span class="s${i > full ? ' empty' : ''}">★</span>`
+    }
+    return html
+  }
+
+  private cardHtml(r: CarouselReview, idx: number): string {
+    const media = r.primary_media
+    const isVideo = media?.type === 'video'
+    const thumb = media?.thumb_url || media?.url || (r.product?.image_url ?? '')
+    const verified = r.is_verified_purchase ? '<span class="vbadge" title="Compra verificada">✓</span>' : ''
+    const author = (r.author_name || 'Cliente').split(' ')[0]
+    const snippet = (r.body || '').replace(/\s+/g, ' ').trim().slice(0, 110)
+
+    return `
+<button class="card" data-idx="${idx}" type="button" aria-label="Abrir avaliação de ${author}">
+  <div class="media">
+    ${thumb ? `<img class="thumb" loading="lazy" src="${thumb}" alt="" />` : `<div class="thumb placeholder"></div>`}
+    ${isVideo ? `<div class="play" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="40" height="40"><circle cx="12" cy="12" r="11" fill="rgba(0,0,0,0.55)"/><path d="M10 8l6 4-6 4V8z" fill="#fff"/></svg>
+    </div>` : ''}
+    <div class="rating-pill">
+      <span class="stars">${this.starsHtml(r.rating)}</span>
+    </div>
+  </div>
+  <div class="body">
+    <p class="snippet">${escapeHtml(snippet)}${snippet.length === 110 ? '…' : ''}</p>
+    <div class="meta">
+      <span class="author">${escapeHtml(author)} ${verified}</span>
+    </div>
+  </div>
+</button>`
+  }
+
+  private modalHtml(r: CarouselReview): string {
+    const allMedia = r.media || []
+    const galleryHtml = allMedia.map(m => {
+      if (m.type === 'video') {
+        return `<video class="modal-media" src="${m.url}" controls playsinline preload="metadata" poster="${m.thumb_url || ''}"></video>`
+      }
+      return `<img class="modal-media" src="${m.url}" alt="" loading="lazy" />`
+    }).join('')
+
+    return `
+<div class="modal-backdrop" data-close-modal>
+  <div class="modal" role="dialog" aria-modal="true">
+    <button class="modal-close" type="button" data-close-modal aria-label="Fechar">✕</button>
+    <div class="modal-gallery">${galleryHtml}</div>
+    <div class="modal-body">
+      <div class="modal-stars">${this.starsHtml(r.rating)}</div>
+      ${r.title ? `<h3 class="modal-title">${escapeHtml(r.title)}</h3>` : ''}
+      <p class="modal-text">${escapeHtml(r.body || '').replace(/\n/g, '<br>')}</p>
+      <div class="modal-meta">
+        <strong>${escapeHtml(r.author_name || 'Cliente')}</strong>
+        ${r.is_verified_purchase ? '<span class="vbadge">✓ Compra verificada</span>' : ''}
+        <time>${formatDate(r.created_at)}</time>
+      </div>
+      ${r.product ? `<div class="modal-product">
+        ${r.product.image_url ? `<img src="${r.product.image_url}" alt="" />` : ''}
+        <span>${escapeHtml(r.product.title || '')}</span>
+      </div>` : ''}
+    </div>
+  </div>
+</div>`
+  }
+
+  private render() {
+    const cards = this.reviews.map((r, i) => this.cardHtml(r, i)).join('')
+    const modal = this.selected ? this.modalHtml(this.selected) : ''
+
+    this.shadow.innerHTML = `
+<style>
+  :host { display: block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; margin: 32px 0; }
+  * { box-sizing: border-box; }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 0 0 16px; }
+  h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin: 0; line-height: 1.2; }
+  .count { font-size: 13px; color: #6b7280; }
+
+  .scroller { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 16px; scrollbar-width: thin; }
+  .scroller::-webkit-scrollbar { height: 6px; }
+  .scroller::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 999px; }
+
+  .card { flex: 0 0 220px; scroll-snap-align: start; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 0; overflow: hidden; cursor: pointer; text-align: left; font: inherit; color: inherit; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); border-color: ${this.themeColor}; }
+
+  .media { position: relative; aspect-ratio: 3 / 4; background: #f3f4f6; }
+  .thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb.placeholder { background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); }
+  .play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .rating-pill { position: absolute; left: 8px; bottom: 8px; background: rgba(255,255,255,0.96); border-radius: 999px; padding: 4px 10px; }
+  .stars { color: ${this.starColor}; font-size: 13px; letter-spacing: 1px; }
+  .stars .empty { color: #e5e7eb; }
+
+  .body { padding: 12px 14px 14px; }
+  .snippet { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: #374151; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6b7280; }
+  .author { font-weight: 600; color: #111827; }
+  .vbadge { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; border-radius: 999px; background: #10b981; color: #fff; font-size: 9px; }
+
+  /* Modal */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 2147483646; padding: 16px; }
+  .modal { background: #fff; border-radius: 16px; max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; }
+  .modal-close { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 999px; border: 0; background: rgba(0,0,0,0.7); color: #fff; cursor: pointer; font-size: 14px; z-index: 1; }
+  .modal-gallery { display: flex; flex-direction: column; gap: 4px; background: #000; }
+  .modal-media { width: 100%; max-height: 60vh; object-fit: contain; display: block; }
+  .modal-body { padding: 20px 24px 24px; }
+  .modal-stars { color: ${this.starColor}; letter-spacing: 1px; font-size: 18px; margin: 0 0 8px; }
+  .modal-stars .empty { color: #e5e7eb; }
+  .modal-title { font-size: 18px; font-weight: 700; margin: 0 0 8px; }
+  .modal-text { font-size: 15px; line-height: 1.6; color: #1f2937; margin: 0 0 14px; }
+  .modal-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 13px; color: #6b7280; padding-top: 12px; border-top: 1px solid #f3f4f6; }
+  .modal-meta strong { color: #111827; }
+  .modal-meta .vbadge { width: auto; height: auto; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .modal-product { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #f3f4f6; font-size: 12px; color: #6b7280; }
+  .modal-product img { width: 36px; height: 36px; border-radius: 8px; object-fit: cover; }
+
+  @media (max-width: 640px) {
+    .card { flex-basis: 160px; }
+    h2 { font-size: 18px; }
+    .snippet { -webkit-line-clamp: 2; }
+  }
+</style>
+
+<div class="head">
+  <h2>${escapeHtml(this.titleText)}</h2>
+  <span class="count">${this.reviews.length} avaliações em destaque</span>
+</div>
+<div class="scroller" role="list">${cards}</div>
+${modal}
+`
+
+    this.shadow.querySelectorAll('.card').forEach(el => {
+      el.addEventListener('click', () => {
+        const i = parseInt((el as HTMLElement).dataset.idx || '0', 10)
+        this.selected = this.reviews[i] || null
+        this.render()
+      })
+    })
+
+    if (this.selected) {
+      this.shadow.querySelectorAll('[data-close-modal]').forEach(el => {
+        el.addEventListener('click', (e) => {
+          if (e.target === el) { this.selected = null; this.render() }
+        })
+      })
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') { this.selected = null; this.render(); document.removeEventListener('keydown', onKey) }
+      }
+      document.addEventListener('keydown', onKey)
+    }
+  }
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso)
+    return d.toLocaleDateString('pt-BR', { year: 'numeric', month: 'short', day: 'numeric' })
+  } catch { return '' }
+}
+
+if (!customElements.get('univer-ai-carousel')) {
+  customElements.define('univer-ai-carousel', UniverAiCarousel)
+}
+
 export {}

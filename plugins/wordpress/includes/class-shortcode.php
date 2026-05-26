@@ -19,6 +19,7 @@ class Univer_Shortcode {
         add_shortcode( 'univer_reviews_summary',  [ $this, 'render_summary' ] );
         add_shortcode( 'univer_qa',               [ $this, 'render_qa' ] );
         add_shortcode( 'univer_rating',           [ $this, 'render_rating' ] );
+        add_shortcode( 'univer_ai_carousel',      [ $this, 'render_ai_carousel' ] );
 
         // Also support Gutenberg block as a classic shortcode wrapper
         add_action( 'init', [ $this, 'register_block' ] );
@@ -398,6 +399,68 @@ class Univer_Shortcode {
             esc_attr( $product_id ),
             esc_url( $atts['api_url'] ),
             esc_attr( sanitize_hex_color( $atts['theme_color'] ) ?: '#d4a850' )
+        );
+    }
+
+    /**
+     * [univer_ai_carousel] — "Veja o que estão falando" media-first carousel.
+     *
+     * Renders <univer-ai-carousel> which fetches the AI-scored best reviews
+     * (video > photo > quality text) from /public/ai-carousel/:product_id and
+     * displays them as horizontal-scroll cards. Click opens a modal with the
+     * full review + media gallery.
+     *
+     * Attributes:
+     *   product_id     UUID, handle/slug, or platform_product_id (defaults to current WC product)
+     *   workspace_id   workspace UUID (defaults to plugin settings)
+     *   api_url        override SaaS base URL (defaults to plugin settings)
+     *   title          section heading (default "Veja o que estão falando")
+     *   limit          number of cards (default 15, max 30)
+     *   theme_color    hex used on hover accents (defaults to widget theme color)
+     *   star_color     hex for rating stars (defaults to widget star color)
+     *   class          extra CSS class
+     */
+    public function render_ai_carousel( array|string $atts, ?string $content = null ): string {
+        $atts = shortcode_atts(
+            [
+                'product_id'   => '',
+                'workspace_id' => get_option( 'univer_workspace_id', '' ),
+                'api_url'      => get_option( 'univer_api_url', UNIVER_API_URL ),
+                'title'        => 'Veja o que estão falando',
+                'limit'        => '15',
+                'theme_color'  => get_option( 'univer_widget_theme_color', '#d4a850' ),
+                'star_color'   => get_option( 'univer_widget_star_color', '#fbbf24' ),
+                'class'        => '',
+            ],
+            $atts,
+            'univer_ai_carousel'
+        );
+
+        $product_id = sanitize_text_field( $atts['product_id'] );
+        if ( empty( $product_id ) ) {
+            $product_id = $this->get_current_product_id();
+        }
+        $workspace_id = sanitize_text_field( $atts['workspace_id'] );
+        $api_url      = esc_url_raw( $atts['api_url'] );
+
+        if ( empty( $product_id ) || empty( $workspace_id ) || empty( $api_url ) ) {
+            return '';
+        }
+
+        $this->ensure_widget_enqueued();
+
+        $limit = max( 1, min( 30, (int) $atts['limit'] ) );
+
+        return sprintf(
+            '<div class="univer-ai-carousel-wrapper %s"><univer-ai-carousel workspace-id="%s" product-id="%s" api-url="%s" title="%s" limit="%d" theme-color="%s" star-color="%s"></univer-ai-carousel></div>',
+            esc_attr( sanitize_html_class( $atts['class'] ) ),
+            esc_attr( $workspace_id ),
+            esc_attr( $product_id ),
+            esc_url( $api_url ),
+            esc_attr( $atts['title'] ),
+            $limit,
+            esc_attr( sanitize_hex_color( $atts['theme_color'] ) ?: '#d4a850' ),
+            esc_attr( sanitize_hex_color( $atts['star_color'] ) ?: '#fbbf24' )
         );
     }
 

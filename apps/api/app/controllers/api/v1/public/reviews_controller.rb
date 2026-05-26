@@ -96,6 +96,64 @@ module Api
           render json: { error: "not_found" }, status: :not_found
         end
 
+        # GET /api/v1/public/ai-carousel/:product_id
+        # AI-curated review carousel ("Veja o que estão falando"). Prioritises
+        # reviews with video, then photo, then high-quality text — aggregating
+        # across ProductGroup members so a variation widget shows the line's
+        # best moments rather than just the SKU's local pool.
+        #
+        # Scoring (deterministic, no LLM call at request time — relies on
+        # ai_quality_score pre-computed by AiModerateJob):
+        #
+        #   video     → +1000
+        #   photo     → + 500
+        #   quality   → +ai_quality_score (0..100)
+        #   helpful   → +helpful_count * 10
+        #   rating==5 → +100, else rating * 20
+        #   verified  → + 50
+        #   featured  → +200  (manual editorial flag)
+        #   body>140  → + 40
+        #   recency   → −0.5 * days_old   (mild penalty, max ~180)
+        #
+        # When fewer than `limit` reviews carry media, we top up with rating>=4
+        # text reviews so the carousel never renders nearly empty.
+        def ai_carousel
+          product = resolve_product(params[:product_id])
+          raise ActiveRecord::RecordNotFound unless product
+
+          limit = [(params[:limit] || 15).to_i, 30].min
+
+          base = @workspace.reviews.approved
+                           .where(product_id: product.review_scope_product_ids)
+                           .includes(:review_media, :product)
+
+          # Phase 1: media-bearing reviews scored.
+          media_scope = base.where(id: base.joins(:review_media).select("reviews.id"))
+          scored = score_reviews(media_scope.to_a)
+
+          # Phase 2: top up with quality text reviews if needed.
+          if scored.size < limit
+            text_scope = base.where.not(id: scored.map(&:id))
+                             .where("rating >= ?", 4)
+            scored += score_reviews(text_scope.to_a)
+          end
+
+          top = scored.sort_by { |r| -r._carousel_score }.first(limit)
+
+          render json: {
+            data: top.map { |r| ai_carousel_serialize(r) },
+            meta: {
+              total: top.length,
+              limit: limit,
+              product_id: product.id,
+              product_group_id: product.product_group_id,
+              has_video: top.any? { |r| r.review_media.any? { |m| m.type == "video" } },
+            },
+          }
+        rescue ActiveRecord::RecordNotFound
+          render json: { error: "not_found" }, status: :not_found
+        end
+
         # GET /api/v1/public/featured
         # Workspace-wide featured reviews (no product scoping). Used by the
         # [univer_featured_reviews] shortcode for landing-page social proof.
@@ -250,6 +308,65 @@ module Api
         end
 
         private
+
+        # Apply the deterministic carousel score described on #ai_carousel.
+        # Decorates each review with a `_carousel_score` attr (not persisted)
+        # for use by the sort step.
+        def score_reviews(reviews)
+          now = Time.current
+          reviews.each do |r|
+            has_video = r.review_media.any? { |m| m.type == "video" }
+            has_photo = r.review_media.any? { |m| m.type == "image" }
+            body_long = r.body.to_s.length > 140
+            days_old  = ((now - r.created_at) / 86_400.0)
+            score  = 0
+            score += 1000 if has_video
+            score += 500  if has_photo
+            score += (r.ai_quality_score || 0).to_i
+            score += (r.helpful_count || 0).to_i * 10
+            score += r.rating == 5 ? 100 : r.rating.to_i * 20
+            score += 50  if r.is_verified_purchase
+            score += 200 if r.is_featured
+            score += 40  if body_long
+            score -= [(days_old * 0.5), 180].min
+            r.instance_variable_set(:@_carousel_score, score)
+            r.define_singleton_method(:_carousel_score) { @_carousel_score }
+          end
+          reviews
+        end
+
+        # Carousel-specific serializer. Same shape as public_serialize but
+        # adds `product` (handle/image/url) so cards can deep-link, and
+        # marks the dominant media so the frontend can pick thumbnail vs
+        # video preview without a second pass.
+        def ai_carousel_serialize(review)
+          media = review.review_media.map do |m|
+            { type: m.type, url: m.url, thumb_url: m.thumb_url }
+          end
+          primary_video = media.find { |m| m[:type] == "video" }
+          primary_image = media.find { |m| m[:type] == "image" }
+
+          {
+            id: review.id,
+            rating: review.rating,
+            title: review.title,
+            body: review.body,
+            author_name: review.author_name,
+            is_verified_purchase: review.is_verified_purchase,
+            is_featured: review.is_featured,
+            helpful_count: review.helpful_count.to_i,
+            ai_quality_score: review.ai_quality_score,
+            created_at: review.created_at&.iso8601,
+            media: media,
+            primary_media: primary_video || primary_image,
+            product: review.product && {
+              id: review.product.id,
+              title: review.product.title,
+              handle: review.product.handle,
+              image_url: review.product.image_url,
+            },
+          }
+        end
 
         # Persist uploaded photos / videos onto MinIO via StorageService and
         # link them to the just-created review. Hardened against the previous
