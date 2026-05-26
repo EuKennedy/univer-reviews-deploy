@@ -175,12 +175,13 @@ export default function IntegrationsPage() {
                   Não encontrou sua plataforma? Lançamos integrações rápido. Entre em
                   contato e vamos priorizar conforme a demanda.
                 </p>
-                <button
-                  className="mt-3 text-xs font-medium transition-colors"
+                <a
+                  href="mailto:integrations@univerreviews.com?subject=Solicita%C3%A7%C3%A3o%20de%20integra%C3%A7%C3%A3o&body=Olá%2C%20gostaria%20de%20solicitar%20a%20integra%C3%A7%C3%A3o%20com%3A%20%5Bplataforma%5D"
+                  className="mt-3 inline-block text-xs font-medium transition-colors"
                   style={{ color: 'var(--ur-accent)' }}
                 >
                   Solicitar integração →
-                </button>
+                </a>
               </div>
             </div>
           </div>

@@ -463,3 +463,49 @@ export interface ApiKey {
   last_used_at: string | null
   expires_at: string | null
 }
+
+// ─── Reward Rules & Grants ────────────────────────────────────────────────────
+// Backed by Rails models RewardRule + RewardGrant. Fields mirror the
+// permit-list in apps/api/app/controllers/api/v1/reward_rules_controller.rb.
+
+export type RewardType = 'coupon' | 'points' | 'cashback' | 'gift'
+export type RewardTriggerEvent = 'review_approved' | 'review_with_photo' | 'review_with_video' | 'review_long'
+
+export interface RewardRule {
+  id: string
+  name: string
+  active: boolean
+  trigger_event: RewardTriggerEvent
+  min_body_length: number | null
+  require_purchase: boolean
+  reward_type: RewardType
+  reward_amount: number | null
+  reward_currency: string | null
+  coupon_template: string | null
+  bonus_with_photo_pct: number | null
+  bonus_with_video_pct: number | null
+  bonus_long_review_pct: number | null
+  max_per_customer_per_product: number | null
+  max_per_customer_per_month: number | null
+  max_total_grants: number | null
+  starts_at: string | null
+  ends_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type RewardRulePayload = Partial<Omit<RewardRule, 'id' | 'created_at' | 'updated_at'>>
+
+export interface RewardGrant {
+  id: string
+  rule_id: string
+  review_id: string | null
+  customer_email: string | null
+  customer_name: string | null
+  status: 'issued' | 'redeemed' | 'revoked' | 'expired'
+  coupon_code: string | null
+  amount: number | null
+  currency: string | null
+  created_at: string
+  redeemed_at: string | null
+}

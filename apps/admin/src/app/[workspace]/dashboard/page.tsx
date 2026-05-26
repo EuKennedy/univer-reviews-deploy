@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const params = useParams()
   const workspace = params?.workspace as string
   const { getToken } = useAuth()
+  const queryClient = useQueryClient()
 
   const { data: stats, isLoading } = useQuery<WorkspaceStats>({
     queryKey: ['workspace-stats', workspace],
@@ -73,6 +74,62 @@ export default function DashboardPage() {
         getToken()
       ),
   })
+
+  // ── Real action wires ──────────────────────────────────────────────────────
+  // Each dashboard "quick action" maps to a real API endpoint. Mutations show
+  // a toast + invalidate the relevant cache so the dashboard refreshes once
+  // the underlying job lands.
+
+  const moderatePendingMut = useMutation({
+    mutationFn: () => api.ai.moderatePending(getToken()),
+    onSuccess: (r) => {
+      toast.success(`Moderação enfileirada para ${r.queued} avaliação(ões) pendente(s).`)
+      void queryClient.invalidateQueries({ queryKey: ['workspace-stats', workspace] })
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : 'Falha ao enfileirar moderação'),
+  })
+
+  const cleanupDupesMut = useMutation({
+    // Empty cluster_ids = "all known duplicate clusters" on the backend side.
+    mutationFn: () => api.ai.cleanupDuplicates([], getToken()),
+    onSuccess: () => {
+      toast.success('Limpeza de duplicatas iniciada — rodando em background.')
+      void queryClient.invalidateQueries({ queryKey: ['workspace-stats', workspace] })
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : 'Falha ao iniciar limpeza'),
+  })
+
+  const syncWooMut = useMutation({
+    mutationFn: async () => {
+      await api.integrations.woocommerce.syncProducts(getToken())
+      return api.integrations.woocommerce.syncReviews(getToken())
+    },
+    onSuccess: () => {
+      toast.success('Sincronização WooCommerce iniciada — produtos e reviews em fila.')
+      void queryClient.invalidateQueries({ queryKey: ['workspace-stats', workspace] })
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : 'Falha ao sincronizar — confira a integração WooCommerce'),
+  })
+
+  const exportCsv = async () => {
+    try {
+      toast.info('Gerando CSV…')
+      const blob = await api.reviews.exportCsv({}, getToken())
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `avaliacoes-${workspace}-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha ao exportar CSV')
+    }
+  }
 
   const statItems = [
     {
@@ -116,8 +173,9 @@ export default function DashboardPage() {
         actions={
           <div className="flex items-center gap-2">
             <button
-              onClick={() => toast.info('Executando moderação…')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+              onClick={() => moderatePendingMut.mutate()}
+              disabled={moderatePendingMut.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 disabled:opacity-50"
               style={{
                 background: 'var(--ur-accent-soft)',
                 border: '1px solid var(--ur-accent-soft-3)',
@@ -125,11 +183,12 @@ export default function DashboardPage() {
               }}
             >
               <Zap className="w-3.5 h-3.5" />
-              Moderar pendentes
+              {moderatePendingMut.isPending ? 'Enfileirando…' : 'Moderar pendentes'}
             </button>
             <button
-              onClick={() => toast.info('Executando limpeza de duplicatas…')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+              onClick={() => cleanupDupesMut.mutate()}
+              disabled={cleanupDupesMut.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 disabled:opacity-50"
               style={{
                 background: 'var(--ur-bg)',
                 border: '1px solid var(--ur-border)',
@@ -137,7 +196,7 @@ export default function DashboardPage() {
               }}
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Executar limpeza
+              {cleanupDupesMut.isPending ? 'Iniciando…' : 'Executar limpeza'}
             </button>
           </div>
         }
@@ -357,31 +416,36 @@ export default function DashboardPage() {
                 label: 'Moderar todas as pendentes',
                 desc: 'Executar moderação por IA em avaliações pendentes',
                 icon: '⚡',
-                action: () => toast.info('Moderando…'),
+                action: () => moderatePendingMut.mutate(),
+                disabled: moderatePendingMut.isPending,
               },
               {
                 label: 'Limpar duplicatas',
                 desc: 'Encontrar e remover avaliações duplicadas',
                 icon: '🧹',
-                action: () => toast.info('Executando limpeza…'),
+                action: () => cleanupDupesMut.mutate(),
+                disabled: cleanupDupesMut.isPending,
               },
               {
                 label: 'Exportar avaliações',
                 desc: 'Baixar CSV com todas as avaliações',
                 icon: '📥',
-                action: () => toast.info('Preparando exportação…'),
+                action: () => void exportCsv(),
+                disabled: false,
               },
               {
                 label: 'Sincronizar WooCommerce',
                 desc: 'Importar últimos produtos e avaliações',
                 icon: '🔄',
-                action: () => toast.info('Sincronizando…'),
+                action: () => syncWooMut.mutate(),
+                disabled: syncWooMut.isPending,
               },
             ].map((qa) => (
               <button
                 key={qa.label}
                 onClick={qa.action}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150"
+                disabled={qa.disabled}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-150 disabled:opacity-50"
                 style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-surface-soft)' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = 'var(--ur-accent-soft-3)'

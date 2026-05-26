@@ -26,14 +26,22 @@ import type { DuplicateCluster } from '@/types'
 
 function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
   const [expanded, setExpanded] = useState(false)
-  const [rewriting, setRewriting] = useState(false)
+  const { getToken } = useAuth()
+  const queryClient = useQueryClient()
 
-  const handleRewrite = async () => {
-    setRewriting(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    setRewriting(false)
-    toast.success('Cluster reescrito com IA')
-  }
+  const cleanupMut = useMutation({
+    mutationFn: () => api.ai.cleanupDuplicates([cluster.id], getToken()),
+    onSuccess: () => {
+      toast.success('Limpeza enfileirada — duplicatas removidas em background.')
+      void queryClient.invalidateQueries({ queryKey: ['duplicates'] })
+      void queryClient.invalidateQueries({ queryKey: ['duplicate-clusters'] })
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : 'Falha ao limpar cluster'),
+  })
+
+  const rewriting = cleanupMut.isPending
+  const handleRewrite = () => cleanupMut.mutate()
 
   return (
     <motion.div
@@ -102,9 +110,9 @@ function ClusterCard({ cluster }: { cluster: DuplicateCluster }) {
             {rewriting ? (
               <Loader2 className="w-3 h-3 animate-spin" />
             ) : (
-              <Sparkles className="w-3 h-3" />
+              <Trash2 className="w-3 h-3" />
             )}
-            Reescrever
+            Limpar duplicatas
           </button>
 
           {expanded ? (

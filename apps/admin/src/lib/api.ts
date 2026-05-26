@@ -28,6 +28,9 @@ import type {
   QuestionStatus,
   QuestionGroup,
   ProductGroup,
+  RewardRule,
+  RewardRulePayload,
+  RewardGrant,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -195,6 +198,18 @@ class ApiClient {
         { method: 'POST', body: JSON.stringify({ review_id: reviewId }) },
         token
       ).then(r => r.data),
+
+    /**
+     * Enqueue AiModerateJob for every pending review in the workspace
+     * (capped server-side at 500). Returns the number queued so the UI can
+     * show "Moderação iniciada para N avaliações pendentes".
+     */
+    moderatePending: (token: string) =>
+      this.request<{ queued: number; message: string }>(
+        '/ai/moderate-pending',
+        { method: 'POST' },
+        token,
+      ),
 
     /**
      * Generate variants seeded by an existing review's body. The backend
@@ -783,6 +798,79 @@ class ApiClient {
           plugin_connected: boolean
         }
       }>('/loyalty', {}, token),
+  }
+
+  // ─── Billing ────────────────────────────────────────────────────────────────
+  // Stripe-backed plan management. `createCheckout` returns a checkout URL the
+  // UI should `window.location` to. `portal` returns a Stripe Billing Portal
+  // URL where the merchant manages payment method / cancels / downloads invoices.
+  billing = {
+    get: (token: string) =>
+      this.request<{
+        data: {
+          plan: 'free' | 'starter' | 'pro' | 'enterprise'
+          status: string
+          current_period_end: string | null
+          cancel_at_period_end: boolean
+          stripe_customer_id: string | null
+        }
+      }>('/billing', {}, token),
+
+    createCheckout: (plan: 'starter' | 'pro' | 'enterprise', token: string) =>
+      this.request<{ data: { url: string } }>(
+        '/billing/create_checkout',
+        { method: 'POST', body: JSON.stringify({ plan }) },
+        token,
+      ).then(r => r.data),
+
+    portal: (token: string) =>
+      this.request<{ data: { url: string } }>(
+        '/billing/portal',
+        { method: 'POST' },
+        token,
+      ).then(r => r.data),
+  }
+
+  // ─── Reward rules ──────────────────────────────────────────────────────────
+  // Merchants define what earns a reward (e.g. "review with photo") and what
+  // gets granted (coupon / cashback / points / gift).
+  rewardRules = {
+    list: (params: { page?: number; per_page?: number } = {}, token: string) =>
+      this.request<{ data: RewardRule[] }>(
+        '/reward_rules',
+        { params: params as Record<string, string | number | boolean | undefined> },
+        token,
+      ),
+    get: (id: string, token: string) =>
+      this.request<{ data: RewardRule }>(`/reward_rules/${id}`, {}, token).then(r => r.data),
+    create: (data: RewardRulePayload, token: string) =>
+      this.request<{ data: RewardRule }>(
+        '/reward_rules',
+        { method: 'POST', body: JSON.stringify({ reward_rule: data }) },
+        token,
+      ).then(r => r.data),
+    update: (id: string, data: Partial<RewardRulePayload>, token: string) =>
+      this.request<{ data: RewardRule }>(
+        `/reward_rules/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ reward_rule: data }) },
+        token,
+      ).then(r => r.data),
+    delete: (id: string, token: string) =>
+      this.request(`/reward_rules/${id}`, { method: 'DELETE' }, token),
+  }
+
+  // ─── Reward grants ─────────────────────────────────────────────────────────
+  // Read-only ledger of what was actually issued — coupon codes, points
+  // credited, cashback amounts.
+  rewardGrants = {
+    list: (params: { page?: number; per_page?: number; rule_id?: string } = {}, token: string) =>
+      this.request<PaginatedResponse<RewardGrant>>(
+        '/reward_grants',
+        { params: params as Record<string, string | number | boolean | undefined> },
+        token,
+      ),
+    get: (id: string, token: string) =>
+      this.request<{ data: RewardGrant }>(`/reward_grants/${id}`, {}, token).then(r => r.data),
   }
 }
 

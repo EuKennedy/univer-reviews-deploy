@@ -438,6 +438,10 @@ function OverviewTab({ campaign }: { campaign: Campaign }) {
 // ─── Template ────────────────────────────────────────────────────────────────
 
 function TemplateTab({ campaign }: { campaign: Campaign }) {
+  const router = useRouter()
+  const params = useParams()
+  const workspace = params?.workspace as string
+
   return (
     <div className="space-y-4 max-w-3xl">
       <div
@@ -450,10 +454,10 @@ function TemplateTab({ campaign }: { campaign: Campaign }) {
         <div className="flex items-center justify-between mb-3">
           <h3 className="ur-h3">Template</h3>
           <ActionButton
-            onClick={() => toast.info('Editor inline em breve — use Nova campanha por enquanto.')}
+            onClick={() => router.push(`/${workspace}/campaigns/new?clone=${campaign.id}`)}
           >
             <Pencil className="w-3.5 h-3.5" />
-            Editar
+            Duplicar e editar
           </ActionButton>
         </div>
 

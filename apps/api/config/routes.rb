@@ -38,6 +38,7 @@ Rails.application.routes.draw do
       namespace :ai do
         get  :health
         post :moderate
+        post "moderate-pending", action: :moderate_pending
         post :generate
         post "generate-variants",     action: :generate_variants
         post "bulk-create-reviews",       action: :bulk_create_reviews

@@ -382,6 +382,23 @@ module Api
         render json: { message: "Dedup job queued", review_id: review.id }
       end
 
+      # POST /api/v1/ai/moderate-pending
+      # Enqueue AiModerateJob for every review still in `pending` status in
+      # the current workspace. Caps to MAX_BULK_MODERATE per call so a single
+      # click can't flood Sidekiq.
+      def moderate_pending
+        require_write!
+
+        cap = 500
+        ids = current_workspace.reviews.where(status: "pending").limit(cap).pluck(:id)
+        ids.each { |id| AiModerateJob.perform_later(id) }
+
+        render json: {
+          message: "Moderation queued for #{ids.length} pending review(s).",
+          queued:  ids.length,
+        }
+      end
+
       # POST /api/v1/ai/cleanup-duplicates
       def cleanup_duplicates
         require_write!
