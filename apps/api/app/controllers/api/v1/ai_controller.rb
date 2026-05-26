@@ -383,12 +383,48 @@ module Api
       end
 
       # POST /api/v1/ai/generate-summary-topics
-      # Body: { product_id }
+      # Body: { product_id, async? }
+      #
+      # Runs INLINE by default (~15-20 s response time but the merchant sees
+      # results immediately, which is the right UX for a single-product
+      # action). Pass `async=true` to fall back to Sidekiq enqueue when the
+      # caller doesn't want to block (e.g. a future "warm up the cache"
+      # cron). Bulk extraction uses the dedicated bulk endpoint that always
+      # enqueues, because blocking on 40+ Claude calls in one request is
+      # never acceptable.
       def generate_summary_topics
         require_write!
         product = current_workspace.products.find(params.require(:product_id))
-        AiGenerateSummaryTopicsJob.perform_later(product.id)
-        render json: { message: "Summary topic extraction queued", product_id: product.id }
+
+        if ActiveModel::Type::Boolean.new.cast(params[:async])
+          AiGenerateSummaryTopicsJob.perform_later(product.id)
+          render json: { message: "Summary topic extraction queued", product_id: product.id }
+          return
+        end
+
+        begin
+          AiGenerateSummaryTopicsJob.new.perform(product.id)
+        rescue Ai::BaseService::MissingApiKeyError => e
+          render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
+          return
+        end
+
+        topics = current_workspace.ai_summary_topics
+                                  .where(product_id: product.id)
+                                  .ordered
+                                  .includes(:reviews)
+
+        render json: {
+          message: "Summary topics generated",
+          product_id: product.id,
+          count: topics.length,
+          data: topics.map { |t| {
+            id: t.id, title: t.title, source: t.source,
+            review_count: t.review_count, stars_avg: t.stars_avg,
+            ai_summary: t.ai_summary, generated_at: t.generated_at&.iso8601,
+            position: t.position,
+          } },
+        }
       end
 
       # POST /api/v1/ai/generate-summary-topics-bulk

@@ -78,8 +78,17 @@ export default function AiSummaryEditPage() {
   const generateMut = useMutation({
     mutationFn: () => api.ai.generateSummaryTopics(productId, getToken()),
     onMutate: () => setGenerating(true),
-    onSuccess: () => {
-      toast.success('Geração com IA iniciada — tópicos aparecem em ~30s.')
+    onSuccess: (r) => {
+      // The endpoint now runs the Claude call inline by default, so the
+      // response already contains the topics. Drop the skeleton immediately
+      // instead of waiting on the next poll.
+      const count = (r as { count?: number } | undefined)?.count ?? 0
+      if (count > 0) {
+        toast.success(`${count} ${count === 1 ? 'tópico criado' : 'tópicos criados'}!`)
+      } else {
+        toast.success('Geração concluída.')
+      }
+      setGenerating(false)
       void inv()
     },
     onError: (e: unknown) => {
@@ -87,6 +96,19 @@ export default function AiSummaryEditPage() {
       toast.error(e instanceof Error ? e.message : 'Falha ao gerar')
     },
   })
+
+  // Hard timeout — never let the skeleton spin forever if something
+  // upstream is wedged (Sidekiq with stale code, Claude rate-limited, etc.)
+  useEffect(() => {
+    if (!generating) return
+    const t = setTimeout(() => {
+      if (generating) {
+        setGenerating(false)
+        toast.error('Geração demorou mais que o esperado. Tente novamente — se persistir, abra um chamado.')
+      }
+    }, 90_000)
+    return () => clearTimeout(t)
+  }, [generating])
 
   const createMut = useMutation({
     mutationFn: (title: string) => api.aiSummaryTopics.create({ product_id: productId, title }, getToken()),
