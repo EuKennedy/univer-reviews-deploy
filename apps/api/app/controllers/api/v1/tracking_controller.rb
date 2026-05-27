@@ -31,16 +31,18 @@ module Api
         end
 
         mark_click(send_id)
+        # Email click-tracker. `url` is the legitimate destination the
+        # merchant put in their campaign email; tracker exists *because*
+        # we redirect to it. Incoming param is base64-encoded + only
+        # decoded after `decode_signed(params[:s])` succeeds (so the
+        # click came off a valid signed envelope we minted at send
+        # time), `decode_url` enforces http/https + non-blank host, and
+        # the encoded URL itself was built server-side at send time —
+        # never user-suppliable. `allow_other_host: true` is required by
+        # design (campaigns link to merchant + 3rd-party URLs). The
+        # `nosemgrep` MUST stay on the line immediately above the
+        # offending statement — Semgrep only honours adjacent comments.
         # nosemgrep: ruby.rails.security.audit.xss.avoid-redirect.avoid-redirect
-        #
-        # This is an email click-tracker. `url` is the legitimate
-        # destination the merchant included in their campaign email, and
-        # the tracker exists *because* we need to redirect to it. The
-        # incoming param is base64 + signed-by-context (clicks only fire
-        # off a valid signed `s`), `decode_url` enforces http/https +
-        # non-blank host, and the encoded URL is built server-side at
-        # send time — never user-suppliable. `allow_other_host: true`
-        # is required by design (every campaign sends to merchant URLs).
         redirect_to url, allow_other_host: true, status: :found
       end
 

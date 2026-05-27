@@ -124,6 +124,14 @@ jobs:
         #   • avoid-redirect on tracking_controller: documented
         #     `nosemgrep:` annotation in source plus a paragraph
         #     explaining the email-click-tracker contract.
+        #   • check-unscoped-find: matches every
+        #     `Model.where(workspace_id:).find(params[:id])` in the
+        #     codebase, which is the canonical Rails+RLS scoping we
+        #     use everywhere. The rule looks for `find(params[...])`
+        #     on a *model class* — it doesn't model the `.where` chain
+        #     that scopes the lookup first. Excluding globally;
+        #     Brakeman + the rls_cross_tenant_spec.rb suite cover the
+        #     real "did you scope this query?" question better.
         run: |
           semgrep scan \
             --config p/typescript \
@@ -136,6 +144,7 @@ jobs:
             --exclude .turbo \
             --exclude-rule javascript.express.security.injection.raw-html-format.raw-html-format \
             --exclude-rule php.lang.security.injection.echoed-request.echoed-request \
+            --exclude-rule ruby.rails.security.brakeman.check-unscoped-find.check-unscoped-find \
             --error
 
   # ─── API ────────────────────────────────────────────────────────────────────
@@ -204,18 +213,18 @@ jobs:
         working-directory: apps/api
         run: bundle exec rails db:migrate
 
-      - name: Migration reversibility (CI_FULL only — slow)
-        # Triggered when the commit message contains `[full ci]` or when
-        # running on main. PR feedback stays fast; nightly + release
-        # candidates exercise rollback/redo.
-        working-directory: apps/api
-        if: contains(github.event.head_commit.message, '[full ci]') || github.ref == 'refs/heads/main'
-        env:
-          CI_FULL: "1"
-        run: bundle exec rspec spec/db/migration_reversibility_spec.rb --format documentation
-
       - name: RSpec (no --fail-fast — surface every regression in one pass)
         working-directory: apps/api
+        # When the commit lands on main OR carries a `[full ci]` marker,
+        # we flip CI_FULL=1 so the heavy migration-reversibility spec
+        # runs as part of the regular suite. Running it as a separate
+        # `rspec spec/db/...` step earlier would fragment SimpleCov's
+        # coverage report (each `rspec` invocation writes its own .resultset
+        # which the next invocation overwrites) → final coverage shows 0%
+        # and SimpleCov.minimum_coverage trips the floor. One invocation,
+        # one coverage report.
+        env:
+          CI_FULL: ${{ (contains(github.event.head_commit.message, '[full ci]') || github.ref == 'refs/heads/main') && '1' || '' }}
         run: bundle exec rspec --format documentation --profile 10
 
       - name: Upload coverage HTML report
