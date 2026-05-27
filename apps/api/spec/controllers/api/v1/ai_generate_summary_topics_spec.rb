@@ -64,17 +64,27 @@ RSpec.describe "POST /api/v1/ai/generate-summary-topics", type: :request do
   end
 
   describe "mode=append" do
-    let!(:review) { create(:review, :approved, workspace: workspace, product: product, body: "Embalagem caprichada e segura", rating: 5) }
+    let!(:review) do
+      create(:review, :approved,
+             workspace: workspace,
+             product:   product,
+             body:      "Embalagem chegou bem caprichada, sem nenhum amassado.",
+             rating:    5)
+    end
 
     it "adds 1 topic and passes existing AI titles as exclude_titles" do
       existing = create(:ai_summary_topic, :ai, workspace: workspace, product: product, title: "Brilho marcante", position: 0)
 
-      service = stub_service_call([
-        { title: "Embalagem caprichada", ai_summary: "Clientes elogiam apresentação.", review_ids: [review.id] },
-      ])
+      # instance_double doesn't support `and_call_original`. Re-stub :call
+      # with the exact argument matcher we want to assert, returning the
+      # canned payload directly. `expect(...).to receive` overrides the
+      # earlier `allow(...).to receive` in `stub_service_call`.
+      service = stub_service_call([])
       expect(service).to receive(:call)
         .with(product, max_topics: 1, exclude_titles: ["Brilho marcante"])
-        .and_call_original
+        .and_return([
+          { title: "Embalagem caprichada", ai_summary: "Clientes elogiam apresentação.", review_ids: [review.id] },
+        ])
 
       post "/api/v1/ai/generate-summary-topics",
            params: { product_id: product.id, mode: "append" }.to_json,
@@ -110,11 +120,16 @@ RSpec.describe "POST /api/v1/ai/generate-summary-topics", type: :request do
   end
 
   describe "missing api key" do
-    let!(:review) { create(:review, :approved, workspace: workspace, product: product, body: "Bom", rating: 5) }
+    around do |example|
+      original = ENV["ANTHROPIC_API_KEY"]
+      ENV["ANTHROPIC_API_KEY"] = ""
+      example.run
+    ensure
+      ENV["ANTHROPIC_API_KEY"] = original
+    end
 
-    it "returns 503 missing_api_key" do
-      allow(Ai::SummaryTopicsService).to receive(:new)
-        .and_raise(Ai::BaseService::MissingApiKeyError, "ANTHROPIC_API_KEY not configured")
+    it "returns 503 missing_api_key without invoking the service" do
+      expect(Ai::SummaryTopicsService).not_to receive(:new)
 
       post "/api/v1/ai/generate-summary-topics",
            params: { product_id: product.id }.to_json,
@@ -122,6 +137,16 @@ RSpec.describe "POST /api/v1/ai/generate-summary-topics", type: :request do
 
       expect(response).to have_http_status(:service_unavailable)
       expect(JSON.parse(response.body)["error"]).to eq("missing_api_key")
+    end
+
+    it "returns 503 missing_api_key when the env var is set to the placeholder" do
+      ENV["ANTHROPIC_API_KEY"] = "SET_ME_LATER"
+
+      post "/api/v1/ai/generate-summary-topics",
+           params: { product_id: product.id }.to_json,
+           headers: headers
+
+      expect(response).to have_http_status(:service_unavailable)
     end
   end
 end

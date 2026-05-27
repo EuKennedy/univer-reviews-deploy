@@ -16,14 +16,25 @@ module Ai
       review.update_column(:embedding, embedding)
     end
 
-    # Find potential duplicate cluster for a review using pgvector cosine similarity
+    # Find potential duplicate cluster for a review using pgvector cosine
+    # similarity. The embedding is parameter-bound (no string interpolation
+    # into SQL) so Brakeman + a hostile reviewer can both confirm there's
+    # no injection surface. `threshold` is coerced to Float and clamped
+    # before being interpolated as a literal numeric — pgvector's `<=>`
+    # operator returns a Double so the comparison stays type-safe.
     def find_duplicates(review, threshold: SIMILARITY_THRESHOLD)
       return [] unless review.embedding.present?
+
+      safe_threshold = threshold.to_f.clamp(0.0, 1.0)
 
       review.nearest_neighbors(:embedding, distance: "cosine")
             .where(workspace_id: @workspace.id)
             .where.not(id: review.id)
-            .where("1 - (embedding <=> '#{format_embedding(review.embedding)}') > #{threshold}")
+            .where(
+              "1 - (embedding <=> ?::vector) > ?",
+              format_embedding(review.embedding),
+              safe_threshold,
+            )
             .limit(20)
     end
 

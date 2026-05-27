@@ -401,6 +401,19 @@ module Api
         require_write!
         product = current_workspace.products.find(params.require(:product_id))
 
+        # Pre-flight ANTHROPIC_API_KEY check. The job-level rescue swallows
+        # the same error (correct behaviour for async Sidekiq retries), so
+        # without this guard the merchant would get a 200 with no topics
+        # and never learn the API key is missing.
+        key = ENV["ANTHROPIC_API_KEY"].to_s
+        if key.blank? || key == "SET_ME_LATER"
+          render json: {
+            error:   "missing_api_key",
+            message: "ANTHROPIC_API_KEY not configured",
+          }, status: :service_unavailable
+          return
+        end
+
         mode = params[:mode].to_s == "append" ? :append : :replace
 
         if mode == :append
@@ -425,6 +438,9 @@ module Api
         begin
           AiGenerateSummaryTopicsJob.new.perform(product.id, mode: mode)
         rescue Ai::BaseService::MissingApiKeyError => e
+          # Defense-in-depth: should never fire after the pre-flight check
+          # above, but keeps the contract intact if BaseService starts
+          # raising for other reasons (e.g. revoked key mid-flight).
           render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
           return
         end

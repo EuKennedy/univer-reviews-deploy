@@ -77,32 +77,44 @@ module Api
         @user = current_workspace.workspace_users.find(params[:id])
       end
 
-      def user_params
-        params.require(:user).permit(:email, :name, :role)
+      # SAFE attributes — anything the caller is always allowed to set.
+      # `role` is deliberately NOT in this list: it's a privilege boundary
+      # and must be granted through `requested_role_if_allowed` after an
+      # authorization check (see ROLES_GRANTABLE_BY). Splitting the permit
+      # call keeps mass-assignment static-analyzable: Brakeman can see that
+      # role can never reach `update`/`new` without passing the grant gate.
+      def user_safe_params
+        params.require(:user).permit(:email, :name)
+      end
+
+      # Caller-supplied role, returned ONLY when:
+      #   • the caller is allowed to grant that role, AND
+      #   • (on update) the caller isn't trying to elevate themselves.
+      # Returns nil otherwise. The result is merged into the create/update
+      # hash by the public helpers below.
+      def requested_role_if_allowed(target_user: nil)
+        requested = params.dig(:user, :role).presence
+        return nil if requested.blank?
+        return nil unless role_grant_allowed?(requested)
+        # Prevent self-elevation on update.
+        return nil if target_user && current_user && current_user.id == target_user.id
+        requested
       end
 
       # Strict role gating. Without this, any caller with write scope could
       # PATCH /workspace/users/:id with role=owner — including their own id
-      # — and self-promote. We compare the requested role against the set
-      # of roles the caller is authorised to grant.
+      # — and self-promote.
       def sanitized_params_for_create
-        attrs = user_params.to_h
-        attrs.delete("role") unless role_grant_allowed?(attrs["role"])
-        # Block self-targeting on create just in case the email matches the caller.
+        attrs = user_safe_params.to_h
+        role = requested_role_if_allowed
+        attrs["role"] = role if role
         attrs
       end
 
       def sanitized_params_for_update
-        attrs = user_params.to_h
-        if attrs["role"].present?
-          unless role_grant_allowed?(attrs["role"])
-            attrs.delete("role")
-          end
-          # Prevent self-elevation: the caller cannot change their own role.
-          if current_user && @user && current_user.id == @user.id
-            attrs.delete("role")
-          end
-        end
+        attrs = user_safe_params.to_h
+        role = requested_role_if_allowed(target_user: @user)
+        attrs["role"] = role if role
         attrs
       end
 

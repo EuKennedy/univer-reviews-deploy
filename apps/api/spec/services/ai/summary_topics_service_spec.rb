@@ -12,9 +12,11 @@ RSpec.describe Ai::SummaryTopicsService, type: :service do
   let(:workspace) { create(:workspace) }
   let(:product)   { create(:product, workspace: workspace) }
 
-  let!(:r1) { create(:review, :approved, workspace: workspace, product: product, body: "Cheiro lindo dura o dia todo", rating: 5) }
-  let!(:r2) { create(:review, :approved, workspace: workspace, product: product, body: "Fixação muito boa, recomendo demais", rating: 5) }
-  let!(:r3) { create(:review, :approved, workspace: workspace, product: product, body: "Embalagem chegou impecável", rating: 5) }
+  # Bodies must be ≥40 chars — see SummaryTopicsService#pick_reviews which
+  # filters out anything shorter so the spec'd reviews actually reach Claude.
+  let!(:r1) { create(:review, :approved, workspace: workspace, product: product, body: "O cheiro é lindo e dura o dia todo, recomendo demais para o trabalho.", rating: 5) }
+  let!(:r2) { create(:review, :approved, workspace: workspace, product: product, body: "Fixação muito boa, chegou na hora certa e veio bem embalado pela transportadora.", rating: 5) }
+  let!(:r3) { create(:review, :approved, workspace: workspace, product: product, body: "Embalagem chegou impecável, sem nenhum amassado ou risco visível na caixa.", rating: 5) }
 
   subject(:service) { described_class.new(workspace) }
 
