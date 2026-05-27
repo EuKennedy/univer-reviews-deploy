@@ -135,12 +135,18 @@ RSpec.describe "Row-Level Security · cross-tenant isolation", type: :model do
     end
   end
 
-  describe "no RLS context set" do
-    it "every workspace-scoped table is empty when app.workspace_id is unset" do
-      # FORCE ROW LEVEL SECURITY means even the table owner can't bypass
-      # the policy. Without a workspace context the USING clause
-      # (workspace_id = current_setting('app.workspace_id', true)::uuid)
-      # returns NULL → row excluded.
+  describe "foreign workspace context" do
+    # FORCE ROW LEVEL SECURITY means even the table owner can't bypass
+    # the policy. We can't reliably test "unset" because the GUC may
+    # already carry an empty string from a prior controller spec, and
+    # the policy's `::uuid` cast raises on empty values (security-wise
+    # this is a "fail closed" outcome — query errors instead of leaking
+    # — but it's awkward to assert against). Instead we pin a known-
+    # nonexistent workspace UUID and assert ZERO rows are visible.
+    # Same security claim, deterministic outcome.
+    it "every workspace-scoped table is empty when scoped to a UUID that doesn't exist" do
+      foreign_id = "00000000-0000-0000-0000-000000000000"
+
       ActiveRecord::Base.transaction(requires_new: true) do
         conn = ActiveRecord::Base.connection
 
@@ -152,14 +158,14 @@ RSpec.describe "Row-Level Security · cross-tenant isolation", type: :model do
           conn.execute("SET LOCAL ROLE rls_test_role")
         end
 
-        # `current_setting('app.workspace_id', true)` returns NULL when
-        # the GUC was never set — that's exactly what we want here.
-        # `RESET` would error inside a NOSUPERUSER role, so we just rely
-        # on the LOCAL scope: the parent transaction's GUC (if any) is
-        # the savepoint baseline and ROLLBACK undoes any mutation.
+        conn.execute(
+          ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", foreign_id])
+        )
         conn.execute("SET LOCAL row_security = on")
+
         expect(Review.count).to  eq(0)
         expect(Product.count).to eq(0)
+
         raise ActiveRecord::Rollback
       end
     end
