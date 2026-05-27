@@ -36,14 +36,41 @@ RSpec.describe "Row-Level Security · cross-tenant isolation", type: :model do
     create(:review, :approved, workspace: workspace_b, product: product_b, body: "owned by B")
   end
 
+  # Detect if the current connection is a superuser. Superusers bypass
+  # row_security unless we demote via SET LOCAL ROLE. CI provisions
+  # `rls_test_role` (NOSUPERUSER) precisely so the spec can demote here.
+  def superuser_connection?
+    ActiveRecord::Base.connection
+      .select_value("SELECT current_setting('is_superuser')") == "on"
+  end
+
   def with_workspace_rls(workspace_id)
     # Real RLS contract: SET LOCAL inside a transaction + force
-    # row_security back on. Same path the controllers take.
+    # row_security back on. Same path the controllers take. When the
+    # connection is a superuser (CI default) we additionally SET LOCAL
+    # ROLE to a NOSUPERUSER role so the policy actually enforces — the
+    # production app user is non-superuser by design.
     ActiveRecord::Base.transaction(requires_new: true) do
-      ActiveRecord::Base.connection.execute(
+      conn = ActiveRecord::Base.connection
+
+      if superuser_connection?
+        # Skip-and-warn when the test role wasn't provisioned. The CI
+        # job creates it; local devs can mirror the SQL block in
+        # apps/api/db/development_setup.sql or run rspec against a
+        # non-superuser DB user instead.
+        role_exists = conn.select_value(
+          "SELECT 1 FROM pg_roles WHERE rolname = 'rls_test_role'"
+        )
+        if role_exists.nil?
+          skip "Connection is superuser and `rls_test_role` is missing — provision it in your test DB (see .github/workflows/ci.yml `Provision non-superuser role` step)."
+        end
+        conn.execute("SET LOCAL ROLE rls_test_role")
+      end
+
+      conn.execute(
         ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", workspace_id.to_s])
       )
-      ActiveRecord::Base.connection.execute("SET LOCAL row_security = on")
+      conn.execute("SET LOCAL row_security = on")
       yield
       raise ActiveRecord::Rollback # discard mutations, keep test isolated
     end
@@ -115,8 +142,22 @@ RSpec.describe "Row-Level Security · cross-tenant isolation", type: :model do
       # (workspace_id = current_setting('app.workspace_id', true)::uuid)
       # returns NULL → row excluded.
       ActiveRecord::Base.transaction(requires_new: true) do
-        ActiveRecord::Base.connection.execute("RESET app.workspace_id")
-        ActiveRecord::Base.connection.execute("SET LOCAL row_security = on")
+        conn = ActiveRecord::Base.connection
+
+        if superuser_connection?
+          role_exists = conn.select_value(
+            "SELECT 1 FROM pg_roles WHERE rolname = 'rls_test_role'"
+          )
+          skip "Connection is superuser and `rls_test_role` missing." if role_exists.nil?
+          conn.execute("SET LOCAL ROLE rls_test_role")
+        end
+
+        # `current_setting('app.workspace_id', true)` returns NULL when
+        # the GUC was never set — that's exactly what we want here.
+        # `RESET` would error inside a NOSUPERUSER role, so we just rely
+        # on the LOCAL scope: the parent transaction's GUC (if any) is
+        # the savepoint baseline and ROLLBACK undoes any mutation.
+        conn.execute("SET LOCAL row_security = on")
         expect(Review.count).to  eq(0)
         expect(Product.count).to eq(0)
         raise ActiveRecord::Rollback

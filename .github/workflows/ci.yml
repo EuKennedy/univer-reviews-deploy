@@ -213,6 +213,31 @@ jobs:
         working-directory: apps/api
         run: bundle exec rails db:migrate
 
+      - name: Provision non-superuser role for RLS specs
+        # PostgreSQL superusers bypass row_security regardless of FORCE
+        # ROW LEVEL SECURITY. The CI postgres user is superuser, so the
+        # cross-tenant RLS spec can't trust raw SELECTs to enforce the
+        # policy. We create a NOSUPERUSER role here AFTER db:migrate (so
+        # every table exists at grant time) and the spec uses
+        # `SET LOCAL ROLE rls_test_role` inside its transaction to
+        # demote — exactly the trust boundary the production API gets
+        # because the Rails DB user there is also NOSUPERUSER.
+        env:
+          PGPASSWORD: ci
+        run: |
+          psql -h localhost -U postgres -d univerreviews_test <<'SQL'
+            DO $$ BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rls_test_role') THEN
+                CREATE ROLE rls_test_role NOSUPERUSER NOINHERIT;
+              END IF;
+            END $$;
+            GRANT USAGE ON SCHEMA public TO rls_test_role;
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rls_test_role;
+            GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO rls_test_role;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public
+              GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO rls_test_role;
+          SQL
+
       - name: RSpec (no --fail-fast — surface every regression in one pass)
         working-directory: apps/api
         # When the commit lands on main OR carries a `[full ci]` marker,

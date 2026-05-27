@@ -35,7 +35,16 @@ RSpec.describe "Sidekiq · queue / job contract", type: :integration do
 
       orphan = {}
       ApplicationJob.descendants.each do |klass|
-        queue = klass.queue_name.to_s
+        # `queue_name` can be either a String OR a Proc/Symbol depending on
+        # how the job was annotated. We can only contract-check the static
+        # String case — Proc/Symbol resolves at enqueue time. Skip dynamic
+        # ones (Sentry's SendEventJob is the canonical example: it carries
+        # a lambda that reads `Sentry.configuration.background_worker_queue`
+        # at runtime). Brakeman / actual prod telemetry covers the dynamic
+        # path.
+        queue = klass.queue_name
+        next unless queue.is_a?(String) || queue.is_a?(Symbol)
+        queue = queue.to_s
         next if queue.blank?
         next if declared_queues.include?(queue)
         orphan[klass.name] = queue
