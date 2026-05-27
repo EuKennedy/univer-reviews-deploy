@@ -131,32 +131,84 @@ class Univer_Shortcode {
             $count_html
         );
 
-        // If no explicit link was provided, default to scrolling to the
-        // <univer-reviews> wall mounted on the page (id="univer-reviews-anchor",
-        // injected by render() and the featured wall). When the wall lives
-        // inside a WooCommerce product tab (the typical placement), the tab
-        // is closed by default — we activate it first, then scroll. Inline
-        // click handler keeps the snippet self-contained so themes don't
-        // need to load extra JS.
-        $href     = ! empty( $link ) ? $link : '#univer-reviews-anchor';
-        $on_click = '';
-        if ( empty( $link ) ) {
-            $on_click = ' onclick="(function(e){'
-                . "var t=document.getElementById('univer-reviews-anchor');"
-                . 'if(!t){return;}'
-                . "var tab=document.querySelector('.woocommerce-tabs li.univer-reviews_tab a, .woocommerce-tabs li.reviews_tab a, .wc-tabs li.univer-reviews_tab a, .wc-tabs li.reviews_tab a, .tabs li.univer-reviews_tab a, .tabs li.reviews_tab a');"
-                . 'if(tab){tab.click();}'
-                . "setTimeout(function(){t.scrollIntoView({behavior:'smooth',block:'start'});}, tab?160:0);"
-                . 'e.preventDefault();'
-                . '})(event)"';
-        }
+        // Smart scroll + WC tab activation. Works for the default anchor
+        // AND any explicit `link="#foo"`. Woo themes render the reviews
+        // block inside a collapsed product tab (.woocommerce-Tabs-panel /
+        // .wc-tab / [role=tabpanel]) so a native anchor lands on a hidden
+        // element. We inject a single helper script once per page and
+        // bind onclick to it. Non-hash hrefs short-circuit so default
+        // navigation runs.
+        $href = ! empty( $link ) ? $link : '#univer-reviews-anchor';
+
+        $this->ensure_rating_jump_script();
 
         return sprintf(
-            '<a href="%s" class="univer-rating-link" style="text-decoration:none;color:inherit;cursor:pointer;"%s>%s</a>',
+            '<a href="%s" class="univer-rating-link" style="text-decoration:none;color:inherit;cursor:pointer;" onclick="return window.UniverRatingJump&&window.UniverRatingJump(event)">%s</a>',
             esc_attr( $href ),
-            $on_click,
             $inner
         );
+    }
+
+    /**
+     * Inject the smart-scroll helper exactly once per page. Lives in the
+     * footer (after all DOM exists) and binds to window so any number of
+     * [univer_rating] instances on the same page share one implementation.
+     */
+    private function ensure_rating_jump_script(): void {
+        static $injected = false;
+        if ( $injected ) {
+            return;
+        }
+        $injected = true;
+        add_action( 'wp_footer', static function (): void {
+            ?>
+<script>
+(function(){
+    if(window.UniverRatingJump){return;}
+    window.UniverRatingJump=function(e){
+        try{
+            var a=e.currentTarget||e.target;
+            while(a&&a.tagName!=='A'){a=a.parentNode;}
+            if(!a){return true;}
+            var href=a.getAttribute('href')||'';
+            if(href.charAt(0)!=='#'||href.length<2){return true;}
+            var target=null;
+            try{target=document.querySelector(href);}catch(err){target=document.getElementById(href.slice(1));}
+            if(!target){return true;}
+            e.preventDefault();
+            var panel=target.closest('.woocommerce-Tabs-panel, .wc-tab, [role=tabpanel]');
+            var tabLink=null;
+            if(panel&&panel.id){
+                tabLink=document.querySelector(
+                    '.woocommerce-tabs a[href="#'+panel.id+'"], '+
+                    '.wc-tabs a[href="#'+panel.id+'"], '+
+                    '.tabs a[href="#'+panel.id+'"], '+
+                    '[role=tab][aria-controls="'+panel.id+'"]'
+                );
+            }
+            if(!tabLink){
+                tabLink=document.querySelector(
+                    '.woocommerce-tabs li.univer-reviews_tab a, '+
+                    '.woocommerce-tabs li.reviews_tab a, '+
+                    '.wc-tabs li.univer-reviews_tab a, '+
+                    '.wc-tabs li.reviews_tab a, '+
+                    '.tabs li.univer-reviews_tab a, '+
+                    '.tabs li.reviews_tab a'
+                );
+            }
+            if(tabLink){try{tabLink.click();}catch(err){}}
+            var delay=tabLink?200:0;
+            setTimeout(function(){
+                try{target.scrollIntoView({behavior:'smooth',block:'start'});}catch(err){target.scrollIntoView();}
+                if(history.replaceState){try{history.replaceState(null,'',href);}catch(err){}}
+            },delay);
+            return false;
+        }catch(err){return true;}
+    };
+})();
+</script>
+            <?php
+        }, 5 );
     }
 
     /**

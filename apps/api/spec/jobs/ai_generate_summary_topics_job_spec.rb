@@ -85,4 +85,52 @@ RSpec.describe AiGenerateSummaryTopicsJob, type: :job do
       expect { described_class.perform_now(SecureRandom.uuid) }.not_to raise_error
     end
   end
+
+  context "append mode" do
+    let(:r1) { create(:review, :approved, workspace: workspace, product: product, body: "Cheiro perfeito que dura o dia", rating: 5) }
+
+    let(:fake_service) do
+      instance_double(Ai::SummaryTopicsService, call: [
+        { title: "Cheiro dura o dia inteiro", ai_summary: "Clientes destacam fixação.", review_ids: [r1.id] },
+      ])
+    end
+
+    before do
+      r1
+      allow(Ai::SummaryTopicsService).to receive(:new).and_return(fake_service)
+    end
+
+    it "adds ONE topic on top of existing AI topics, keeping the old ones" do
+      existing = create(:ai_summary_topic, :ai, workspace: workspace, product: product, title: "Já existente", position: 0)
+
+      expect {
+        described_class.perform_now(product.id, mode: :append)
+      }.to change { product.ai_summary_topics.where(source: "ai").count }.from(1).to(2)
+
+      expect(AiSummaryTopic.where(id: existing.id)).to exist
+    end
+
+    it "passes existing AI titles to the service so Claude can dedupe" do
+      create(:ai_summary_topic, :ai, workspace: workspace, product: product, title: "Brilho marcante", position: 0)
+      create(:ai_summary_topic, :ai, workspace: workspace, product: product, title: "Embalagem caprichada", position: 1)
+
+      expect(fake_service).to receive(:call)
+        .with(product, max_topics: 1, exclude_titles: a_collection_containing_exactly("Brilho marcante", "Embalagem caprichada"))
+        .and_return([{ title: "Cheiro forte", ai_summary: "", review_ids: [r1.id] }])
+
+      described_class.perform_now(product.id, mode: :append)
+    end
+
+    it "is a no-op when product already at MAX_AI_TOPICS_PER_PRODUCT cap" do
+      AiGenerateSummaryTopicsJob::MAX_AI_TOPICS_PER_PRODUCT.times do |i|
+        create(:ai_summary_topic, :ai, workspace: workspace, product: product, title: "Tópico #{i}", position: i)
+      end
+
+      expect(Ai::SummaryTopicsService).not_to receive(:new)
+
+      expect {
+        described_class.perform_now(product.id, mode: :append)
+      }.not_to change { AiSummaryTopic.count }
+    end
+  end
 end

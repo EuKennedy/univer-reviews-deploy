@@ -89,16 +89,27 @@ export default function AiSummaryEditPage() {
     queryClient.invalidateQueries({ queryKey: ['ai-summary-product', productId] })
   }
 
+  // Hard cap matches AiGenerateSummaryTopicsJob::MAX_AI_TOPICS_PER_PRODUCT.
+  // Kept here as a constant so the UI can disable/hint before the request
+  // round-trips. The backend re-enforces and returns 409 if exceeded.
+  const MAX_AI_TOPICS = 5
+
   const generateMut = useMutation({
-    mutationFn: () => api.ai.generateSummaryTopics(productId, getToken()),
+    mutationFn: (mode: 'replace' | 'append') =>
+      api.ai.generateSummaryTopics(productId, getToken(), { mode }),
     onMutate: () => setGenerating(true),
-    onSuccess: (r) => {
-      // The endpoint now runs the Claude call inline by default, so the
-      // response already contains the topics. Drop the skeleton immediately
-      // instead of waiting on the next poll.
-      const count = (r as { count?: number } | undefined)?.count ?? 0
-      if (count > 0) {
-        toast.success(`${count} ${count === 1 ? 'tópico criado' : 'tópicos criados'}!`)
+    onSuccess: (r, mode) => {
+      const aiCount = (r as { ai_count?: number } | undefined)?.ai_count
+      const totalCount = (r as { count?: number } | undefined)?.count ?? 0
+      const created = mode === 'append' ? 1 : totalCount
+      if (mode === 'append') {
+        if (aiCount != null && aiCount >= MAX_AI_TOPICS) {
+          toast.success('Tópico adicionado — limite de 5 atingido.')
+        } else {
+          toast.success('Tópico adicionado pela IA.')
+        }
+      } else if (created > 0) {
+        toast.success('Sumário gerado pela IA.')
       } else {
         toast.success('Geração concluída.')
       }
@@ -107,7 +118,10 @@ export default function AiSummaryEditPage() {
     },
     onError: (e: unknown) => {
       setGenerating(false)
-      toast.error(e instanceof Error ? e.message : 'Falha ao gerar')
+      // 409 = backend cap reached. Show the friendly message, don't log
+      // to Sentry-style channels — it's expected.
+      const msg = e instanceof Error ? e.message : 'Falha ao gerar'
+      toast.error(msg)
     },
   })
 
@@ -137,7 +151,9 @@ export default function AiSummaryEditPage() {
   // exist, to avoid cluttering the empty state.)
   const [showManualSlot, setShowManualSlot] = useState(false)
   const hasTopics = (topics ?? []).length > 0
-  const hasAiTopic = (topics ?? []).some(t => t.source === 'ai')
+  const aiTopicCount = (topics ?? []).filter(t => t.source === 'ai').length
+  const hasAiTopic = aiTopicCount > 0
+  const atAiCap = aiTopicCount >= MAX_AI_TOPICS
 
   return (
     <div className="flex flex-col h-full">
@@ -157,14 +173,37 @@ export default function AiSummaryEditPage() {
               <ArrowLeft className="w-3.5 h-3.5" />
               Voltar
             </button>
-            <ActionButton
-              variant="primary"
-              onClick={() => generateMut.mutate()}
-              disabled={generateMut.isPending || generating}
-            >
-              {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-              {hasAiTopic ? 'Regenerar com IA' : 'Gerar com IA'}
-            </ActionButton>
+            {/* Header button is contextual:
+              - no AI topics  → "Gerar com IA"     (mode=replace, creates 1)
+              - 1..4 AI topic → "Gerar mais 1 com IA" (mode=append)
+              - 5 AI topics   → button hidden; pill below explains why.
+              The inline "+ Gerar mais 1" CTA below the topic list mirrors
+              the append action so the user can also act in-context. */}
+            {!atAiCap && (
+              <ActionButton
+                variant="primary"
+                onClick={() => generateMut.mutate(hasAiTopic ? 'append' : 'replace')}
+                disabled={generateMut.isPending || generating}
+              >
+                {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                {hasAiTopic ? `+ Gerar mais 1 com IA` : 'Gerar com IA'}
+              </ActionButton>
+            )}
+            {atAiCap && (
+              <span
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold"
+                style={{
+                  background: 'var(--ur-accent-glow)',
+                  color: 'var(--ur-accent)',
+                  border: '1px solid var(--ur-accent-soft-2)',
+                }}
+                aria-label="Limite de sumários de IA atingido"
+                title="Cada produto comporta no máximo 5 sumários gerados por IA. Apague algum para gerar outro."
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Limite de {MAX_AI_TOPICS} sumários atingido
+              </span>
+            )}
           </div>
         }
       />
@@ -225,10 +264,21 @@ export default function AiSummaryEditPage() {
                     <TopicCard key={t.id} topic={t} productId={productId} index={i} />
                   ))}
                 </AnimatePresence>
+                {/* Inline append CTA — mirrors the header button. When the
+                  product hits the cap we swap in a friendly limit chip so
+                  the user understands why the button is gone. */}
+                <GenerateMoreSlot
+                  hasAiTopic={hasAiTopic}
+                  atCap={atAiCap}
+                  aiCount={aiTopicCount}
+                  max={MAX_AI_TOPICS}
+                  generating={generating || generateMut.isPending}
+                  onGenerateOne={() => generateMut.mutate(hasAiTopic ? 'append' : 'replace')}
+                />
               </motion.div>
             ) : (
               <EmptyState
-                onGenerate={() => generateMut.mutate()}
+                onGenerate={() => generateMut.mutate('replace')}
                 generating={generating}
                 onFocusManual={() => {
                   setShowManualSlot(true)
@@ -584,6 +634,87 @@ function ReviewMiniCard({ review, onDetach }: {
   )
 }
 
+// ─── Generate-more inline slot ───────────────────────────────────────────────
+
+function GenerateMoreSlot({
+  hasAiTopic,
+  atCap,
+  aiCount,
+  max,
+  generating,
+  onGenerateOne,
+}: {
+  hasAiTopic: boolean
+  atCap: boolean
+  aiCount: number
+  max: number
+  generating: boolean
+  onGenerateOne: () => void
+}) {
+  if (atCap) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="mt-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-medium"
+        style={{
+          background: 'var(--ur-accent-glow)',
+          color: 'var(--ur-accent)',
+          border: '1px dashed var(--ur-accent-soft-2)',
+        }}
+        aria-label="Limite de sumários atingido"
+      >
+        <Sparkles className="w-3.5 h-3.5" />
+        Limite de {max} sumários gerados por IA atingido. Para gerar outro, remova algum acima.
+      </motion.div>
+    )
+  }
+
+  return (
+    <motion.button
+      type="button"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay: 0.05 }}
+      onClick={onGenerateOne}
+      disabled={generating}
+      className="mt-1 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium cursor-pointer transition-all disabled:cursor-not-allowed disabled:opacity-60"
+      style={{
+        background: 'var(--ur-bg-soft)',
+        color: 'var(--ur-text)',
+        border: '1px dashed var(--ur-border-strong)',
+      }}
+      onMouseEnter={(e) => {
+        if (e.currentTarget.disabled) return
+        e.currentTarget.style.background = 'var(--ur-accent-glow)'
+        e.currentTarget.style.borderColor = 'var(--ur-accent-soft-3)'
+        e.currentTarget.style.color = 'var(--ur-accent)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'var(--ur-bg-soft)'
+        e.currentTarget.style.borderColor = 'var(--ur-border-strong)'
+        e.currentTarget.style.color = 'var(--ur-text)'
+      }}
+      aria-label={hasAiTopic ? 'Gerar mais um sumário com IA' : 'Gerar um sumário com IA'}
+    >
+      {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+      <span>
+        {hasAiTopic ? '+ Gerar mais 1 sumário com IA' : 'Gerar 1 sumário com IA'}
+      </span>
+      {hasAiTopic && (
+        <span
+          className="ml-1 inline-flex items-center text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full tabular-nums"
+          style={{ background: 'var(--ur-surface-soft)', color: 'var(--ur-text-muted)' }}
+          aria-hidden="true"
+        >
+          {aiCount}/{max}
+        </span>
+      )}
+    </motion.button>
+  )
+}
+
 // ─── Empty state ─────────────────────────────────────────────────────────────
 
 function EmptyState({ onGenerate, generating, onFocusManual }: { onGenerate: () => void; generating: boolean; onFocusManual: () => void }) {
@@ -618,8 +749,8 @@ function EmptyState({ onGenerate, generating, onFocusManual }: { onGenerate: () 
         Comece criando os tópicos deste produto
       </h3>
       <p className="text-sm mt-2 max-w-md mx-auto" style={{ color: 'var(--ur-text-muted)' }}>
-        Deixe a IA ler as avaliações e propor 3 a 6 tópicos automaticamente,
-        ou crie tópicos manualmente para curar o que aparece na loja.
+        A IA lê suas avaliações e cria 1 sumário por vez — você decide quando
+        gerar mais, até um total de 5. Também dá pra criar manualmente.
       </p>
       <div className="mt-6 flex items-center justify-center gap-2 flex-wrap">
         <ActionButton variant="primary" onClick={onGenerate} disabled={generating}>

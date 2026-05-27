@@ -383,27 +383,47 @@ module Api
       end
 
       # POST /api/v1/ai/generate-summary-topics
-      # Body: { product_id, async? }
+      # Body: { product_id, mode? ("replace"|"append"), async? }
+      #
+      # mode=replace (default) wipes source=ai topics and seeds ONE new one.
+      # mode=append adds ONE more topic on top of existing ai topics, telling
+      # Claude which titles are already taken so it doesn't duplicate.
+      #
+      # Hard cap: MAX_AI_TOPICS_PER_PRODUCT (5) AI topics per product. The
+      # controller returns 409 when an append would exceed the cap so the
+      # frontend can render "Limite de 5 sumários atingido" instead of
+      # eating a silent no-op.
       #
       # Runs INLINE by default (~15-20 s response time but the merchant sees
       # results immediately, which is the right UX for a single-product
-      # action). Pass `async=true` to fall back to Sidekiq enqueue when the
-      # caller doesn't want to block (e.g. a future "warm up the cache"
-      # cron). Bulk extraction uses the dedicated bulk endpoint that always
-      # enqueues, because blocking on 40+ Claude calls in one request is
-      # never acceptable.
+      # action). Pass `async=true` to fall back to Sidekiq enqueue.
       def generate_summary_topics
         require_write!
         product = current_workspace.products.find(params.require(:product_id))
 
+        mode = params[:mode].to_s == "append" ? :append : :replace
+
+        if mode == :append
+          existing = product.ai_summary_topics.where(source: "ai").count
+          if existing >= AiGenerateSummaryTopicsJob::MAX_AI_TOPICS_PER_PRODUCT
+            render json: {
+              error:   "limit_reached",
+              message: "Limite de #{AiGenerateSummaryTopicsJob::MAX_AI_TOPICS_PER_PRODUCT} sumários de IA por produto atingido.",
+              limit:   AiGenerateSummaryTopicsJob::MAX_AI_TOPICS_PER_PRODUCT,
+              current: existing,
+            }, status: :conflict
+            return
+          end
+        end
+
         if ActiveModel::Type::Boolean.new.cast(params[:async])
-          AiGenerateSummaryTopicsJob.perform_later(product.id)
-          render json: { message: "Summary topic extraction queued", product_id: product.id }
+          AiGenerateSummaryTopicsJob.perform_later(product.id, mode: mode)
+          render json: { message: "Summary topic extraction queued", product_id: product.id, mode: mode }
           return
         end
 
         begin
-          AiGenerateSummaryTopicsJob.new.perform(product.id)
+          AiGenerateSummaryTopicsJob.new.perform(product.id, mode: mode)
         rescue Ai::BaseService::MissingApiKeyError => e
           render json: { error: "missing_api_key", message: e.message }, status: :service_unavailable
           return
@@ -417,7 +437,10 @@ module Api
         render json: {
           message: "Summary topics generated",
           product_id: product.id,
+          mode: mode,
           count: topics.length,
+          ai_count: topics.count { |t| t.source == "ai" },
+          ai_limit: AiGenerateSummaryTopicsJob::MAX_AI_TOPICS_PER_PRODUCT,
           data: topics.map { |t| {
             id: t.id, title: t.title, source: t.source,
             review_count: t.review_count, stars_avg: t.stars_avg,

@@ -1,12 +1,17 @@
 module Ai
-  # Extracts 3-6 topical groupings ("o que as pessoas estão falando") from a
+  # Extracts topical groupings ("o que as pessoas estão falando") from a
   # product's approved reviews. Returns a structured payload the job layer
   # persists as AiSummaryTopic + AiSummaryTopicReview rows.
   #
   # Strategy: feed Claude a numbered list of reviews and ask it to cluster
-  # them into 3-6 topics with PT-BR titles + ai_summary + the review row
+  # them into N topics with PT-BR titles + ai_summary + the review row
   # numbers that belong to each. Numbers are 1-indexed against the input
   # array so the model never sees DB UUIDs (cheaper tokens, no PII leak).
+  #
+  # Default mode generates 1 NEW topic at a time (interactive flow: merchant
+  # clicks "Gerar mais 1"). Pass `max_topics:` > 1 for batch extraction or
+  # to seed an empty product. Pass `exclude_titles:` so Claude doesn't
+  # rediscover a topic the product already has.
   class SummaryTopicsService < BaseService
     JOB_TYPE = "summary_topics".freeze
 
@@ -15,9 +20,16 @@ module Ai
     MAX_REVIEWS_PER_CALL = 80
     MAX_BODY_CHARS       = 600
 
+    DEFAULT_MAX_TOPICS = 1
+
     # @param product [Product]
+    # @param max_topics [Integer] cap on topics to return (1..6). Default 1.
+    # @param exclude_titles [Array<String>] existing topic titles to skip.
     # @return [Array<Hash>] each topic: { title:, ai_summary:, review_ids: [<uuid>...] }
-    def call(product)
+    def call(product, max_topics: DEFAULT_MAX_TOPICS, exclude_titles: [])
+      max_topics = max_topics.to_i.clamp(1, 6)
+      excluded   = Array(exclude_titles).map { |s| s.to_s.strip }.reject(&:blank?).uniq
+
       reviews = pick_reviews(product)
       return [] if reviews.empty?
 
@@ -28,15 +40,17 @@ module Ai
 
       raw = call_claude(
         model: HAIKU,
-        system: system_prompt(product),
-        messages: [{ role: "user", content: build_user_prompt(product, numbered) }],
-        max_tokens: 2048,
+        system: system_prompt(product, max_topics: max_topics, exclude_titles: excluded),
+        messages: [{ role: "user", content: build_user_prompt(product, numbered, max_topics: max_topics, exclude_titles: excluded) }],
+        max_tokens: max_topics == 1 ? 768 : 2048,
       )
 
       parsed = parse_json_response(raw)
       topics = Array(parsed[:topics])
 
-      topics.first(6).map do |t|
+      excluded_norm = excluded.map { |t| normalize_title(t) }.to_set
+
+      topics.first(max_topics).map do |t|
         # `reviews` field is an array of 1-indexed numbers referencing the
         # numbered list above. Translate back to DB UUIDs, ignore invalid.
         idxs = Array(t[:reviews]).map { |n| n.to_i - 1 }.select { |i| i >= 0 && i < reviews.length }
@@ -45,10 +59,19 @@ module Ai
           ai_summary: t[:summary].to_s.strip,
           review_ids: idxs.map { |i| reviews[i].id }.uniq,
         }
-      end.reject { |t| t[:title].blank? || t[:review_ids].empty? }
+      end
+       .reject { |t| t[:title].blank? || t[:review_ids].empty? }
+       .reject { |t| excluded_norm.include?(normalize_title(t[:title])) }
     end
 
     private
+
+    # Loose dedupe: case-insensitive, punctuation-stripped, collapsed spaces.
+    # Catches "Cabelo fica mais brilhoso" vs "Cabelo fica mais brilhoso." vs
+    # different capitalisation, but doesn't try to do full semantic match.
+    def normalize_title(s)
+      s.to_s.downcase.gsub(/[[:punct:]]/, " ").gsub(/\s+/, " ").strip
+    end
 
     # Pick the reviews most likely to surface meaningful patterns: approved,
     # with substantial bodies, prefer recent + high helpful_count + verified
@@ -65,13 +88,34 @@ module Ai
              .to_a
     end
 
-    def system_prompt(product)
+    def system_prompt(product, max_topics:, exclude_titles:)
+      target_clause =
+        if max_topics == 1
+          "Seu trabalho: ler avaliações reais e identificar exatamente 1 TÓPICO pontual NOVO\n        do que as pessoas estão falando, distinto dos já existentes (se houver)."
+        else
+          "Seu trabalho: ler avaliações reais e identificar #{max_topics} TÓPICOS pontuais\n        do que as pessoas estão falando."
+        end
+
+      exclude_clause =
+        if exclude_titles.any?
+          quoted = exclude_titles.first(10).map { |t| "\"#{t}\"" }.join(", ")
+          <<~EXC
+
+            JÁ EXISTEM tópicos cobrindo: #{quoted}.
+            NÃO repita esses tópicos nem variações sinônimas. Encontre um ângulo
+            DIFERENTE (outro benefício, queixa, caso de uso, característica).
+            Se realmente não existir mais tópico recorrente novo, retorne
+            { "topics": [] }.
+          EXC
+        else
+          ""
+        end
+
       <<~PROMPT
         Você é um analista que extrai os tópicos mais recorrentes em avaliações
         de clientes de um produto de e-commerce, em português do Brasil.
 
-        Seu trabalho: ler avaliações reais e identificar 3 a 6 TÓPICOS pontuais
-        do que as pessoas estão falando. Cada tópico precisa:
+        #{target_clause} Cada tópico precisa:
 
         1. Ter um TÍTULO curto em PT-BR (5 a 8 palavras, frase nominal natural,
            SEM emojis). Ex: "Cabelo fica mais brilhoso", "Demora pra aparecer
@@ -85,18 +129,25 @@ module Ai
 
         Priorize tópicos com pelo menos 3 avaliações. Inclua tópicos negativos
         ou de atenção quando surgirem (não force só elogios).
+        #{exclude_clause}
         Retorne JSON puro, sem markdown, no formato:
 
         { "topics": [
-            { "title": "...", "summary": "...", "reviews": [1, 3, 7] },
-            ...
+            { "title": "...", "summary": "...", "reviews": [1, 3, 7] }
           ]
         }
         #{workspace_voice_context}
       PROMPT
     end
 
-    def build_user_prompt(product, numbered_reviews)
+    def build_user_prompt(product, numbered_reviews, max_topics:, exclude_titles:)
+      target =
+        if max_topics == 1
+          exclude_titles.any? ? "Extraia 1 tópico NOVO" : "Extraia 1 tópico"
+        else
+          "Extraia até #{max_topics} tópicos"
+        end
+
       <<~PROMPT
         Produto: #{product.title}
 
@@ -104,7 +155,7 @@ module Ai
 
         #{numbered_reviews}
 
-        Extraia 3 a 6 tópicos seguindo o formato JSON solicitado.
+        #{target} seguindo o formato JSON solicitado.
       PROMPT
     end
   end

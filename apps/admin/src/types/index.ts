@@ -172,6 +172,13 @@ export interface WidgetConfig {
   theme_color: string
   star_color: string
   star_shape: WidgetStarShape
+  /** Custom brand artwork (SVG/PNG public URL) shown in place of the preset
+   *  star shape. Tinted with `star_color` via CSS mask. Null when the
+   *  workspace hasn't uploaded a custom icon. */
+  star_icon_url?: string | null
+  /** Optional distinct "empty" state artwork. When null, the widget uses
+   *  the filled icon at low opacity for unfilled positions. */
+  star_icon_empty_url?: string | null
   show_qa: boolean
   show_write_review: boolean
   per_page: number

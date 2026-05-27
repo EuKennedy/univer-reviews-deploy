@@ -63,6 +63,11 @@ interface WidgetConfig {
   theme_color?: string
   star_color?: string
   star_shape?: StarShape
+  /** Custom brand artwork (SVG/PNG public URL) shown in place of the preset
+   *  star shape. Tinted with `star_color` via CSS mask so a single uploaded
+   *  file paints both filled + empty states. */
+  star_icon_url?: string | null
+  star_icon_empty_url?: string | null
   show_qa?: boolean
   show_write_review?: boolean
   per_page?: number
@@ -520,6 +525,51 @@ button { font-family: inherit; cursor: pointer; }
 .ur-star.empty { color: var(--ur-star-empty); }
 .ur-hero-stars .ur-star { font-size: 22px; }
 
+/* Custom brand-icon variant. Renders a CSS-masked rectangle so the same
+ * uploaded asset paints both filled and empty states — filled inherits
+ * --ur-star, empty falls back to --ur-star-empty. Sizes track the glyph
+ * font-size by default and scale up inside the hero. */
+.ur-star.ur-star-img {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  background-color: var(--ur-star);
+  -webkit-mask-image: var(--ur-icon-url);
+          mask-image: var(--ur-icon-url);
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  vertical-align: -2px;
+}
+.ur-star.ur-star-img.empty { background-color: var(--ur-star-empty); }
+.ur-hero-stars .ur-star.ur-star-img { width: 22px; height: 22px; }
+.ur-rating-picker .ur-icon-inline {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+}
+
+/* Inline mark for dist label / Q&A pills / etc. — single masked dot
+ * sized to match surrounding text. */
+.ur-icon-inline {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  background-color: currentColor;
+  -webkit-mask-image: var(--ur-icon-url);
+          mask-image: var(--ur-icon-url);
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  vertical-align: -2px;
+}
+
 /* ── Pagination ───────────────────────────────────────────────────────────── */
 .ur-pagination {
   display: flex; justify-content: center; align-items: center;
@@ -702,6 +752,11 @@ class UniverReviewsWidget extends HTMLElement {
   private themeColor = '#d4a850'
   private starColor  = '#fbbf24'
   private starShape: StarShape = 'star'
+  // Custom brand-icon URL (SVG/PNG). When set, every star slot renders as
+  // a CSS-masked rectangle so the artwork inherits `starColor` for filled
+  // positions and the inactive border color for empty positions. Falls
+  // back to the glyph-based starShape when null.
+  private starIconUrl: string | null = null
   private showWriteReview = true
   private showQa = true
   private customCss = ''
@@ -884,6 +939,10 @@ class UniverReviewsWidget extends HTMLElement {
       // workspace config is the fallback when the host page didn't set them.
       if (!this.attrSet.starColor && cfg.star_color) this.starColor = cfg.star_color
       if (!this.attrSet.starShape && cfg.star_shape) this.starShape = cfg.star_shape
+      // The custom brand icon has no per-element attribute — it's a
+      // workspace-level setting only, so we always take whatever the
+      // backend sent. `null` clears any stale value from a previous load.
+      this.starIconUrl = cfg.star_icon_url ?? null
       if (!this.attrSet.customCss && cfg.custom_css) this.customCss = cfg.custom_css
     } catch (e) {
       console.warn('[univer-reviews] widget-config', e instanceof Error ? e.message : 'unknown')
@@ -1206,7 +1265,7 @@ ${items.length === 0
       const active = this.ratingFilter === r
       return `
       <div class="ur-dist-row ${active ? 'active' : ''}" data-rating="${r}">
-        <span class="ur-dist-label">${r}<span class="ur-dist-star">${starGlyph(this.starShape)}</span></span>
+        <span class="ur-dist-label">${r}<span class="ur-dist-star">${this.renderStarInline()}</span></span>
         <span class="ur-dist-bar"><span class="ur-dist-fill" style="width:${row.percentage}%"></span></span>
         <span class="ur-dist-count">${row.count}</span>
       </div>`
@@ -1314,12 +1373,42 @@ ${items.length === 0
   private renderStars(rating: number): string {
     const r = Math.max(0, Math.min(5, Number(rating) || 0))
     const full = Math.round(r)
-    const glyph = starGlyph(this.starShape)
     let out = ''
     for (let i = 1; i <= 5; i++) {
-      out += `<span class="ur-star ${i > full ? 'empty' : ''}">${glyph}</span>`
+      out += this.renderStarSlot(i > full ? 'empty' : 'full')
     }
     return out
+  }
+
+  /**
+   * Single star slot. When the workspace uploaded a custom brand icon we
+   * paint a CSS-masked rectangle so the artwork inherits `starColor`
+   * (filled) or the muted track color (empty) without baking the tint
+   * into the asset. Falls back to the glyph preset otherwise.
+   *
+   * Empty cells deliberately drop opacity instead of swapping color so a
+   * single-color SVG still reads as "half-on" without us needing the
+   * workspace to upload a second outline file.
+   */
+  private renderStarSlot(state: 'full' | 'empty'): string {
+    if (this.starIconUrl) {
+      // Background-color is set via inline style so `starColor` can
+      // change at runtime without rebuilding the shadow stylesheet.
+      const safeUrl = escapeHtml(this.starIconUrl).replace(/'/g, '%27')
+      return `<span class="ur-star ur-star-img ${state === 'empty' ? 'empty' : ''}" style="--ur-icon-url:url('${safeUrl}')"></span>`
+    }
+    const glyph = starGlyph(this.starShape)
+    return `<span class="ur-star ${state === 'empty' ? 'empty' : ''}">${glyph}</span>`
+  }
+
+  // Inline (non-star-shaped) rating glyph for places where we want a
+  // single "★" mark next to a number — e.g., dist row label, helpful tags.
+  private renderStarInline(): string {
+    if (this.starIconUrl) {
+      const safeUrl = escapeHtml(this.starIconUrl).replace(/'/g, '%27')
+      return `<span class="ur-icon-inline" style="--ur-icon-url:url('${safeUrl}')"></span>`
+    }
+    return starGlyph(this.starShape)
   }
 
   // ─── Pagination ──────────────────────────────────────────────────────────
@@ -1360,7 +1449,9 @@ ${items.length === 0
     <div class="ur-field">
       <label class="ur-label">${this.t('select_rating')}</label>
       <div class="ur-rating-picker" data-picker="rating">
-        ${[1, 2, 3, 4, 5].map(i => `<button type="button" data-rating="${i}">${starGlyph(this.starShape)}</button>`).join('')}
+        ${[1, 2, 3, 4, 5].map(i =>
+          `<button type="button" data-rating="${i}">${this.renderStarInline()}</button>`
+        ).join('')}
       </div>
       <input type="hidden" name="rating" value="0" />
     </div>

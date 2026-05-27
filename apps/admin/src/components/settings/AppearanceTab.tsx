@@ -15,10 +15,10 @@
  * setting > built-in default).
  */
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ChevronDown, Loader2, Star } from 'lucide-react'
+import { ChevronDown, Loader2, Star, Upload, Trash2, Sparkles } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import type {
@@ -97,6 +97,13 @@ export function AppearanceTab({ workspace }: { workspace: Workspace }) {
   const [perPage,         setPerPage]         = useState<number>(initial.perPage)
   const [customCss,       setCustomCss]       = useState<string>(initial.customCss)
   const [advancedOpen,    setAdvancedOpen]    = useState<boolean>(false)
+  // Custom brand-icon URL is stored on the workspace and managed via a
+  // dedicated multipart endpoint (the rest of this form is JSON-only). We
+  // keep a local mirror so the live preview + remove button can react
+  // without a refetch round-trip.
+  const [starIconUrl, setStarIconUrl] = useState<string | null>(
+    workspace.widget?.star_icon_url ?? null,
+  )
 
   // Form-level validation surface (only color fields can be invalid here
   // — every other input is constrained at the widget level).
@@ -116,6 +123,47 @@ export function AppearanceTab({ workspace }: { workspace: Workspace }) {
       toast.error(issues?.length ? `${msg}: ${issues.join(', ')}` : msg)
     },
   })
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const uploadIconMut = useMutation({
+    mutationFn: (file: File) => api.workspace.uploadRatingIcon(file, getToken()),
+    onSuccess: (res) => {
+      setStarIconUrl(res.rating_icon_url)
+      queryClient.invalidateQueries({ queryKey: ['workspace'] })
+      toast.success('Ícone da marca atualizado')
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha ao enviar ícone'
+      toast.error(msg)
+    },
+  })
+
+  const removeIconMut = useMutation({
+    mutationFn: () => api.workspace.removeRatingIcon(getToken()),
+    onSuccess: () => {
+      setStarIconUrl(null)
+      queryClient.invalidateQueries({ queryKey: ['workspace'] })
+      toast.success('Ícone removido — voltamos à forma preset.')
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha ao remover ícone'
+      toast.error(msg)
+    },
+  })
+
+  function handleIconPick(file: File | null) {
+    if (!file) return
+    if (!/^image\/(svg\+xml|png)$/.test(file.type)) {
+      toast.error('Use SVG ou PNG.')
+      return
+    }
+    if (file.size > 500_000) {
+      toast.error('Arquivo acima de 500 KB.')
+      return
+    }
+    uploadIconMut.mutate(file)
+  }
 
   function onSave() {
     if (!themeColorValid) { toast.error('Cor da marca inválida (use #RRGGBB)'); return }
@@ -212,6 +260,126 @@ export function AppearanceTab({ workspace }: { workspace: Workspace }) {
               </button>
             ))}
           </div>
+        </Section>
+
+        {/* Custom brand icon — overrides star shape on the storefront */}
+        <Section
+          label="Ícone da marca (opcional)"
+          hint="Use o símbolo da sua marca como estrela — SVG ou PNG até 500 KB. Sobrescreve a forma preset acima."
+        >
+          <div className="flex items-center gap-4 flex-wrap">
+            {/* Preview chip */}
+            <div
+              className="flex items-center gap-2 px-4 py-3 rounded-xl"
+              style={{
+                background: 'var(--ur-bg-soft)',
+                border: '1px solid var(--ur-surface-soft)',
+                minWidth: 200,
+              }}
+            >
+              {starIconUrl ? (
+                <span className="inline-flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <span
+                      key={i}
+                      aria-hidden
+                      style={{
+                        width: 22,
+                        height: 22,
+                        display: 'inline-block',
+                        background: starColor,
+                        // Tint the uploaded artwork with the configured star
+                        // color via mask — works for both SVG and PNG with
+                        // transparent backgrounds.
+                        WebkitMaskImage: `url("${starIconUrl}")`,
+                        maskImage: `url("${starIconUrl}")`,
+                        WebkitMaskRepeat: 'no-repeat',
+                        maskRepeat: 'no-repeat',
+                        WebkitMaskPosition: 'center',
+                        maskPosition: 'center',
+                        WebkitMaskSize: 'contain',
+                        maskSize: 'contain',
+                      }}
+                    />
+                  ))}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1" aria-hidden>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star
+                      key={i}
+                      className="w-5 h-5"
+                      style={{ color: starColor }}
+                      fill={starColor}
+                      stroke="none"
+                    />
+                  ))}
+                </span>
+              )}
+              <span className="text-xs ml-1" style={{ color: 'var(--ur-text-muted)' }}>
+                {starIconUrl ? 'Ícone personalizado' : 'Forma preset'}
+              </span>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/svg+xml,image/png"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null
+                handleIconPick(f)
+                if (e.target) e.target.value = ''
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadIconMut.isPending}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all disabled:opacity-50"
+              style={{
+                background: 'var(--ur-bg-soft)',
+                color: 'var(--ur-text)',
+                border: '1px solid var(--ur-surface-soft)',
+              }}
+              aria-label="Enviar ícone personalizado"
+            >
+              {uploadIconMut.isPending
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Upload className="w-4 h-4" />}
+              {starIconUrl ? 'Trocar ícone' : 'Enviar ícone'}
+            </button>
+
+            {starIconUrl && (
+              <button
+                type="button"
+                onClick={() => removeIconMut.mutate()}
+                disabled={removeIconMut.isPending}
+                className="inline-flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all disabled:opacity-50"
+                style={{
+                  background: 'transparent',
+                  color: 'var(--ur-danger)',
+                  border: '1px solid var(--ur-border)',
+                }}
+                aria-label="Remover ícone personalizado"
+              >
+                {removeIconMut.isPending
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Trash2 className="w-4 h-4" />}
+                Remover
+              </button>
+            )}
+          </div>
+
+          <p className="text-[11px] mt-3 flex items-start gap-1.5" style={{ color: 'var(--ur-text-faint)' }}>
+            <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+            <span>
+              Dica: use SVG monocromático com fundo transparente. A cor é
+              aplicada automaticamente via CSS mask — funciona em PNG
+              transparente também. Scripts em SVG são bloqueados.
+            </span>
+          </p>
         </Section>
 
         {/* Theme color */}
@@ -362,6 +530,7 @@ export function AppearanceTab({ workspace }: { workspace: Workspace }) {
           themeColor={themeColor}
           starColor={starColor}
           starShape={starShape}
+          starIconUrl={starIconUrl}
           showWriteReview={showWriteReview}
           locale={locale}
           customCss={customCss}
@@ -547,6 +716,7 @@ function WidgetPreview({
   themeColor,
   starColor,
   starShape,
+  starIconUrl,
   showWriteReview,
   locale,
   customCss,
@@ -554,6 +724,7 @@ function WidgetPreview({
   themeColor: string
   starColor: string
   starShape: WidgetStarShape
+  starIconUrl: string | null
   showWriteReview: boolean
   locale: WidgetLocale
   customCss: string
@@ -601,18 +772,43 @@ function WidgetPreview({
 
   const stars = (n: number) => (
     <span className="inline-flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span
-          key={i}
-          style={{
-            color: i <= n ? starColor : 'var(--ur-border)',
-            fontSize: 14,
-            lineHeight: 1,
-          }}
-        >
-          {glyph}
-        </span>
-      ))}
+      {[1, 2, 3, 4, 5].map((i) => {
+        const filled = i <= n
+        if (starIconUrl) {
+          return (
+            <span
+              key={i}
+              aria-hidden
+              style={{
+                width: 14,
+                height: 14,
+                display: 'inline-block',
+                background: filled ? starColor : 'var(--ur-border)',
+                WebkitMaskImage: `url("${starIconUrl}")`,
+                maskImage: `url("${starIconUrl}")`,
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat',
+                WebkitMaskPosition: 'center',
+                maskPosition: 'center',
+                WebkitMaskSize: 'contain',
+                maskSize: 'contain',
+              }}
+            />
+          )
+        }
+        return (
+          <span
+            key={i}
+            style={{
+              color: filled ? starColor : 'var(--ur-border)',
+              fontSize: 14,
+              lineHeight: 1,
+            }}
+          >
+            {glyph}
+          </span>
+        )
+      })}
     </span>
   )
 

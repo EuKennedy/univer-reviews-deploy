@@ -74,6 +74,13 @@ class Workspace < ApplicationRecord
       theme_color:       brand_color.presence || "#d4a850",
       star_color:        widget_star_color.presence || "#fbbf24",
       star_shape:        rating_icon_preset.presence || "star",
+      # Custom brand icon override. When set, the storefront renders the
+      # uploaded artwork (SVG or PNG) in place of the preset star shape.
+      # `star_icon_url` is the "filled" state and is masked + tinted with
+      # `star_color`; if the workspace also uploaded a distinct "empty"
+      # artwork we expose it so the widget can render both states cleanly.
+      star_icon_url:     rating_icon_filled.presence,
+      star_icon_empty_url: rating_icon_empty.presence,
       show_qa:           widget_show_qa.nil? ? true : widget_show_qa,
       show_write_review: widget_show_write_review.nil? ? true : widget_show_write_review,
       per_page:          widget_per_page.presence || 10,

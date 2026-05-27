@@ -65,6 +65,11 @@ Rails.application.routes.draw do
         # Hyphen alias so callers using /api-keys keep working.
         resources :api_keys, controller: "workspace_api_keys", only: %i[index create destroy], path: "api-keys", as: :api_keys_hyphen
         resources :domains, controller: "workspace_domains", only: %i[index create destroy]
+        # Brand asset uploads (custom rating-star icon, future logos).
+        # Multipart POST → returns the public URL the admin can save back
+        # to the workspace via PATCH /workspace.
+        post "brand-assets/rating-icon",        to: "workspace_brand_assets#upload_rating_icon"
+        delete "brand-assets/rating-icon",      to: "workspace_brand_assets#destroy_rating_icon"
       end
 
       # Products

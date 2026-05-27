@@ -214,13 +214,43 @@ class ApiClient {
       ),
 
     /**
-     * Enqueue topic extraction for a single product. Use for "Regenerar"
-     * buttons on the per-product edit page.
+     * Run topic extraction for a single product. Default `mode="replace"`
+     * wipes existing AI topics and seeds 1 new one. `mode="append"` adds
+     * one more on top of the existing set, telling Claude which titles to
+     * skip so it doesn't duplicate. Returns 409 limit_reached when the
+     * product already has 5 AI topics.
      */
-    generateSummaryTopics: (productId: string, token: string) =>
-      this.request<{ message: string; product_id: string }>(
+    generateSummaryTopics: (
+      productId: string,
+      token: string,
+      opts: { mode?: 'replace' | 'append' } = {},
+    ) =>
+      this.request<{
+        message: string
+        product_id: string
+        mode?: 'replace' | 'append'
+        count?: number
+        ai_count?: number
+        ai_limit?: number
+        data?: Array<{
+          id: string
+          title: string
+          source: 'ai' | 'manual'
+          review_count: number
+          stars_avg: number | null
+          ai_summary: string | null
+          generated_at: string | null
+          position: number
+        }>
+      }>(
         '/ai/generate-summary-topics',
-        { method: 'POST', body: JSON.stringify({ product_id: productId }) },
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            product_id: productId,
+            mode: opts.mode ?? 'replace',
+          }),
+        },
         token,
       ),
 
@@ -453,6 +483,55 @@ class ApiClient {
         { method: 'DELETE' },
         token
       ),
+
+    /**
+     * Upload a custom rating-star icon (SVG or PNG, ≤500KB). On success the
+     * workspace `rating_icon_filled` is set to the public asset URL and the
+     * widget will mask + tint it with `widget_star_color` in place of the
+     * preset star shape. Returns the new URL so the caller can update its
+     * local state without refetching the whole workspace.
+     *
+     * Sends FormData multipart, bypasses `request` because `request` forces
+     * Content-Type: application/json.
+     */
+    uploadRatingIcon: async (file: File, token: string) => {
+      const form = new FormData()
+      form.append('file', file)
+
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      if (typeof window !== 'undefined') {
+        const slug = window.location.pathname.split('/').filter(Boolean)[0]
+        if (slug && !['login', 'invite', 'auth', 'api', '_next'].includes(slug)) {
+          headers['X-Univer-Workspace-Slug'] = slug
+        }
+      }
+
+      const res = await fetch(`${this.baseUrl}/api/v1/workspace/brand-assets/rating-icon`, {
+        method: 'POST',
+        headers, // intentionally NO Content-Type — browser sets multipart boundary
+        body: form,
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!res.ok) {
+        const err = await res
+          .json()
+          .catch(() => ({ error: 'unknown', message: res.statusText }))
+        throw new ApiError(res.status, err.message || err.error, err.issues)
+      }
+
+      const json = (await res.json()) as { data: { rating_icon_url: string } }
+      return json.data
+    },
+
+    removeRatingIcon: (token: string) =>
+      this.request<{ data: { rating_icon_url: null } }>(
+        '/workspace/brand-assets/rating-icon',
+        { method: 'DELETE' },
+        token,
+      ).then(r => r.data),
   }
 
   // ─── Integrations ───────────────────────────────────────────────────────────
