@@ -89,6 +89,47 @@ RSpec.describe Api::V1::AiSummaryTopicsController, type: :request do
            headers: headers
       expect(response).to have_http_status(:unprocessable_entity)
     end
+
+    it "accepts ai_summary at create time" do
+      post "/api/v1/ai_summary_topics",
+           params: {
+             product_id: product.id,
+             title: "Cabelo brilhoso",
+             ai_summary: "Várias clientes destacam brilho imediato.",
+             review_ids: [r1.id],
+           }.to_json,
+           headers: headers
+
+      expect(response).to have_http_status(:created)
+      body = JSON.parse(response.body)["data"]
+      expect(body["ai_summary"]).to eq("Várias clientes destacam brilho imediato.")
+      expect(body["source"]).to eq("manual")
+    end
+
+    it "accepts source=ai (external Claude Code authoring path) and stamps generated_at" do
+      post "/api/v1/ai_summary_topics",
+           params: {
+             product_id: product.id,
+             title: "Demora pra aparecer resultado",
+             ai_summary: "Algumas clientes relatam efeito após semanas.",
+             source: "ai",
+             review_ids: [r1.id],
+           }.to_json,
+           headers: headers
+
+      expect(response).to have_http_status(:created)
+      body = JSON.parse(response.body)["data"]
+      expect(body["source"]).to eq("ai")
+      expect(body["generated_at"]).to be_present
+    end
+
+    it "ignores unknown source values and falls back to manual" do
+      post "/api/v1/ai_summary_topics",
+           params: { product_id: product.id, title: "X", source: "hijack" }.to_json,
+           headers: headers
+      expect(response).to have_http_status(:created)
+      expect(JSON.parse(response.body).dig("data", "source")).to eq("manual")
+    end
   end
 
   describe "PATCH /api/v1/ai_summary_topics/:id" do

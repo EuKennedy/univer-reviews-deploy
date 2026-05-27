@@ -25,6 +25,17 @@ module Api
       end
 
       # POST /api/v1/ai_summary_topics
+      #
+      # Body:
+      #   product_id  uuid (required)
+      #   title       string (required at model layer — empty 422s with field error)
+      #   ai_summary  string (optional, 1-2 sentence consensus blurb)
+      #   source      "manual" | "ai" (defaults to "manual"; pass "ai" when the
+      #               topic was authored externally — e.g. Claude Code driving
+      #               the generation directly via curl instead of Haiku — so
+      #               the storefront still paints the "Gerado por IA" pill
+      #               and the dashboard counts it toward ai_count)
+      #   review_ids  [uuid] (optional — attached after the row persists)
       def create
         require_write!
 
@@ -33,11 +44,15 @@ module Api
         # a model 422 with the "Title can't be blank" issue, matching the
         # rest of our CRUD endpoints. require() would short-circuit with 400
         # and lose the per-field error message.
+        source = %w[manual ai].include?(params[:source]) ? params[:source] : "manual"
+
         topic = current_workspace.ai_summary_topics.new(
-          product:  product,
-          title:    params[:title].to_s,
-          source:   "manual",
-          position: next_position_for(product),
+          product:      product,
+          title:        params[:title].to_s,
+          ai_summary:   params[:ai_summary].to_s.presence,
+          source:       source,
+          position:     next_position_for(product),
+          generated_at: source == "ai" ? Time.current : nil,
         )
 
         if topic.save
