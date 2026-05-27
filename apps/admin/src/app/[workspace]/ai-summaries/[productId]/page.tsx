@@ -60,10 +60,17 @@ export default function AiSummaryEditPage() {
     refetchInterval: () => (generating ? 4000 : false),
   })
 
+  // Pull product context from the ai-summaries index (capped 500, already
+  // cached when the merchant clicked through from the list page) instead of
+  // /products which paginates 25 per page and would leave the header stuck
+  // on "Carregando…" for any product past the first page.
   const { data: product } = useQuery({
-    queryKey: ['product', productId],
-    queryFn: () => api.products.list({}, getToken()).then(r => r.data.find(p => p.id === productId) ?? null),
+    queryKey: ['ai-summary-product', productId],
+    queryFn: () => api.ai.summariesIndex(getToken()).then(r =>
+      r.data.find(p => p.id === productId) ?? null,
+    ),
     enabled: isAuthenticated && !!productId,
+    staleTime: 60_000,
   })
 
   // When the AI topics arrive (any source='ai' topic that wasn't there
@@ -73,7 +80,14 @@ export default function AiSummaryEditPage() {
     if (topics.some(t => t.source === 'ai')) setGenerating(false)
   }, [topics, generating])
 
-  const inv = () => queryClient.invalidateQueries({ queryKey: ['ai-summary-topics', productId] })
+  // Every topic mutation also dirties the dashboard index (status pill,
+  // topic count, last_generated_at) so the list page reflects reality the
+  // moment the merchant clicks back.
+  const inv = () => {
+    queryClient.invalidateQueries({ queryKey: ['ai-summary-topics', productId] })
+    queryClient.invalidateQueries({ queryKey: ['ai-summaries-index'] })
+    queryClient.invalidateQueries({ queryKey: ['ai-summary-product', productId] })
+  }
 
   const generateMut = useMutation({
     mutationFn: () => api.ai.generateSummaryTopics(productId, getToken()),
@@ -129,7 +143,7 @@ export default function AiSummaryEditPage() {
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Sparkles className="w-5 h-5" />}
-        title={product?.name ?? 'Carregando…'}
+        title={product?.title ?? 'Carregando…'}
         subtitle="Edite os tópicos do sumário deste produto"
         actions={
           <div className="flex items-center gap-2">
@@ -185,7 +199,7 @@ export default function AiSummaryEditPage() {
                     <StatusPill status="pending" />
                   )}
                   <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-                    {product.review_count != null ? `${product.review_count} avaliações aprovadas` : ''}
+                    {product.approved_reviews != null ? `${product.approved_reviews} avaliações aprovadas` : ''}
                   </span>
                 </div>
               </div>
@@ -295,6 +309,8 @@ function TopicCard({ topic, productId, index }: { topic: AiSummaryTopic; product
   const inv = () => {
     queryClient.invalidateQueries({ queryKey: ['ai-summary-topic', topic.id] })
     queryClient.invalidateQueries({ queryKey: ['ai-summary-topics', productId] })
+    // Topic count + status pill on the dashboard depend on this.
+    queryClient.invalidateQueries({ queryKey: ['ai-summaries-index'] })
   }
 
   const updateMut = useMutation({
