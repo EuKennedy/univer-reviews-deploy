@@ -20,6 +20,18 @@ RSpec.describe Ai::SummaryTopicsService, type: :service do
 
   subject(:service) { described_class.new(workspace) }
 
+  # `pick_reviews` orders by created_at DESC with verified-purchase /
+  # helpful_count as tie-breakers. All three fixtures here are created in
+  # the same second with identical metadata, so PostgreSQL's tie-break is
+  # non-deterministic and the [1-indexed → UUID] resolution flips between
+  # runs. We stub the helper to return a stable [r1, r2, r3] sequence so
+  # the assertions below can name UUIDs by index without flake.
+  before do
+    allow_any_instance_of(described_class)
+      .to receive(:pick_reviews)
+      .and_return([r1, r2, r3])
+  end
+
   def stub_claude_with(payload)
     allow_any_instance_of(described_class).to receive(:call_claude).and_return(payload.to_json)
   end
@@ -96,8 +108,15 @@ RSpec.describe Ai::SummaryTopicsService, type: :service do
   end
 
   describe "edge cases" do
-    it "returns [] when the product has no reviewable bodies" do
-      product.reviews.destroy_all
+    it "returns [] when pick_reviews finds no eligible reviews" do
+      # Override the outer stub: simulate a product whose reviews all fail
+      # the LENGTH(body) >= 40 filter (or got deleted).
+      allow_any_instance_of(described_class)
+        .to receive(:pick_reviews)
+        .and_return([])
+
+      # Claude must NOT be invoked when there's nothing to summarize.
+      expect_any_instance_of(described_class).not_to receive(:call_claude)
 
       result = service.call(product)
       expect(result).to eq([])
