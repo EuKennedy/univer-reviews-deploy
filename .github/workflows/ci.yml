@@ -109,10 +109,10 @@ jobs:
       - name: Run Semgrep
         # `p/typescript p/javascript p/security-audit p/owasp-top-ten`
         # is the canonical "give me everything that matters for a JS web
-        # app" bundle. `--error` makes Semgrep exit non-zero on findings.
+        # app" bundle. `semgrep scan --error` exits non-zero on findings.
         # `--exclude` skips generated bundles + node_modules.
         run: |
-          semgrep ci \
+          semgrep scan \
             --config p/typescript \
             --config p/javascript \
             --config p/security-audit \
