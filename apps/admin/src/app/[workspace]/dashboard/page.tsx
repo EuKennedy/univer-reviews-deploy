@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import {
@@ -30,10 +31,11 @@ import { PageHeader } from '@/components/godmode/PageHeader'
 import { StatsBar } from '@/components/godmode/StatsBar'
 import { StatusBadge } from '@/components/reviews/StatusBadge'
 import { RatingStars } from '@/components/reviews/RatingStars'
+import { ReviewDrawer } from '@/components/reviews/ReviewDrawer'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { formatNumber, truncate } from '@/lib/utils'
-import type { WorkspaceStats } from '@/types'
+import type { Review, WorkspaceStats } from '@/types'
 import Link from 'next/link'
 
 function CustomTooltip({ active, payload, label }: {
@@ -60,6 +62,13 @@ export default function DashboardPage() {
   const workspace = params?.workspace as string
   const { getToken } = useAuth()
   const queryClient = useQueryClient()
+
+  // Dashboard reuses the side-drawer from the Reviews page so clicking a
+  // recent review preview opens the in-place editor instead of navigating
+  // to /reviews/[id] (which was throwing a client-side exception in prod
+  // when fields like author_name / replies came back null on the trimmed
+  // dashboard list payload).
+  const [drawerReview, setDrawerReview] = useState<Review | null>(null)
 
   const { data: stats, isLoading } = useQuery<WorkspaceStats>({
     queryKey: ['workspace-stats', workspace],
@@ -364,42 +373,52 @@ export default function DashboardPage() {
                     <div className="skeleton h-5 w-16 rounded-full" />
                   </div>
                 ))
-              : recentReviews?.data.map((review) => (
-                  <Link
-                    key={review.id}
-                    href={`/${workspace}/reviews/${review.id}`}
-                    className="flex items-center gap-3 px-5 py-3 transition-colors"
-                    style={{ display: 'flex' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'var(--ur-surface-soft)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent'
-                    }}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{
-                        background: 'var(--ur-accent-soft)',
-                        color: 'var(--ur-accent)',
+              : recentReviews?.data.map((review) => {
+                  // Defensive copies: dashboard's reviews endpoint trims
+                  // some fields and we'd rather show a fallback than
+                  // crash on `null[0].toUpperCase()`.
+                  const name = (review.author_name || '').trim() || 'Cliente'
+                  const initial = name[0]?.toUpperCase() || '?'
+                  const body = review.body || ''
+                  return (
+                    <button
+                      key={review.id}
+                      type="button"
+                      onClick={() => setDrawerReview(review)}
+                      className="w-full text-left flex items-center gap-3 px-5 py-3 transition-colors cursor-pointer"
+                      style={{ background: 'transparent' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'var(--ur-surface-soft)'
                       }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent'
+                      }}
+                      aria-label={`Ver detalhes da avaliação de ${name}`}
                     >
-                      {review.author_name[0]?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="ur-label truncate" style={{ color: 'var(--ur-text)' }}>
-                          {review.author_name}
-                        </span>
-                        <RatingStars rating={review.rating} size="xs" />
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{
+                          background: 'var(--ur-accent-soft)',
+                          color: 'var(--ur-accent)',
+                        }}
+                      >
+                        {initial}
                       </div>
-                      <p className="ur-caption truncate">
-                        {truncate(review.body, 80)}
-                      </p>
-                    </div>
-                    <StatusBadge status={review.status} size="sm" />
-                  </Link>
-                ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="ur-label truncate" style={{ color: 'var(--ur-text)' }}>
+                            {name}
+                          </span>
+                          <RatingStars rating={review.rating ?? 0} size="xs" />
+                        </div>
+                        <p className="ur-caption truncate">
+                          {body ? truncate(body, 80) : <em style={{ color: 'var(--ur-text-muted)' }}>Sem texto — só nota</em>}
+                        </p>
+                      </div>
+                      <StatusBadge status={review.status} size="sm" />
+                    </button>
+                  )
+                })}
           </div>
         </div>
 
@@ -468,6 +487,12 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <ReviewDrawer
+        review={drawerReview}
+        workspace={workspace}
+        onClose={() => setDrawerReview(null)}
+      />
     </div>
   )
 }

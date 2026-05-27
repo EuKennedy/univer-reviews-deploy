@@ -97,15 +97,32 @@ export default function ReviewDetailPage() {
     )
   }
 
+  // Null-safe field accessors — the page used to crash with a
+  // client-side exception whenever author_name / created_at / replies
+  // came back null (which happens for legacy import rows + reviews
+  // created before we backfilled those columns). Bake defaults here
+  // so the JSX below never touches a nullish chain.
+  const authorName = (review.author_name || '').trim() || 'Cliente anônimo'
+  const createdAtSafe = (() => {
+    if (!review.created_at) return null
+    const d = new Date(review.created_at)
+    return Number.isNaN(d.getTime()) ? null : d
+  })()
+  const publishedAtSafe = (() => {
+    if (!review.published_at) return null
+    const d = new Date(review.published_at)
+    return Number.isNaN(d.getTime()) ? null : d
+  })()
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
         icon={<Star className="w-5 h-5" />}
         title="Detalhes da avaliação"
-        subtitle={`Por ${review.author_name}`}
+        subtitle={`Por ${authorName}`}
         breadcrumbs={[
           { label: 'Avaliações', href: `/${workspace}/reviews` },
-          { label: review.author_name },
+          { label: authorName },
         ]}
         actions={
           <div className="flex items-center gap-2">
@@ -190,12 +207,12 @@ export default function ReviewDetailPage() {
                   className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
                   style={{ background: 'var(--ur-accent-soft)', color: 'var(--ur-accent)' }}
                 >
-                  {getInitials(review.author_name)}
+                  {getInitials(authorName)}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h2 className="text-base font-semibold" style={{ color: 'var(--ur-text)' }}>
-                      {review.author_name}
+                      {authorName}
                     </h2>
                     {review.verified_purchase && (
                       <span
@@ -221,8 +238,10 @@ export default function ReviewDetailPage() {
               {/* Meta */}
               <div className="flex flex-wrap gap-4 mb-5 pb-5" style={{ borderBottom: '1px solid var(--ur-surface-soft)' }}>
                 {[
-                  { icon: Calendar, label: format(new Date(review.created_at), "d 'de' MMM, yyyy", { locale: ptBR }) },
-                  { icon: Globe, label: review.source },
+                  ...(createdAtSafe
+                    ? [{ icon: Calendar, label: format(createdAtSafe, "d 'de' MMM, yyyy", { locale: ptBR }) }]
+                    : []),
+                  ...(review.source ? [{ icon: Globe, label: review.source }] : []),
                   ...(review.product_name ? [{ icon: ShoppingBag, label: review.product_name }] : []),
                 ].map(({ icon: Icon, label }) => (
                   <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--ur-text-soft)' }}>
@@ -238,9 +257,15 @@ export default function ReviewDetailPage() {
                   {review.title}
                 </h3>
               )}
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--ur-text)' }}>
-                {review.body}
-              </p>
+              {review.body ? (
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--ur-text)' }}>
+                  {review.body}
+                </p>
+              ) : (
+                <p className="text-sm italic" style={{ color: 'var(--ur-text-muted)' }}>
+                  Cliente avaliou só com a nota — sem comentário escrito.
+                </p>
+              )}
 
               {/* Media */}
               {(review.media?.length ?? 0) > 0 && (
@@ -413,9 +438,11 @@ export default function ReviewDetailPage() {
               </h3>
               <div className="space-y-3">
                 {[
-                  { event: 'Avaliação criada', time: review.created_at, actor: 'Sistema' },
-                  ...(review.published_at
-                    ? [{ event: 'Publicada', time: review.published_at, actor: 'Sistema' }]
+                  ...(createdAtSafe
+                    ? [{ event: 'Avaliação criada', time: createdAtSafe, actor: 'Sistema' }]
+                    : []),
+                  ...(publishedAtSafe
+                    ? [{ event: 'Publicada', time: publishedAtSafe, actor: 'Sistema' }]
                     : []),
                 ].map((entry, i) => (
                   <div key={i} className="flex items-center gap-3 text-xs">
@@ -426,7 +453,7 @@ export default function ReviewDetailPage() {
                     <span style={{ color: 'var(--ur-text-soft)' }}>{entry.event}</span>
                     <span style={{ color: 'var(--ur-text-muted)' }}>por {entry.actor}</span>
                     <span className="ml-auto tabular-nums" style={{ color: 'var(--ur-text-muted)' }}>
-                      {format(new Date(entry.time), "d 'de' MMM, HH:mm", { locale: ptBR })}
+                      {format(entry.time, "d 'de' MMM, HH:mm", { locale: ptBR })}
                     </span>
                   </div>
                 ))}
@@ -549,12 +576,14 @@ export default function ReviewDetailPage() {
               <div className="space-y-3">
                 {[
                   { label: 'ID da avaliação', value: review.id.slice(0, 8) + '…' },
-                  { label: 'Origem', value: review.source },
+                  { label: 'Origem', value: review.source ?? '—' },
                   {
                     label: 'Criada em',
-                    value: format(new Date(review.created_at), "d 'de' MMM, yyyy HH:mm", { locale: ptBR }),
+                    value: createdAtSafe
+                      ? format(createdAtSafe, "d 'de' MMM, yyyy HH:mm", { locale: ptBR })
+                      : '—',
                   },
-                  { label: 'Votos úteis', value: String(review.helpful_count) },
+                  { label: 'Votos úteis', value: String(review.helpful_count ?? 0) },
                   { label: 'Anexos de mídia', value: String(review.media?.length ?? 0) },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between text-xs">
