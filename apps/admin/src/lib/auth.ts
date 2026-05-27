@@ -213,30 +213,78 @@ export const auth = betterAuth({
               }
 
               // 2. No existing workspace_user found.
-              //    ONLY auto-provision if AUTOPROVISION_WORKSPACE_ID is explicitly set.
-              //    NEVER fall back to "first workspace in DB" — in a multi-tenant SaaS
+              //    Two-tier fallback:
+              //      a) AUTOPROVISION_WORKSPACE_ID env set → invite into that ws
+              //         (used for single-tenant pilots like lizzon).
+              //      b) Otherwise → create a brand-new workspace for this user
+              //         and make them owner. Default SaaS sign-up path.
+              //    We NEVER fall back to "first workspace in DB" — in a multi-tenant SaaS
               //    that silently puts every new user into an arbitrary customer's tenant.
               const targetWorkspaceId = process.env.AUTOPROVISION_WORKSPACE_ID
-              if (!targetWorkspaceId) {
-                console.warn(`[auth] no workspace_user for ${email} — user will see error=no_workspace on login. Set AUTOPROVISION_WORKSPACE_ID or pre-create a workspace_user.`)
+
+              if (targetWorkspaceId) {
+                const existingOwner = await tx<{ id: string }[]>`
+                  SELECT id FROM public.workspace_users
+                  WHERE workspace_id = ${targetWorkspaceId} AND role = 'owner'
+                  LIMIT 1
+                `
+                const role = existingOwner.length === 0
+                  ? 'owner'
+                  : (process.env.AUTOPROVISION_ROLE || 'viewer')
+
+                await tx`
+                  INSERT INTO public.workspace_users (workspace_id, email, name, role, better_auth_user_id, created_at, updated_at)
+                  VALUES (${targetWorkspaceId}, ${email}, ${name}, ${role}, ${createdUser.id}, NOW(), NOW())
+                  ON CONFLICT DO NOTHING
+                `
+                console.info(`[auth] auto-provisioned ${email} into workspace ${targetWorkspaceId} as ${role}`)
                 return
               }
 
-              const existingOwner = await tx<{ id: string }[]>`
-                SELECT id FROM public.workspace_users
-                WHERE workspace_id = ${targetWorkspaceId} AND role = 'owner'
-                LIMIT 1
+              // (b) Brand-new workspace. Derive slug from email local-part +
+              //     a short random suffix to avoid collisions. Slug must
+              //     match /\A[a-z0-9-]+\z/ (Rails Workspace#slug validator).
+              const localPart = email.split('@')[0] || 'user'
+              const baseSlug = localPart
+                .toLowerCase()
+                .replace(/[^a-z0-9-]/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '')
+                .slice(0, 24)
+              // 6-char suffix from crypto.randomUUID for collision safety.
+              const suffix = (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36)).replace(/[^a-z0-9]/g, '').slice(0, 6)
+              const slug = `${baseSlug || 'workspace'}-${suffix}`
+              const wsName = name || localPart || 'Meu workspace'
+
+              const newWs = await tx<{ id: string }[]>`
+                INSERT INTO public.workspaces (slug, name, plan, status, brand_color, default_locale, default_currency, created_at, updated_at)
+                VALUES (
+                  ${slug},
+                  ${wsName},
+                  'free',
+                  'trial',
+                  '#d4a850',
+                  'pt-BR',
+                  'BRL',
+                  NOW(),
+                  NOW()
+                )
+                RETURNING id
               `
-              const role = existingOwner.length === 0
-                ? 'owner'
-                : (process.env.AUTOPROVISION_ROLE || 'viewer')
+
+              if (newWs.length === 0) {
+                console.error(`[auth] workspace creation returned no row for ${email}`)
+                return
+              }
+
+              const newWsId = newWs[0].id
 
               await tx`
                 INSERT INTO public.workspace_users (workspace_id, email, name, role, better_auth_user_id, created_at, updated_at)
-                VALUES (${targetWorkspaceId}, ${email}, ${name}, ${role}, ${createdUser.id}, NOW(), NOW())
-                ON CONFLICT DO NOTHING
+                VALUES (${newWsId}, ${email}, ${name}, 'owner', ${createdUser.id}, NOW(), NOW())
               `
-              console.info(`[auth] auto-provisioned ${email} into workspace ${targetWorkspaceId} as ${role}`)
+
+              console.info(`[auth] created new workspace ${slug} (${newWsId}) for ${email} as owner`)
             })
           } catch (e) {
             console.error('[auth] WorkspaceUser sync failed:', e)

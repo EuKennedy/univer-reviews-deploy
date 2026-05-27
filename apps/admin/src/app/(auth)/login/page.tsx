@@ -65,6 +65,7 @@ function LoginContent() {
         access_denied: 'Acesso não autorizado. Solicite um convite ao administrador.',
         signup_disabled: 'Cadastro desativado. Use uma conta autorizada.',
         invalid_provider: 'Provedor de login indisponível no momento.',
+        no_workspace: 'Sua conta foi criada mas o workspace ainda está sendo provisionado. Tente novamente em alguns segundos — se persistir, fale com o suporte.',
       }
       toast.error(map[err] || decodeURIComponent(err))
     }
