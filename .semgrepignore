@@ -1,0 +1,13 @@
+# Semgrep ignore list — file-path level. Mirrors .gitignore syntax.
+# Use sparingly. Per-rule suppression lives in two places:
+#   • inline `// nosemgrep: <rule-id>` annotation on the flagged line
+#   • CI workflow `--exclude-rule` flag for rules that fire across an
+#     entire family of false positives we own
+#
+# This file is for paths that should be silenced for ALL rules.
+
+# Generated bundles
+apps/widget/dist/
+.next/
+.turbo/
+node_modules/

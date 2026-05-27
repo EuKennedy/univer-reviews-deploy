@@ -97,12 +97,67 @@ module Ai
       ((input_tokens * rates[:input] + output_tokens * rates[:output]) / 1_000_000.0).round(8)
     end
 
+    # Tolerant JSON extractor for Claude responses. Handles:
+    #   • ``` / ```json fences (opening + closing)
+    #   • leading / trailing chatter ("Here's the JSON: { ... }")
+    #   • whitespace and BOM
+    # Returns {} (and logs the raw payload) on hard failure so callers can
+    # treat malformed responses as a transient miss and retry.
     def parse_json_response(text)
-      clean = text.gsub(/```(?:json)?\n?/, "").strip
-      JSON.parse(clean, symbolize_names: true)
+      raw = text.to_s.dup.force_encoding("UTF-8").sub(/\A\uFEFF/, "")
+
+      # Strip every markdown code fence — opening + closing.
+      stripped = raw.gsub(/```(?:json|JSON)?\s*/, "").strip
+
+      # If chatter wraps the JSON, scope to the first balanced object or
+      # array. We don't bother with a full parser — just locate the first
+      # '{' or '[' and the matching terminator at the same nesting depth.
+      candidate = extract_first_json_value(stripped) || stripped
+
+      JSON.parse(candidate, symbolize_names: true)
     rescue JSON::ParserError => e
       Rails.logger.error("AI JSON parse error: #{e.message}\nRaw: #{text}")
       {}
+    end
+
+    # Walks `text` and returns the substring of the first balanced JSON
+    # object/array, or nil if none is present. Skips over string literals
+    # so braces inside strings don't throw the depth counter off.
+    def extract_first_json_value(text)
+      start = text.index(/[\[{]/)
+      return nil unless start
+
+      open_char  = text[start]
+      close_char = (open_char == "{" ? "}" : "]")
+
+      depth = 0
+      in_string = false
+      escape = false
+      idx = start
+
+      while idx < text.length
+        ch = text[idx]
+        if in_string
+          if escape
+            escape = false
+          elsif ch == "\\"
+            escape = true
+          elsif ch == '"'
+            in_string = false
+          end
+        else
+          case ch
+          when '"'        then in_string = true
+          when open_char  then depth += 1
+          when close_char
+            depth -= 1
+            return text[start..idx] if depth.zero?
+          end
+        end
+        idx += 1
+      end
+
+      nil
     end
 
     def workspace_voice_context

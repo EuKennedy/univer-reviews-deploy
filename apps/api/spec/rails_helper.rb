@@ -1,11 +1,40 @@
 ENV["RAILS_ENV"] ||= "test"
 
 # Boot SimpleCov BEFORE application code so it can instrument every
-# require'd file. Settings live in apps/api/.simplecov.
+# require'd file. `.simplecov` auto-loading depends on cwd matching the
+# project root, which CI doesn't always honour — call `.start` here
+# explicitly so the config is guaranteed to take effect regardless of
+# where rspec is invoked from.
 if ENV["COVERAGE"] != "false"
   begin
     require "simplecov"
-    # `.simplecov` at the project root is auto-loaded by SimpleCov.start.
+    require "simplecov-html"
+    SimpleCov.start "rails" do
+      enable_coverage :branch
+      add_filter "/spec/"
+      add_filter "/config/"
+      add_filter "/db/"
+      add_filter "/bin/"
+      add_filter "/vendor/"
+
+      add_group "Controllers", "app/controllers"
+      add_group "Models",      "app/models"
+      add_group "Services",    "app/services"
+      add_group "Jobs",        "app/jobs"
+      add_group "Mailers",     "app/mailers"
+      add_group "Lib",         "lib"
+
+      # Floor starts conservative and ratchets up as more specs land.
+      # The gate's value is "coverage never falls off a cliff" — we
+      # raise the floor every milestone instead of trying to police
+      # per-PR deltas. Branch coverage is collected (enable_coverage
+      # :branch above) but not gated yet; line is the canary.
+      minimum_coverage line: ENV.fetch("COVERAGE_FLOOR", 30).to_f
+      minimum_coverage_by_file line: 0
+
+      formatter SimpleCov::Formatter::HTMLFormatter
+      coverage_dir "coverage"
+    end
   rescue LoadError
     # Local devs without the gem yet — proceed without coverage. CI installs it.
   end

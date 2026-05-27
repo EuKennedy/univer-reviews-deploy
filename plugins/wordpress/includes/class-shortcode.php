@@ -131,14 +131,15 @@ class Univer_Shortcode {
             $count_html
         );
 
-        // Smart scroll + WC tab activation. Works for the default anchor
-        // AND any explicit `link="#foo"`. Woo themes render the reviews
-        // block inside a collapsed product tab (.woocommerce-Tabs-panel /
-        // .wc-tab / [role=tabpanel]) so a native anchor lands on a hidden
-        // element. We inject a single helper script once per page and
-        // bind onclick to it. Non-hash hrefs short-circuit so default
-        // navigation runs.
-        $href = ! empty( $link ) ? $link : '#univer-reviews-anchor';
+        // Smart scroll + WC tab activation. Works for ANY hash href.
+        // Default target is the AI summary block (#univer-ai-summary-anchor)
+        // because Woo themes typically render the reviews wall inside a
+        // collapsed product tab — landing the customer in the AI summary
+        // (which sits above/outside the tabs) is the better UX. The
+        // helper runtime falls back to #univer-reviews-anchor if the AI
+        // summary block isn't present on the page, so existing stores
+        // without [univer_ai_carousel] keep working.
+        $href = ! empty( $link ) ? $link : '#univer-ai-summary-anchor';
 
         $this->ensure_rating_jump_script();
 
@@ -174,6 +175,18 @@ class Univer_Shortcode {
             if(href.charAt(0)!=='#'||href.length<2){return true;}
             var target=null;
             try{target=document.querySelector(href);}catch(err){target=document.getElementById(href.slice(1));}
+            // Fallback chain: AI summary anchor → reviews wall anchor →
+            // any element with [data-univer-summary-anchor]. The default
+            // shortcode href is now the AI summary; when a store hasn't
+            // rendered [univer_ai_carousel] we still scroll the user to
+            // the reviews block instead of doing nothing.
+            if(!target&&href==='#univer-ai-summary-anchor'){
+                target=document.getElementById('univer-reviews-anchor')
+                     ||document.querySelector('[data-univer-summary-anchor]');
+                if(target&&history.replaceState){
+                    try{history.replaceState(null,'','#'+target.id);}catch(err){}
+                }
+            }
             if(!target){return true;}
             e.preventDefault();
             var panel=target.closest('.woocommerce-Tabs-panel, .wc-tab, [role=tabpanel]');
@@ -509,8 +522,13 @@ class Univer_Shortcode {
         $limit  = max( 1, min( 30, (int) $atts['limit'] ) );
         $preset = in_array( $atts['preset'], [ 'auto', 'carousel', 'topics' ], true ) ? $atts['preset'] : 'auto';
 
+        // Wrapper gets a stable anchor id so the inline rating shortcode
+        // ([univer_rating]) can scroll a clicker directly to the AI
+        // summary block on themes where the main reviews wall lives
+        // inside a collapsed WC product tab. Stays first because Woo
+        // typically renders [univer_ai_carousel] above the tabs.
         return sprintf(
-            '<div class="univer-ai-carousel-wrapper %s"><univer-ai-carousel workspace-id="%s" product-id="%s" api-url="%s" data-title="%s" limit="%d" preset="%s" theme-color="%s" star-color="%s"></univer-ai-carousel></div>',
+            '<div id="univer-ai-summary-anchor" class="univer-ai-carousel-wrapper %s"><univer-ai-carousel workspace-id="%s" product-id="%s" api-url="%s" data-title="%s" limit="%d" preset="%s" theme-color="%s" star-color="%s"></univer-ai-carousel></div>',
             esc_attr( sanitize_html_class( $atts['class'] ) ),
             esc_attr( $workspace_id ),
             esc_attr( $product_id ),

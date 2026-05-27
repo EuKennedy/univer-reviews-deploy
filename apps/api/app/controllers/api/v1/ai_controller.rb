@@ -91,6 +91,9 @@ module Api
 
         product_id = params.require(:product_id)
         product    = current_workspace.products.find(product_id)
+        # Per-request cap stays at 50 to keep latency predictable. The
+        # admin client chunks larger jobs (10 per call) and aggregates,
+        # which surfaces real progress instead of one long opaque wait.
         count      = (params[:count] || 5).to_i.clamp(1, 50)
         target_status = %w[pending approved].include?(params[:status]) ? params[:status] : "approved"
         spread_days   = (params[:date_spread_days] || 30).to_i.clamp(0, 365)
@@ -99,11 +102,24 @@ module Api
 
         template = "Avaliação em #{language}. Tom: #{tone}. Produto: #{product.title}."
 
+        # GenerateService internally chunks the Claude calls so the model
+        # never has to emit > CHUNK_SIZE variants in a single response.
+        # That alone resolves the "Expected array of variants" crash that
+        # used to fire on large batches when the model hit max_tokens and
+        # truncated mid-array.
         generated = Ai::GenerateService.new(current_workspace).call(
           template: template,
           product:  product,
           count:    count
         )
+
+        if generated.empty?
+          render json: {
+            error: "ai_empty",
+            message: "Claude não retornou variantes válidas. Tente novamente em alguns segundos.",
+          }, status: :bad_gateway
+          return
+        end
 
         created = []
         ActiveRecord::Base.transaction do

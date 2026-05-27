@@ -261,29 +261,86 @@ function BulkAIGeneratorModal({
   const [qaCount, setQaCount] = useState(5)
   const [qaStatus, setQaStatus] = useState<'pending' | 'published'>('published')
 
-  const genReviews = useMutation({
-    mutationFn: () =>
-      api.ai.bulkCreateReviews(
-        {
-          product_id: product.id,
-          count: reviewCount,
-          tone: reviewTone,
-          status: reviewStatus,
-          date_spread_days: dateSpread,
-        },
-        getToken(),
-      ),
-    onSuccess: (res) => {
-      toast.success(`${res.meta.created} avaliações geradas com IA`)
+  // Chunked client-side progress. Big batches (count > 10) were crashing
+  // server-side because Claude truncated mid-array at max_tokens. Now we
+  // split the job into chunks of REVIEW_CHUNK and aggregate locally,
+  // which also gives the operator a real progress bar instead of one
+  // long opaque wait.
+  const REVIEW_CHUNK = 10
+  const [progress, setProgress] = useState<{
+    state: 'idle' | 'running' | 'done' | 'error'
+    done: number
+    total: number
+    stage: string
+    chunkIndex: number
+    chunkCount: number
+    error?: string
+  }>({ state: 'idle', done: 0, total: 0, stage: '', chunkIndex: 0, chunkCount: 0 })
+
+  const STAGE_COPY = [
+    'Lendo o produto…',
+    'Pedindo variações pra IA…',
+    'Aplicando o tom de voz…',
+    'Espalhando datas pra ficar natural…',
+    'Salvando lote no banco…',
+  ]
+
+  async function runChunkedBulkReviews() {
+    const total = reviewCount
+    const chunkCount = Math.ceil(total / REVIEW_CHUNK)
+    setProgress({ state: 'running', done: 0, total, stage: STAGE_COPY[0], chunkIndex: 0, chunkCount })
+
+    let cycled = 0
+    const stageTimer = window.setInterval(() => {
+      cycled = (cycled + 1) % STAGE_COPY.length
+      setProgress((p) => (p.state === 'running' ? { ...p, stage: STAGE_COPY[cycled] } : p))
+    }, 2200)
+
+    let createdTotal = 0
+    try {
+      for (let i = 0; i < chunkCount; i++) {
+        const remaining = total - createdTotal
+        const thisChunk = Math.min(REVIEW_CHUNK, remaining)
+        setProgress((p) => ({ ...p, chunkIndex: i + 1 }))
+
+        const res = await api.ai.bulkCreateReviews(
+          {
+            product_id: product.id,
+            count: thisChunk,
+            tone: reviewTone,
+            status: reviewStatus,
+            date_spread_days: dateSpread,
+          },
+          getToken(),
+        )
+
+        createdTotal += res.meta.created
+        setProgress((p) => ({ ...p, done: createdTotal }))
+      }
+
+      setProgress((p) => ({ ...p, state: 'done', stage: `${createdTotal} avaliações criadas` }))
+      toast.success(`${createdTotal} avaliações geradas com IA`)
       queryClient.invalidateQueries({ queryKey: ['reviews'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
-      onClose()
-    },
-    onError: (err: unknown) => {
+      // Hold the success state visible for a beat so the operator sees
+      // the 100% bar before the modal closes.
+      window.setTimeout(onClose, 900)
+    } catch (err: unknown) {
       const msg = err instanceof ApiError ? err.message : 'Falha na geração IA'
+      setProgress((p) => ({ ...p, state: 'error', error: msg }))
       toast.error(msg)
-    },
-  })
+    } finally {
+      window.clearInterval(stageTimer)
+    }
+  }
+
+  // Adapter so the old mutation-style API used elsewhere on the page
+  // doesn't have to know about progress state. `isPending` mirrors the
+  // running state.
+  const genReviews = {
+    isPending: progress.state === 'running',
+    mutate: () => { void runChunkedBulkReviews() },
+  }
 
   const genQuestions = useMutation({
     mutationFn: () =>
@@ -332,6 +389,36 @@ function BulkAIGeneratorModal({
         ))}
       </div>
 
+      {tab === 'reviews' && progress.state === 'running' && (
+        <BulkProgressPanel
+          done={progress.done}
+          total={progress.total}
+          chunkIndex={progress.chunkIndex}
+          chunkCount={progress.chunkCount}
+          stage={progress.stage}
+        />
+      )}
+
+      {tab === 'reviews' && progress.state === 'done' && (
+        <div
+          className="rounded-xl p-4 mb-4 flex items-center gap-3"
+          style={{ background: 'var(--ur-success-bg)', border: '1px solid var(--ur-success)', color: 'var(--ur-success)' }}
+        >
+          <Check className="w-5 h-5 shrink-0" />
+          <span className="text-sm font-medium">{progress.stage}</span>
+        </div>
+      )}
+
+      {tab === 'reviews' && progress.state === 'error' && (
+        <div
+          className="rounded-xl p-4 mb-4 text-sm"
+          style={{ background: 'var(--ur-danger-bg)', border: '1px solid var(--ur-danger)', color: 'var(--ur-danger)' }}
+        >
+          <p className="font-semibold">Falha na geração</p>
+          <p className="text-xs mt-1 opacity-90">{progress.error}</p>
+        </div>
+      )}
+
       {tab === 'reviews' && (
         <form
           onSubmit={(e) => {
@@ -339,6 +426,8 @@ function BulkAIGeneratorModal({
             genReviews.mutate()
           }}
           className="flex flex-col gap-3"
+          aria-hidden={progress.state === 'running'}
+          style={progress.state === 'running' ? { opacity: 0.4, pointerEvents: 'none' } : {}}
         >
           <Field label="Quantidade (1–50)">
             <input
@@ -533,6 +622,68 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
     {children}
   </label>
 )
+
+// Inline progress panel rendered above the bulk-reviews form while a
+// generation job is running. Shows percent done, lot index (chunk N of
+// M) and a rotating stage caption so the operator understands what's
+// happening behind the scenes instead of staring at a spinner.
+function BulkProgressPanel({
+  done,
+  total,
+  chunkIndex,
+  chunkCount,
+  stage,
+}: {
+  done: number
+  total: number
+  chunkIndex: number
+  chunkCount: number
+  stage: string
+}) {
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
+  return (
+    <div
+      className="rounded-xl p-4 mb-4"
+      style={{
+        background: 'var(--ur-accent-soft)',
+        border: '1px solid var(--ur-accent-soft-3)',
+      }}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--ur-accent)' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
+            Gerando avaliações com IA…
+          </span>
+        </div>
+        <span
+          className="text-xs font-mono tabular-nums"
+          style={{ color: 'var(--ur-accent)' }}
+        >
+          {done} / {total}
+        </span>
+      </div>
+      <div
+        className="h-1.5 rounded-full overflow-hidden mb-2"
+        style={{ background: 'var(--ur-bg)' }}
+      >
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${pct}%`,
+            background: 'linear-gradient(90deg, var(--ur-accent), var(--ur-accent-strong))',
+          }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-xs" style={{ color: 'var(--ur-text-soft)' }}>
+        <span>Lote {chunkIndex} de {chunkCount}</span>
+        <span className="italic">{stage}</span>
+      </div>
+    </div>
+  )
+}
 
 const ModalFooter = ({
   loading,

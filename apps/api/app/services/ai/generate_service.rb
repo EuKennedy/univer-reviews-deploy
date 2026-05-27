@@ -2,32 +2,94 @@ module Ai
   class GenerateService < BaseService
     JOB_TYPE = "generate"
 
-    def call(template:, product: nil, count: 3)
+    # How many variants Claude is asked to emit per HTTP call. With Sonnet
+    # at ~400-500 tokens per review, 8 variants × 500 ≈ 4_000 output tokens
+    # — well inside the 4096 cap below, with margin for the JSON envelope.
+    # Larger batches truncate mid-array and crash parse_json_response.
+    CHUNK_SIZE  = 8
+    MAX_RETRIES = 1
+
+    # Generates `count` review variants. When count > CHUNK_SIZE, the
+    # request is split into multiple Claude calls and the results are
+    # concatenated — this is what fixed the "Expected array of variants"
+    # crash on count=20/30/50 batches: Claude was truncating the response
+    # at max_tokens. Each chunk is independently parsed/retried so one bad
+    # batch can't poison the whole job.
+    #
+    # `on_progress` is an optional Proc invoked with (completed, total)
+    # after each chunk lands. Caller can use it for telemetry / SSE / DB
+    # progress rows.
+    def call(template:, product: nil, count: 3, on_progress: nil)
+      total = count.to_i.clamp(1, 100)
+      collected = []
+      remaining = total
+
+      while remaining.positive?
+        chunk = [remaining, CHUNK_SIZE].min
+        variants = generate_chunk(template: template, product: product, count: chunk)
+        collected.concat(variants)
+        remaining -= variants.length
+
+        on_progress&.call(collected.length, total)
+
+        # If Claude returned 0 valid variants in this chunk and we still
+        # owe variants, bail rather than spin forever. Caller handles the
+        # short-return.
+        break if variants.empty?
+      end
+
+      collected.first(total)
+    end
+
+    private
+
+    def generate_chunk(template:, product:, count:)
       system_prompt = build_system_prompt(product)
       user_content  = build_user_prompt(template, count)
 
-      text = call_claude(
-        model: SONNET,
-        system: system_prompt,
-        max_tokens: 2048,
-        messages: [{ role: "user", content: user_content }]
-      )
+      attempts = 0
+      begin
+        attempts += 1
+        text = call_claude(
+          model: SONNET,
+          system: system_prompt,
+          # 4096 keeps the response inside one network turn while leaving
+          # the model enough room for an 8-review chunk including titles,
+          # bodies, ratings and the wrapping JSON envelope. Sonnet's hard
+          # cap is 8192; we stay below to keep latency predictable.
+          max_tokens: 4096,
+          messages: [{ role: "user", content: user_content }]
+        )
 
-      result = parse_json_response(text)
-      variants = result[:variants] || result
+        result = parse_json_response(text)
+        variants = result[:variants] || result
 
-      unless variants.is_a?(Array)
-        raise "Expected array of variants from AI, got: #{text[0, 200]}"
-      end
+        unless variants.is_a?(Array)
+          # parse_json_response already logs the raw text on error; here we
+          # raise so the retry catches it. Truncate the diagnostic chunk to
+          # 200 chars so the exception message stays readable in logs.
+          raise "Expected array of variants from AI (chunk size #{count}); got: #{text[0, 200]}"
+        end
 
-      variants.first(count).map do |v|
-        {
-          title:  v[:title],
-          body:   v[:body],
-          rating: v[:rating] || 5
-        }
+        variants.map do |v|
+          v = v.is_a?(Hash) ? v : {}
+          {
+            title:  v[:title].to_s,
+            body:   v[:body].to_s,
+            rating: (v[:rating] || 5).to_i.clamp(1, 5),
+          }
+        end.reject { |v| v[:body].blank? }
+      rescue => e
+        if attempts <= MAX_RETRIES
+          Rails.logger.warn("[GenerateService] retry ##{attempts}: #{e.message}")
+          retry
+        end
+        Rails.logger.error("[GenerateService] giving up after #{attempts} attempts: #{e.message}")
+        []
       end
     end
+
+    public
 
     # Generate plausible Q&A pairs for a product (questions a buyer might ask,
     # paired with helpful answers a merchant would write). Persisted by the
