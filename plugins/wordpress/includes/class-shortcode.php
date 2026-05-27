@@ -428,9 +428,11 @@ class Univer_Shortcode {
                 'api_url'      => get_option( 'univer_api_url', UNIVER_API_URL ),
                 'title'        => 'Veja o que estão falando',
                 'limit'        => '15',
-                // preset = "carousel" (default, media-first) | "topics" (multiple
-                // horizontal carousels grouped by AI-extracted topic)
-                'preset'       => 'carousel',
+                // preset = "auto" (default, picks topics when curated, else
+                //                 falls back to media carousel)
+                //          "carousel" (force media-first cards)
+                //          "topics"   (force topical stacks, blank if none)
+                'preset'       => 'auto',
                 'theme_color'  => get_option( 'univer_widget_theme_color', '#d4a850' ),
                 'star_color'   => get_option( 'univer_widget_star_color', '#fbbf24' ),
                 'class'        => '',
@@ -453,7 +455,7 @@ class Univer_Shortcode {
         $this->ensure_widget_enqueued();
 
         $limit  = max( 1, min( 30, (int) $atts['limit'] ) );
-        $preset = in_array( $atts['preset'], [ 'carousel', 'topics' ], true ) ? $atts['preset'] : 'carousel';
+        $preset = in_array( $atts['preset'], [ 'auto', 'carousel', 'topics' ], true ) ? $atts['preset'] : 'auto';
 
         return sprintf(
             '<div class="univer-ai-carousel-wrapper %s"><univer-ai-carousel workspace-id="%s" product-id="%s" api-url="%s" title="%s" limit="%d" preset="%s" theme-color="%s" star-color="%s"></univer-ai-carousel></div>',

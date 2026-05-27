@@ -1766,7 +1766,13 @@ class UniverAiCarousel extends HTMLElement {
   private limit = 15
   private themeColor = '#d4a850'
   private starColor = '#fbbf24'
-  private preset: 'carousel' | 'topics' = 'carousel'
+  // 'auto' — pick topics layout if the product has curated AI topics,
+  //          fall back to media carousel otherwise. Default so merchants
+  //          don't need to edit shortcodes after generating topics.
+  // 'carousel' — force the media-first carousel.
+  // 'topics'   — force the topical stacked carousels (renders nothing
+  //              if the product has no topics yet).
+  private preset: 'auto' | 'carousel' | 'topics' = 'auto'
   private reviews: CarouselReview[] = []
   private topics: SummaryTopic[] = []
   private selected: CarouselReview | null = null
@@ -1785,24 +1791,32 @@ class UniverAiCarousel extends HTMLElement {
     const lim = parseInt(this.getAttribute('limit') || '', 10)
     if (lim > 0 && lim <= 30) this.limit = lim
     const presetAttr = this.getAttribute('preset')
-    if (presetAttr === 'topics') this.preset = 'topics'
+    if (presetAttr === 'topics' || presetAttr === 'carousel') this.preset = presetAttr
     if (!this.productId) return
     void this.fetchAndRender()
   }
 
   private async fetchAndRender() {
     try {
-      if (this.preset === 'topics') {
+      // For 'auto' AND 'topics', try the topics endpoint first. 'auto' falls
+      // back to the carousel when no topics exist; 'topics' renders nothing
+      // (explicit opt-out of the legacy layout).
+      if (this.preset === 'topics' || this.preset === 'auto') {
         const url = `${this.apiUrl}/api/v1/public/ai-summary-topics/${encodeURIComponent(this.productId)}`
         const r = await fetch(url, { headers: { 'X-Univer-Domain': window.location.hostname } })
-        if (!r.ok) return
-        const json = await r.json()
-        this.topics = (Array.isArray(json.data) ? json.data : []) as SummaryTopic[]
-        // Filter out topics with zero reviews — they'd render as empty carousels.
-        this.topics = this.topics.filter(t => Array.isArray(t.reviews) && t.reviews.length > 0)
-        if (this.topics.length === 0) { this.shadow.innerHTML = ''; return }
-        this.renderTopics()
-        return
+        if (r.ok) {
+          const json = await r.json()
+          const tops = (Array.isArray(json.data) ? json.data : []) as SummaryTopic[]
+          // Filter out topics with zero reviews — they'd render empty.
+          this.topics = tops.filter(t => Array.isArray(t.reviews) && t.reviews.length > 0)
+          if (this.topics.length > 0) {
+            this.renderTopics()
+            return
+          }
+        }
+        // 'topics' forced + no topics → render nothing, do NOT fall through.
+        if (this.preset === 'topics') { this.shadow.innerHTML = ''; return }
+        // 'auto' → fall through to legacy carousel below.
       }
 
       const url = `${this.apiUrl}/api/v1/public/ai-carousel/${encodeURIComponent(this.productId)}?limit=${this.limit}`
