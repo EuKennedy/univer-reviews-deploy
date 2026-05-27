@@ -1,4 +1,16 @@
 ENV["RAILS_ENV"] ||= "test"
+
+# Boot SimpleCov BEFORE application code so it can instrument every
+# require'd file. Settings live in apps/api/.simplecov.
+if ENV["COVERAGE"] != "false"
+  begin
+    require "simplecov"
+    # `.simplecov` at the project root is auto-loaded by SimpleCov.start.
+  rescue LoadError
+    # Local devs without the gem yet — proceed without coverage. CI installs it.
+  end
+end
+
 require_relative "../config/environment"
 require "rspec/rails"
 require "shoulda/matchers"

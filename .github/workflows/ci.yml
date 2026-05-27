@@ -17,11 +17,119 @@ permissions:
   contents: read
 
 jobs:
+  # ─── Path filter ────────────────────────────────────────────────────────────
+  # Computes per-area change flags so downstream jobs can skip themselves
+  # when the affected paths weren't touched. CI stays fast on docs-only
+  # PRs without sacrificing coverage on functional changes.
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      api:    ${{ steps.filter.outputs.api }}
+      admin:  ${{ steps.filter.outputs.admin }}
+      widget: ${{ steps.filter.outputs.widget }}
+      wp:     ${{ steps.filter.outputs.wp }}
+      shared: ${{ steps.filter.outputs.shared }}
+      ci:     ${{ steps.filter.outputs.ci }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'packages/shared/**'
+              - '.github/workflows/**'
+            admin:
+              - 'apps/admin/**'
+              - 'packages/shared/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/**'
+            widget:
+              - 'apps/widget/**'
+              - 'packages/shared/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/**'
+            wp:
+              - 'plugins/wordpress/**'
+              - '.github/workflows/**'
+            shared:
+              - 'packages/shared/**'
+            ci:
+              - '.github/workflows/**'
+
+  # ─── Secret scanning (gitleaks) ────────────────────────────────────────────
+  # Catches leaked .env values, API keys, private keys committed by mistake.
+  # Runs on every PR and every push to main. Hard fail — a leaked secret
+  # can't be fixed by deleting the commit, the value must be rotated.
+  gitleaks:
+    name: Security · gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history so gitleaks can scan every commit on the PR diff.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Free open-source repos don't need a GITLEAKS_LICENSE; for
+          # private repos add it as a secret to silence the EULA banner.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
+          GITLEAKS_ENABLE_SUMMARY: true
+
+  # ─── Semgrep · TS/JS SAST ──────────────────────────────────────────────────
+  # Static analysis for the admin + widget TS code. Catches eval, XSS sinks,
+  # leaked tokens in env, insecure CORS, etc. Brakeman handles Ruby; this
+  # job covers the rest. Uses Semgrep's open-source default rulesets.
+  semgrep:
+    name: Security · Semgrep (TS/JS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.admin == 'true' || needs.changes.outputs.widget == 'true' || needs.changes.outputs.ci == 'true'
+
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run Semgrep
+        # `p/typescript p/javascript p/security-audit p/owasp-top-ten`
+        # is the canonical "give me everything that matters for a JS web
+        # app" bundle. `--error` makes Semgrep exit non-zero on findings.
+        # `--exclude` skips generated bundles + node_modules.
+        run: |
+          semgrep ci \
+            --config p/typescript \
+            --config p/javascript \
+            --config p/security-audit \
+            --config p/owasp-top-ten \
+            --exclude apps/widget/dist \
+            --exclude node_modules \
+            --exclude .next \
+            --exclude .turbo \
+            --error
+
   # ─── API ────────────────────────────────────────────────────────────────────
   api-rspec:
-    name: API · RSpec
+    name: API · RSpec + Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.ci == 'true'
 
     services:
       postgres:
@@ -55,6 +163,9 @@ jobs:
       ANTHROPIC_API_KEY: test
       RESEND_API_KEY: test
       DISABLE_BOOTSNAP: "1"
+      # Tells SimpleCov to run; rails_helper.rb checks this var. Set to
+      # "false" locally if you want a snappier run without coverage.
+      COVERAGE: "true"
 
     steps:
       - uses: actions/checkout@v5
@@ -78,19 +189,37 @@ jobs:
         working-directory: apps/api
         run: bundle exec rails db:migrate
 
+      - name: Migration reversibility (CI_FULL only — slow)
+        # Triggered when the commit message contains `[full ci]` or when
+        # running on main. PR feedback stays fast; nightly + release
+        # candidates exercise rollback/redo.
+        working-directory: apps/api
+        if: contains(github.event.head_commit.message, '[full ci]') || github.ref == 'refs/heads/main'
+        env:
+          CI_FULL: "1"
+        run: bundle exec rspec spec/db/migration_reversibility_spec.rb --format documentation
+
       - name: RSpec (no --fail-fast — surface every regression in one pass)
         working-directory: apps/api
-        run: bundle exec rspec --format documentation
+        run: bundle exec rspec --format documentation --profile 10
+
+      - name: Upload coverage HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage-${{ github.run_id }}
+          path: apps/api/coverage/
+          retention-days: 14
+          if-no-files-found: warn
 
   # ─── API · Rubocop (advisory) ──────────────────────────────────────────────
-  # Kept advisory so style nits don't block functional fixes. Brakeman +
-  # rspec are the strict gatekeepers. Watch the annotations panel — the
-  # `--format github` output adds inline PR comments without blocking merge.
   api-rubocop:
     name: API · Rubocop (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     continue-on-error: true
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.ci == 'true'
 
     steps:
       - uses: actions/checkout@v5
@@ -105,11 +234,13 @@ jobs:
         working-directory: apps/api
         run: bundle exec rubocop --parallel --format github || true
 
-  # ─── API · Brakeman (security SAST) ────────────────────────────────────────
+  # ─── API · Brakeman ────────────────────────────────────────────────────────
   api-brakeman:
     name: API · Brakeman security scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.ci == 'true'
 
     steps:
       - uses: actions/checkout@v5
@@ -122,17 +253,15 @@ jobs:
 
       - name: Brakeman
         working-directory: apps/api
-        # `--no-pager` keeps output linear, `--quiet` drops the banner.
-        # `--exit-on-error` fails on scan errors only (not on warnings yet)
-        # so we start collecting findings without instantly blocking merges.
-        # Promote to `--exit-on-warn` once existing baseline is clean.
         run: bundle exec brakeman --no-pager --quiet --no-progress --exit-on-error
 
-  # ─── API · Bundler-audit (CVEs in Ruby deps) ───────────────────────────────
+  # ─── API · Bundler-audit ───────────────────────────────────────────────────
   api-audit:
     name: API · bundler-audit
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: changes
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.ci == 'true'
 
     steps:
       - uses: actions/checkout@v5
@@ -149,22 +278,20 @@ jobs:
           bundle exec bundler-audit update
           bundle exec bundler-audit check --no-update
 
-  # ─── Admin · TS + Lint + Build ─────────────────────────────────────────────
+  # ─── Admin · TS + ESLint + Build ───────────────────────────────────────────
   admin-build:
     name: Admin · TS + ESLint + Next build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: changes
+    if: needs.changes.outputs.admin == 'true' || needs.changes.outputs.ci == 'true'
 
     env:
       BETTER_AUTH_SECRET: dummy-32-chars-minimum-secret-aaaaaa
 
     steps:
       - uses: actions/checkout@v5
-
-      # pnpm version comes from the root package.json `packageManager` field
-      # — passing `version:` here too would error with ERR_PNPM_BAD_PM_VERSION.
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v5
         with:
           node-version: 20
@@ -188,25 +315,23 @@ jobs:
 
       - name: Next build
         working-directory: apps/admin
-        # Lint is run explicitly above so we keep `--no-lint` here to avoid
-        # double-linting (and double cost).
         run: pnpm exec next build --no-lint
 
-  # ─── Widget · Type-check + Bundle + Budget ─────────────────────────────────
+  # ─── Widget · TS + Rollup + Vitest + Budget + Diff ─────────────────────────
   widget-build:
-    name: Widget · TS + Rollup + perf budget
+    name: Widget · TS + Vitest + bundle + budget
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
+    needs: changes
+    if: needs.changes.outputs.widget == 'true' || needs.changes.outputs.ci == 'true'
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Full history so we can diff bundle size against main.
+          fetch-depth: 0
 
-      # setup-node@v5 auto-honors the root packageManager field via Corepack,
-      # which means `npm install` in any sub-package fails with "pnpm not
-      # found" unless pnpm is on PATH. Just use pnpm here too — the widget
-      # workspace is a member of the monorepo's pnpm workspace anyway.
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v5
         with:
           node-version: 20
@@ -217,10 +342,22 @@ jobs:
 
       - name: Type check (strict, no emit)
         working-directory: apps/widget
-        # The Rollup build uses the TS plugin in transpile mode which doesn't
-        # surface type errors. Running tsc separately catches them before
-        # they ship to a shadow DOM no one inspects.
         run: pnpm exec tsc --noEmit
+
+      - name: Vitest (DOM + contract)
+        working-directory: apps/widget
+        # Coverage thresholds live in vitest.config.ts — under threshold
+        # the run exits non-zero.
+        run: pnpm exec vitest run --coverage
+
+      - name: Upload widget coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: widget-coverage-${{ github.run_id }}
+          path: apps/widget/coverage/
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Build widget
         working-directory: apps/widget
@@ -239,8 +376,7 @@ jobs:
           # Budget: 92KB raw / 28KB gzipped. The widget ships TWO storefront
           # layouts (media carousel + topic stacks) plus the modal,
           # custom element, escapeHtml + i18n helpers, and the custom
-          # brand-icon mask path. 28KB gzipped (real transfer) is still
-          # well under Lighthouse "main-thread JS" limits.
+          # brand-icon mask path.
           if [ "$raw" -ge 94208 ]; then
             echo "::error::widget.js is $raw bytes raw — exceeds 92KB budget"
             exit 1
@@ -249,12 +385,50 @@ jobs:
             echo "::error::widget.js is $gz bytes gzipped — exceeds 28KB transfer budget"
             exit 1
           fi
+          # Persist for the diff step below.
+          echo "$raw" > /tmp/widget-raw.txt
+          echo "$gz"  > /tmp/widget-gz.txt
+
+      - name: Bundle size diff vs main (PR only)
+        if: github.event_name == 'pull_request'
+        working-directory: apps/widget
+        run: |
+          set -e
+          git fetch origin main --depth 1 || true
+          if ! git rev-parse origin/main >/dev/null 2>&1; then
+            echo "::warning::origin/main not available — skipping diff"
+            exit 0
+          fi
+          mkdir -p /tmp/main-build && cd /tmp/main-build
+          git --git-dir=$GITHUB_WORKSPACE/.git --work-tree=. checkout origin/main -- apps/widget
+          cd apps/widget && pnpm install --frozen-lockfile --silent && pnpm run build
+          main_raw=$(wc -c < dist/widget.js | tr -d ' ')
+          main_gz=$(gzip -c dist/widget.js | wc -c | tr -d ' ')
+          pr_raw=$(cat /tmp/widget-raw.txt)
+          pr_gz=$(cat /tmp/widget-gz.txt)
+          delta_raw=$((pr_raw - main_raw))
+          delta_gz=$((pr_gz - main_gz))
+          echo "## Widget bundle size" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | main | PR | Δ |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Raw      | $main_raw | $pr_raw | $delta_raw |" >> $GITHUB_STEP_SUMMARY
+          echo "| Gzipped  | $main_gz  | $pr_gz  | $delta_gz  |" >> $GITHUB_STEP_SUMMARY
+          # Soft fail at +10% gzip growth so renegade refactors get a
+          # second look before merging. The absolute budget above is the
+          # hard wall.
+          if [ "$delta_gz" -gt 2867 ]; then
+            echo "::warning::Bundle grew by $delta_gz gzipped bytes (>10%)"
+          fi
+        continue-on-error: true
 
   # ─── WordPress plugin · PHP syntax lint ────────────────────────────────────
   wp-plugin-lint:
     name: WP plugin · PHP -l
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: changes
+    if: needs.changes.outputs.wp == 'true' || needs.changes.outputs.ci == 'true'
 
     steps:
       - uses: actions/checkout@v5
@@ -278,17 +452,17 @@ jobs:
             exit 1
           fi
 
-  # ─── Frontend dep audit (npm audit via pnpm) ───────────────────────────────
+  # ─── Frontend dep audit ────────────────────────────────────────────────────
   frontend-audit:
     name: Frontend · pnpm audit
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: changes
+    if: needs.changes.outputs.admin == 'true' || needs.changes.outputs.widget == 'true' || needs.changes.outputs.ci == 'true'
 
     steps:
       - uses: actions/checkout@v5
-
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v5
         with:
           node-version: 20
@@ -298,8 +472,40 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Audit high-severity CVEs
-        # `pnpm audit --prod --audit-level high` fails the job on any HIGH
-        # or CRITICAL CVE in the production tree. Dev-only deps are ignored
-        # because they don't ship to customers. Set to `moderate` if we
-        # want to be stricter.
         run: pnpm audit --prod --audit-level high
+
+  # ─── Aggregate gate ────────────────────────────────────────────────────────
+  # Single status check that branch protection can require. If any of the
+  # gating jobs above failed (or was skipped because needs.changes filter
+  # excluded it — that's fine, skipped is "success" for our purposes),
+  # this job fails the run so PRs can't be merged.
+  ci-passed:
+    name: CI Passed
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - gitleaks
+      - semgrep
+      - api-rspec
+      - api-brakeman
+      - api-audit
+      - admin-build
+      - widget-build
+      - wp-plugin-lint
+      - frontend-audit
+    # Run even if needed jobs were skipped (path filter).
+    if: always()
+    steps:
+      - name: Fail when any required job actually failed
+        run: |
+          # Map of result strings from every required job. `success` and
+          # `skipped` are both acceptable — a job that didn't run because
+          # the path filter excluded it isn't a failure. Cancelled/failed
+          # is.
+          results='${{ toJson(needs) }}'
+          echo "Aggregated results: $results"
+          if echo "$results" | grep -qE '"result":\s*"(failure|cancelled)"'; then
+            echo "::error::One or more required jobs failed."
+            exit 1
+          fi
+          echo "All required jobs passed (or were skipped by path filter)."

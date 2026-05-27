@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://univerreviews.com/schemas/widget-config.json",
+  "title": "WidgetConfig",
+  "description": "Workspace-level storefront widget configuration. Single source of truth: Rails (Workspace#widget_config) MUST produce this shape, and the TypeScript widget (WidgetConfig interface) MUST consume this shape. Contract spec on both sides validates against this file — drift on either side fails CI.",
+  "type": "object",
+  "required": [
+    "layout",
+    "locale",
+    "theme_color",
+    "star_color",
+    "star_shape",
+    "show_qa",
+    "show_write_review",
+    "per_page",
+    "custom_css"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "layout": {
+      "type": "string",
+      "enum": ["default", "compact", "grid", "carousel"]
+    },
+    "locale": {
+      "type": "string",
+      "enum": ["pt-BR", "en-US", "es-AR"]
+    },
+    "theme_color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "star_color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "star_shape": {
+      "type": "string",
+      "enum": ["star", "heart", "flame", "thumb", "diamond"]
+    },
+    "star_icon_url": {
+      "description": "Optional custom brand-icon URL. null when the workspace hasn't uploaded one.",
+      "type": ["string", "null"]
+    },
+    "star_icon_empty_url": {
+      "description": "Optional distinct empty-state artwork. null falls back to filled icon at low opacity.",
+      "type": ["string", "null"]
+    },
+    "show_qa": { "type": "boolean" },
+    "show_write_review": { "type": "boolean" },
+    "per_page": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "custom_css": {
+      "type": "string",
+      "description": "Workspace-supplied CSS injected into the widget's shadow DOM."
+    }
+  }
+}

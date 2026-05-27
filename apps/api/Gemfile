@@ -61,6 +61,13 @@ group :development, :test do
   # Security + supply-chain scans wired into CI.
   gem "brakeman",      "~> 6.2", require: false
   gem "bundler-audit", "~> 0.9", require: false
+  # Coverage gate. SimpleCov must load before app code (see top of
+  # rails_helper.rb) so it can hook every require — otherwise its file list
+  # is misleading. JSON formatter is consumed by CI to comment thresholds.
+  gem "simplecov",      "~> 0.22", require: false
+  gem "simplecov-html", "~> 0.13", require: false
+  # JSON Schema validator for the cross-stack widget_config contract spec.
+  gem "json_schemer",   "~> 2.3"
 end
 
 group :development do

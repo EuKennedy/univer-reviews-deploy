@@ -46,3 +46,13 @@ apps/widget/dist/
 
 # pnpm
 .pnpm-store/
+
+# Test coverage + reports
+apps/api/coverage/
+apps/admin/coverage/
+apps/admin/test-results/
+apps/admin/playwright-report/
+apps/widget/coverage/
+
+# Claude session artifacts
+.claude/
