@@ -458,7 +458,7 @@ class Univer_Shortcode {
         $preset = in_array( $atts['preset'], [ 'auto', 'carousel', 'topics' ], true ) ? $atts['preset'] : 'auto';
 
         return sprintf(
-            '<div class="univer-ai-carousel-wrapper %s"><univer-ai-carousel workspace-id="%s" product-id="%s" api-url="%s" title="%s" limit="%d" preset="%s" theme-color="%s" star-color="%s"></univer-ai-carousel></div>',
+            '<div class="univer-ai-carousel-wrapper %s"><univer-ai-carousel workspace-id="%s" product-id="%s" api-url="%s" data-title="%s" limit="%d" preset="%s" theme-color="%s" star-color="%s"></univer-ai-carousel></div>',
             esc_attr( sanitize_html_class( $atts['class'] ) ),
             esc_attr( $workspace_id ),
             esc_attr( $product_id ),

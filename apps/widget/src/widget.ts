@@ -1785,7 +1785,14 @@ class UniverAiCarousel extends HTMLElement {
   connectedCallback() {
     this.productId = this.getAttribute('product-id') || ''
     this.apiUrl = this.getAttribute('api-url') || this.apiUrl
-    this.titleText = this.getAttribute('title') || this.titleText
+    // Prefer data-title so the native browser tooltip (which kicks in for
+    // a `title` attribute) doesn't render a duplicate label on hover.
+    // We still accept `title` for backwards-compat with merchants who
+    // were already on v0.7.x shortcodes.
+    this.titleText =
+      this.getAttribute('data-title') ||
+      this.getAttribute('title') ||
+      this.titleText
     this.themeColor = this.getAttribute('theme-color') || this.themeColor
     this.starColor = this.getAttribute('star-color') || this.starColor
     const lim = parseInt(this.getAttribute('limit') || '', 10)
@@ -1890,13 +1897,6 @@ class UniverAiCarousel extends HTMLElement {
     padding-bottom: 18px;
     border-bottom: 1px solid #e5e7eb;
   }
-  .head-eyebrow {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--accent);
-    margin-bottom: 8px;
-  }
-  .head-eyebrow svg { width: 12px; height: 12px; }
   .head h2 {
     font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
     margin: 0; line-height: 1.15; color: #0f172a;
@@ -2028,14 +2028,8 @@ class UniverAiCarousel extends HTMLElement {
 </style>
 
 <header class="head">
-  <span class="head-eyebrow">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-    </svg>
-    Sumário com IA
-  </span>
   <h2>${escapeHtml(this.titleText)}</h2>
-  <p>${this.topics.length} ${this.topics.length === 1 ? 'tópico identificado' : 'tópicos identificados'} a partir das avaliações reais</p>
+  <p>${this.topics.length} ${this.topics.length === 1 ? 'tópico em destaque' : 'tópicos em destaque'}</p>
 </header>
 ${sectionsHtml}
 `
