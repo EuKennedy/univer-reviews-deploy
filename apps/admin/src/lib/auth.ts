@@ -142,6 +142,11 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       expiresIn: 60 * 15, // 15 min
+      // Magic-link é canal de RE-acesso, não de cadastro. Sem esta flag
+      // qualquer e-mail digitado vira conta nova — abre vetor de
+      // squatting e gera spam de e-mails de verificação. Cadastro é
+      // feito exclusivamente via emailAndPassword (ou convite).
+      disableSignUp: true,
       sendMagicLink: async ({ email, url }) => {
         const { subject, html } = magicLinkTemplate({ url, email })
         await sendEmail({ to: email, subject, html })

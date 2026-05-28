@@ -175,34 +175,40 @@ function LoginContent() {
             </p>
           </div>
 
-          {/* Google sign-in (primary social auth) */}
-          <button
-            type="button"
-            onClick={onGoogleSignIn}
-            disabled={googleLoading || loading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-150 mb-4"
-            style={{
-              background: '#ffffff',
-              color: 'var(--ur-surface-soft)',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
-            }}
-          >
-            {googleLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Chrome className="w-4 h-4" />
-            )}
-            Continuar com Google
-          </button>
+          {/* Google sign-in temporariamente desativado em prod —
+             retomar após validar fluxo de OAuth callback + signup
+             workspace-creation E2E. Set NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN=true
+             pra reativar. */}
+          {process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN === 'true' && (
+            <>
+              <button
+                type="button"
+                onClick={onGoogleSignIn}
+                disabled={googleLoading || loading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-150 mb-4"
+                style={{
+                  background: '#ffffff',
+                  color: 'var(--ur-surface-soft)',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                }}
+              >
+                {googleLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Chrome className="w-4 h-4" />
+                )}
+                Continuar com Google
+              </button>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-4">
-            <div className="flex-1 h-px" style={{ background: 'var(--ur-border)' }} />
-            <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-              ou
-            </span>
-            <div className="flex-1 h-px" style={{ background: 'var(--ur-border)' }} />
-          </div>
+              <div className="flex items-center gap-3 my-4">
+                <div className="flex-1 h-px" style={{ background: 'var(--ur-border)' }} />
+                <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+                  ou
+                </span>
+                <div className="flex-1 h-px" style={{ background: 'var(--ur-border)' }} />
+              </div>
+            </>
+          )}
 
           {/* Mode toggle */}
           <div
@@ -258,13 +264,14 @@ function LoginContent() {
                 register={magicForm.register('email')}
                 error={magicForm.formState.errors.email?.message}
               />
+              <p className="text-[11px] leading-snug" style={{ color: 'var(--ur-text-muted)' }}>
+                Link mágico é enviado apenas para e-mails de contas já
+                cadastradas. Se você ainda não tem conta, use o cadastro
+                por senha ou peça um convite ao administrador.
+              </p>
               <SubmitButton loading={loading} label="Enviar link" icon={<Wand2 className="w-4 h-4" />} />
             </form>
           )}
-
-          <p className="mt-6 text-xs text-center" style={{ color: 'var(--ur-text-muted)' }}>
-            Acesso restrito a equipe autorizada
-          </p>
         </motion.div>
 
         <p className="text-center mt-6 text-xs" style={{ color: 'var(--ur-text-muted)' }}>
