@@ -116,9 +116,13 @@ module Integrations
     end
 
     def sample_recent
+      # The products table has no `updated_at` column (schema only has
+      # created_at + last_synced_at). last_synced_at IS the right signal
+      # for "most recently touched by a sync" anyway. NULLS LAST guards
+      # against legacy rows that never went through a sync.
       @workspace.products
                 .where(platform: @domain.platform)
-                .order(updated_at: :desc)
+                .order(Arel.sql("last_synced_at DESC NULLS LAST"))
                 .limit(3)
                 .pluck(:platform_product_id, :title)
     end
