@@ -13,6 +13,7 @@ The Rails app now fails boot in production when any of these are missing. Set th
 | `STRIPE_WEBHOOK_SECRET` | Verifies Stripe webhooks | `/api/v1/webhooks/stripe` returns 503 |
 | `RESEND_WEBHOOK_SECRET` | Verifies Resend webhooks (svix-format) | `/api/v1/webhooks/resend` rejects every delivery |
 | `FEEDSPACE_WEBHOOK_SECRET` | Shared secret for Feedspace integration | `/api/v1/webhooks/feedspace` rejects every delivery |
+| `PAYMENT_WEBHOOK_SECRET` | HMAC key for external payment-platform webhook (`/api/v1/webhooks/payment`) | Endpoint returns 503 (fail-closed). No buyer can be auto-provisioned. |
 | `FRONTEND_URL` | Allowlist for Stripe redirects | Falls back to `https://dash.univerreviews.com` |
 | `STRIPE_SECRET_KEY` | Stripe API client | Stripe calls fail with auth errors |
 | `ANTHROPIC_API_KEY` | AI moderation / generation | AI endpoints return missing-key error |
@@ -36,6 +37,9 @@ bundle exec rails db:migrate
 Two new migrations applied this sweep:
 - `20260520000001_harden_reward_grants.rb` — unique indexes on reward_grants
 - `20260520000002_create_stripe_events.rb` — stripe_events idempotency table
+
+T1.2 payment webhook migration:
+- `20260528173200_create_payment_events.rb` — payment_events idempotency table (no RLS; pre-provisioning)
 
 ## DB role hardening (HIGH priority, post-MVP)
 

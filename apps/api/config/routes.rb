@@ -225,6 +225,10 @@ Rails.application.routes.draw do
         post "stripe",      to: "stripe#create"
         post "feedspace",   to: "feedspace#create"
         post "resend",      to: "resend#create"
+        # External payment platform (NOT Stripe). HMAC-verified; creates the
+        # Better Auth user + workspace + workspace_user on first payment and
+        # e-mails the buyer a 24h magic-link.
+        post "payment",     to: "payment#receive"
       end
     end
   end
