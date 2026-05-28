@@ -37,6 +37,7 @@ Rails.application.routes.draw do
       # AI
       namespace :ai do
         get  :health
+        get  "cost-report", action: :cost_report
         post :moderate
         post "moderate-pending", action: :moderate_pending
         post "generate-summary-topics",      action: :generate_summary_topics

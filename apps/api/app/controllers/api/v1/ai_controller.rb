@@ -25,6 +25,67 @@ module Api
         }
       end
 
+      # GET /api/v1/ai/cost-report?days=30
+      #
+      # Per-workspace AI consumption: total cost (USD) + per-day series
+      # for chart + per-job-type breakdown. Powers the AI Lab "consumo"
+      # panel and the dashboard cost gauge. No PlanFeatures gate — every
+      # workspace can see its own usage regardless of plan.
+      def cost_report
+        days = (params[:days] || 30).to_i.clamp(1, 365)
+        cutoff = days.days.ago.beginning_of_day
+
+        scope = current_workspace.ai_jobs.where("created_at >= ?", cutoff)
+
+        total_cost   = scope.sum(:cost_usd).to_f.round(6)
+        total_jobs   = scope.count
+        total_tokens = scope.sum("COALESCE(input_tokens,0) + COALESCE(output_tokens,0)").to_i
+        failed_count = scope.where(status: "failed").count
+
+        daily = scope
+          .group("DATE(created_at)")
+          .order("DATE(created_at)")
+          .pluck(Arel.sql("DATE(created_at)"),
+                 Arel.sql("COALESCE(SUM(cost_usd), 0)"),
+                 Arel.sql("COUNT(*)"))
+          .map { |date, cost, jobs| { date: date.to_s, cost_usd: cost.to_f.round(6), jobs: jobs.to_i } }
+
+        by_type = scope
+          .group(:job_type)
+          .order(Arel.sql("SUM(cost_usd) DESC NULLS LAST"))
+          .pluck(:job_type,
+                 Arel.sql("COALESCE(SUM(cost_usd), 0)"),
+                 Arel.sql("COUNT(*)"))
+          .map { |job_type, cost, jobs| { job_type: job_type, cost_usd: cost.to_f.round(6), jobs: jobs.to_i } }
+
+        # Soft monthly cap per plan — wires the UI gauge. T4 enforces.
+        plan_cap = case current_workspace.plan
+                   when "free"       then 0.50
+                   when "starter"    then 5.00
+                   when "pro"        then 50.00
+                   when "enterprise" then nil
+                   end
+
+        month_start = Time.current.beginning_of_month
+        month_cost  = current_workspace.ai_jobs
+                                       .where("created_at >= ?", month_start)
+                                       .sum(:cost_usd).to_f.round(6)
+
+        render json: {
+          data: {
+            window_days:  days,
+            total_cost:   total_cost,
+            total_jobs:   total_jobs,
+            total_tokens: total_tokens,
+            failed_count: failed_count,
+            month_cost:   month_cost,
+            plan_cap_monthly_usd: plan_cap,
+            daily:        daily,
+            by_type:      by_type,
+          },
+        }
+      end
+
       # POST /api/v1/ai/moderate
       def moderate
         require_write!

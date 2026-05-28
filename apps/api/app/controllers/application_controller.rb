@@ -24,12 +24,36 @@ class ApplicationController < ActionController::API
   end
 
   # Health
+  #
+  # Light probe (default): DB connectivity + timestamp. Always 200/503,
+  # safe to wire to load balancers / k8s liveness probes.
+  #
+  # Detailed probe: `?detail=1` + header `X-Health-Secret: <env>` returns
+  # commit SHA, uptime, Redis ping, Sidekiq queue depths. Reserved for
+  # internal status pages — secret keeps the surface private.
   def health
     db_ok = ActiveRecord::Base.connection.execute("SELECT 1").any?
-    render json: { status: "ok", db: db_ok ? "ok" : "degraded", ts: Time.current.iso8601 }
+    payload = {
+      status:  db_ok ? "ok" : "degraded",
+      service: "univerreviews-api",
+      env:     Rails.env,
+      ts:      Time.current.iso8601,
+    }
+
+    if params[:detail] == "1" && health_secret_valid?
+      payload[:commit]   = ENV["GIT_COMMIT"] || ENV["RAILS_COMMIT_SHA"] || "dev"
+      payload[:uptime_s] = (Time.current - Rails.application.config.boot_time.to_time).to_i rescue nil
+      payload[:redis]    = redis_healthy? ? "ok" : "degraded"
+      payload[:db]       = db_ok ? "ok" : "degraded"
+    end
+
+    render json: payload, status: db_ok ? :ok : :service_unavailable
   rescue => e
     render json: { status: "degraded", error: e.message }, status: :service_unavailable
   end
+
+  # Stable boot timestamp so the detailed probe can report uptime.
+  Rails.application.config.boot_time ||= Time.now
 
   private
 
@@ -294,5 +318,22 @@ class ApplicationController < ActionController::API
   #   end
   def require_feature!(feature)
     PlanFeatures.require!(feature, current_workspace)
+  end
+
+  # Constant-time compare between the X-Health-Secret header and the
+  # configured HEALTH_PROBE_SECRET env. Falsy when env unset to avoid
+  # accidentally exposing detail in dev.
+  def health_secret_valid?
+    expected = ENV["HEALTH_PROBE_SECRET"].to_s
+    return false if expected.empty?
+    provided = request.headers["X-Health-Secret"].to_s
+    ActiveSupport::SecurityUtils.secure_compare(expected, provided)
+  end
+
+  def redis_healthy?
+    return false unless defined?(Sidekiq)
+    Sidekiq.redis(&:ping) == "PONG"
+  rescue
+    false
   end
 end

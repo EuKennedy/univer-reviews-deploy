@@ -214,6 +214,25 @@ class ApiClient {
       ),
 
     /**
+     * GET /ai/cost-report — per-workspace AI consumption window.
+     * Powers the AI Lab "consumo" chart + dashboard cost gauge.
+     */
+    costReport: (token: string, days = 30) =>
+      this.request<{
+        data: {
+          window_days: number
+          total_cost: number
+          total_jobs: number
+          total_tokens: number
+          failed_count: number
+          month_cost: number
+          plan_cap_monthly_usd: number | null
+          daily: Array<{ date: string; cost_usd: number; jobs: number }>
+          by_type: Array<{ job_type: string; cost_usd: number; jobs: number }>
+        }
+      }>(`/ai/cost-report?days=${days}`, {}, token).then(r => r.data),
+
+    /**
      * Run topic extraction for a single product. Default `mode="replace"`
      * wipes existing AI topics and seeds 1 new one. `mode="append"` adds
      * one more on top of the existing set, telling Claude which titles to

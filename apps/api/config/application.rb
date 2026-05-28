@@ -29,6 +29,12 @@ module UniverseReviewsApi
     # JSON serialization with Oj
     config.middleware.use ActionDispatch::RequestId, header: "X-Request-Id"
 
+    # Abuse protection (per-IP + per-workspace throttles). Init lives at
+    # config/initializers/rack_attack.rb; we just have to insert the
+    # middleware. Place AFTER request-id so logs can correlate 429s with
+    # the request id that hit the limit.
+    config.middleware.use Rack::Attack
+
     # CORS
     config.middleware.insert_before 0, Rack::Cors do
       allow do
