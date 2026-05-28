@@ -1088,7 +1088,7 @@ class ApiClient {
     get: (token: string) =>
       this.request<{
         data: {
-          plan: 'free' | 'starter' | 'pro' | 'enterprise'
+          plan: 'entry' | 'medium' | 'ultra'
           status: string
           current_period_end: string | null
           cancel_at_period_end: boolean
@@ -1096,7 +1096,9 @@ class ApiClient {
         }
       }>('/billing', {}, token),
 
-    createCheckout: (plan: 'starter' | 'pro' | 'enterprise', token: string) =>
+    // Every tier is paid post-T1.3, so create_checkout accepts the full
+    // PLANS set rather than a "checkoutable" subset.
+    createCheckout: (plan: 'entry' | 'medium' | 'ultra', token: string) =>
       this.request<{ data: { url: string } }>(
         '/billing/create_checkout',
         { method: 'POST', body: JSON.stringify({ plan }) },

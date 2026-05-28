@@ -146,7 +146,12 @@ module Api
           set_rls_workspace(sub.workspace_id)
 
           sub.update!(status: "canceled", canceled_at: Time.current)
-          sub.workspace.update!(plan: "free")
+          # No freemium tier exists post-T1.3 — a canceled subscription
+          # drops the workspace to the floor paid tier (entry). Access
+          # control is then driven by Subscription#status="canceled"
+          # rather than by demoting the plan; the plan only governs
+          # what's available IF the subscription becomes active again.
+          sub.workspace.update!(plan: "entry")
 
           AuditLog.record(
             workspace: sub.workspace,

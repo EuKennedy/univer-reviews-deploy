@@ -58,13 +58,11 @@ module Api
                  Arel.sql("COUNT(*)"))
           .map { |job_type, cost, jobs| { job_type: job_type, cost_usd: cost.to_f.round(6), jobs: jobs.to_i } }
 
-        # Soft monthly cap per plan — wires the UI gauge. T4 enforces.
-        plan_cap = case current_workspace.plan
-                   when "free"       then 0.50
-                   when "starter"    then 5.00
-                   when "pro"        then 50.00
-                   when "enterprise" then nil
-                   end
+        # Soft monthly cap per plan — wires the UI gauge. T4 enforces the
+        # hard ceiling via AiCostCap. Source the value off the same table
+        # so the gauge can never drift from the enforcer (e.g. if pricing
+        # rebalances and only one side gets bumped).
+        plan_cap = AiCostCap::PLAN_MONTHLY_CAP_USD[current_workspace.plan.to_s]
 
         month_start = Time.current.beginning_of_month
         month_cost  = current_workspace.ai_jobs
