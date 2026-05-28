@@ -107,6 +107,27 @@ class ApiClient {
       const error = await res
         .json()
         .catch(() => ({ error: 'unknown', message: res.statusText }))
+
+      // 402 Payment Required — backend signals one of two paywall states:
+      //   `feature_locked`         → user's plan doesn't include the feature
+      //   `ai_cost_cap_reached`    → workspace burned through its monthly USD cap
+      //
+      // We dispatch a global window event so the PaywallProvider mounted at
+      // root layout can pop the modal regardless of which page / mutation
+      // triggered the call. We also still throw ApiError so the calling
+      // mutation/query's onError fires — the modal is purely an
+      // augmentation, callers may still want to log, reset state, etc.
+      if (res.status === 402 && typeof window !== 'undefined') {
+        try {
+          window.dispatchEvent(new CustomEvent('paywall', { detail: error }))
+        } catch {
+          // SSR guard already handled; defensive against environments where
+          // CustomEvent constructor isn't available (older Edge / very stripped
+          // jsdom). Failing to surface the modal is non-fatal — the toast
+          // path via onError still fires.
+        }
+      }
+
       throw new ApiError(res.status, error.message || error.error, error.issues)
     }
 
@@ -177,6 +198,13 @@ class ApiClient {
         const errBody = await res
           .json()
           .catch(() => ({ error: 'unknown', message: res.statusText }))
+        if (res.status === 402 && typeof window !== 'undefined') {
+          try {
+            window.dispatchEvent(new CustomEvent('paywall', { detail: errBody }))
+          } catch {
+            /* see request<T> comment */
+          }
+        }
         throw new ApiError(res.status, errBody.message || errBody.error, errBody.issues)
       }
 
@@ -581,6 +609,16 @@ class ApiClient {
         const err = await res
           .json()
           .catch(() => ({ error: 'unknown', message: res.statusText }))
+        // Mirror the JSON-request paywall dispatch for the bypass paths
+        // (multipart upload, CSV export) so the modal also pops for
+        // image-upload-style endpoints if they ever gate behind a feature.
+        if (res.status === 402 && typeof window !== 'undefined') {
+          try {
+            window.dispatchEvent(new CustomEvent('paywall', { detail: err }))
+          } catch {
+            /* see request<T> comment */
+          }
+        }
         throw new ApiError(res.status, err.message || err.error, err.issues)
       }
 
