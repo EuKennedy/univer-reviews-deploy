@@ -43,9 +43,9 @@ RSpec.describe Api::V1::SuperAdmin::WorkspacesController, type: :request do
   end
 
   describe "GET /api/v1/super_admin/workspaces" do
-    let!(:ws_a) { create(:workspace, slug: "tenant-a", name: "Tenant A", plan: "pro",        status: "active") }
-    let!(:ws_b) { create(:workspace, slug: "tenant-b", name: "Tenant B", plan: "enterprise", status: "trial") }
-    let!(:ws_c) { create(:workspace, slug: "tenant-c", name: "Tenant C", plan: "starter",    status: "suspended") }
+    let!(:ws_a) { create(:workspace, slug: "tenant-a", name: "Tenant A", plan: "medium", status: "active") }
+    let!(:ws_b) { create(:workspace, slug: "tenant-b", name: "Tenant B", plan: "ultra",  status: "trial") }
+    let!(:ws_c) { create(:workspace, slug: "tenant-c", name: "Tenant C", plan: "entry",  status: "suspended") }
 
     it "404s for non-admin Better Auth users (route is invisible)" do
       stub_super_admin(regular_user)
@@ -70,7 +70,7 @@ RSpec.describe Api::V1::SuperAdmin::WorkspacesController, type: :request do
       expect(body["meta"]).to include("total_workspaces", "mrr_estimate_usd")
     end
 
-    it "filters by the new plan_label aliases (entry/medium/ultra)" do
+    it "filters by plan (entry/medium/ultra)" do
       stub_super_admin(admin_user)
       get "/api/v1/super_admin/workspaces", params: { plan: "ultra" }, headers: headers
       expect(response).to have_http_status(:ok)
@@ -113,9 +113,9 @@ RSpec.describe Api::V1::SuperAdmin::WorkspacesController, type: :request do
   end
 
   describe "POST /api/v1/super_admin/workspaces/:id/switch_plan" do
-    let!(:ws) { create(:workspace, plan: "starter") }
+    let!(:ws) { create(:workspace, plan: "entry") }
 
-    it "translates 'ultra' → enterprise (db slug) and updates" do
+    it "updates the plan and writes an audit row" do
       stub_super_admin(admin_user)
       expect {
         post "/api/v1/super_admin/workspaces/#{ws.id}/switch_plan",
@@ -124,16 +124,24 @@ RSpec.describe Api::V1::SuperAdmin::WorkspacesController, type: :request do
       }.to change { AuditLog.where(action: "super_admin.workspace.plan_switched").count }.by(1)
 
       expect(response).to have_http_status(:ok)
-      expect(ws.reload.plan).to eq("enterprise")
+      expect(ws.reload.plan).to eq("ultra")
 
       audit = AuditLog.where(action: "super_admin.workspace.plan_switched").last
-      expect(audit.metadata).to include("previous_plan" => "starter", "new_plan" => "enterprise")
+      expect(audit.metadata).to include("previous_plan" => "entry", "new_plan" => "ultra")
     end
 
     it "rejects unknown plan slugs with 400" do
       stub_super_admin(admin_user)
       post "/api/v1/super_admin/workspaces/#{ws.id}/switch_plan",
            params: { plan: "platinum" }.to_json,
+           headers: headers
+      expect(response).to have_http_status(:bad_request)
+    end
+
+    it "rejects the legacy plan slugs explicitly (pro/starter/enterprise) — those are gone" do
+      stub_super_admin(admin_user)
+      post "/api/v1/super_admin/workspaces/#{ws.id}/switch_plan",
+           params: { plan: "pro" }.to_json,
            headers: headers
       expect(response).to have_http_status(:bad_request)
     end

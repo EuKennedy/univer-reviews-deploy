@@ -80,7 +80,7 @@ RSpec.describe Payment::WebhookProcessor do
   end
 
   describe "existing workspace_user without better_auth_user_id" do
-    let!(:ws) { create(:workspace, plan: "starter") }
+    let!(:ws) { create(:workspace, plan: "entry") }
     let!(:wu) { create(:workspace_user, workspace: ws, email: base_payload["buyer"]["email"], better_auth_user_id: nil) }
 
     it "links the better_auth_user_id without creating a new workspace" do
@@ -97,7 +97,7 @@ RSpec.describe Payment::WebhookProcessor do
   end
 
   describe "plan upgrade flow" do
-    let!(:ws) { create(:workspace, plan: "starter") }
+    let!(:ws) { create(:workspace, plan: "entry") }
     let!(:wu) { create(:workspace_user, workspace: ws, email: base_payload["buyer"]["email"], better_auth_user_id: SecureRandom.uuid) }
 
     it "upgrades the workspace plan when the payload differs" do
@@ -105,9 +105,7 @@ RSpec.describe Payment::WebhookProcessor do
       result = described_class.process!(payload)
 
       expect(result.provisioned).to eq(:upgraded)
-      # T1.3 plan rename hasn't shipped yet; until then `ultra` maps to
-      # the legacy `enterprise` to satisfy the inclusion validator.
-      expect(ws.reload.plan).to eq("enterprise")
+      expect(ws.reload.plan).to eq("ultra")
     end
 
     it "records workspace.plan_changed in audit log on upgrade" do
@@ -115,16 +113,15 @@ RSpec.describe Payment::WebhookProcessor do
       described_class.process!(payload)
       audit = AuditLog.where(action: "workspace.plan_changed").last
       expect(audit).to be_present
-      expect(audit.metadata["to"]).to eq("pro")
-      expect(audit.metadata["from"]).to eq("starter")
+      expect(audit.metadata["to"]).to eq("medium")
+      expect(audit.metadata["from"]).to eq("entry")
     end
 
-    it "is a no-op when payload plan resolves to the same legacy plan" do
-      payload = base_payload.merge("plan" => "entry")  # entry → starter
-      ws.update!(plan: "starter")
+    it "is a no-op when payload plan matches the workspace's current plan" do
+      payload = base_payload.merge("plan" => "entry")
       result = described_class.process!(payload)
       expect(result.provisioned).to eq(:noop)
-      expect(ws.reload.plan).to eq("starter")
+      expect(ws.reload.plan).to eq("entry")
     end
   end
 end

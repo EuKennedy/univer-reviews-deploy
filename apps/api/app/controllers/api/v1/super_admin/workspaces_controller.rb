@@ -6,28 +6,19 @@ module Api
       class WorkspacesController < ApplicationController
         before_action :set_workspace, only: %i[show suspend unsuspend switch_plan soft_destroy impersonate]
 
-        # Canonical plan slugs as stored in the DB and the new product-facing
-        # names agent C is shipping in parallel. The frontend uses the new
-        # names; we accept either at the API boundary and translate.
-        PLAN_ALIASES = {
-          "entry"      => "starter",
-          "medium"     => "pro",
-          "ultra"      => "enterprise",
-          # Pass-throughs for the legacy slugs.
-          "free"       => "free",
-          "starter"    => "starter",
-          "pro"        => "pro",
-          "enterprise" => "enterprise",
-        }.freeze
+        # After T1.3 the DB only stores entry/medium/ultra (see migration
+        # 20260528142804_rename_plans_to_entry_medium_ultra). We accept the
+        # canonical slugs and nothing else — the legacy alias map that lived
+        # here during the parallel rollout is dead code now.
+        VALID_PLANS = %w[entry medium ultra].freeze
 
-        # Approximate MRR per plan in USD. Real billing values live in the
-        # `billing_plans` table — when populated we prefer those, fall back
-        # to this table when a workspace has no subscription row yet.
+        # Approximate MRR per plan in BRL. Real billing values live in
+        # `billing_plans`; we use these as fallback when the workspace has
+        # no subscription row yet (free trial, manual ops, etc).
         PLAN_MRR_FALLBACK = {
-          "free"       => 0,
-          "starter"    => 29,
-          "pro"        => 99,
-          "enterprise" => 299,
+          "entry"  => 79,
+          "medium" => 199,
+          "ultra"  => 499,
         }.freeze
 
         # GET /api/v1/super_admin/workspaces
@@ -38,8 +29,8 @@ module Api
           scope = all_workspaces_scope
 
           if params[:plan].present?
-            db_plan = PLAN_ALIASES[params[:plan].to_s.downcase]
-            scope = scope.where(plan: db_plan) if db_plan
+            requested = params[:plan].to_s.downcase
+            scope = scope.where(plan: requested) if VALID_PLANS.include?(requested)
           end
 
           scope = scope.where(status: params[:status]) if params[:status].present?
@@ -94,23 +85,22 @@ module Api
         end
 
         # POST /api/v1/super_admin/workspaces/:id/switch_plan
-        # body: { plan: 'entry'|'medium'|'ultra' } (legacy names also accepted)
+        # body: { plan: 'entry'|'medium'|'ultra' }
         def switch_plan
           requested = params[:plan].to_s.downcase
-          db_plan = PLAN_ALIASES[requested]
-          unless db_plan
+          unless VALID_PLANS.include?(requested)
             return render json: { error: "bad_request", message: "Unknown plan #{requested.inspect}" },
                           status: :bad_request
           end
 
           previous = @workspace.plan
-          if previous == db_plan
+          if previous == requested
             return render json: { data: serialize_one(@workspace), message: "no_change" }
           end
 
-          @workspace.update!(plan: db_plan)
+          @workspace.update!(plan: requested)
           record_audit("super_admin.workspace.plan_switched",
-                       metadata: { previous_plan: previous, new_plan: db_plan, requested: requested })
+                       metadata: { previous_plan: previous, new_plan: requested })
           render json: { data: serialize_one(@workspace) }
         end
 
@@ -307,14 +297,10 @@ module Api
         end
 
         def plan_label_for(plan)
-          # Reverse map: db slug → product-facing name.
-          case plan
-          when "free"       then "free"
-          when "starter"    then "entry"
-          when "pro"        then "medium"
-          when "enterprise" then "ultra"
-          else plan
-          end
+          # DB now stores the canonical product-facing slug after T1.3 — no
+          # translation needed. Method kept so the serializer call site
+          # doesn't have to change.
+          plan
         end
 
         def last_active_at_for(ws)

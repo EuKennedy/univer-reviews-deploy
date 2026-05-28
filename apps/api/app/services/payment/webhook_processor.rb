@@ -22,11 +22,10 @@ module Payment
   #
   # Returns a hash describing what happened (used by specs + ops audit).
   class WebhookProcessor
-    # Plan whitelist mirrors T1.3 rename (entry|medium|ultra). Until the DB
-    # check constraint catches up, we ALSO accept the legacy free/starter/pro/
-    # enterprise names so the rename can land without breaking webhooks
-    # mid-deploy. Unknown plans are rejected outright.
-    ALLOWED_PLANS = %w[entry medium ultra free starter pro enterprise].freeze
+    # Plan whitelist matches the post-T1.3 DB constraint exactly. The
+    # external payment platform must send one of these slugs; anything else
+    # is rejected at the boundary so we don't store junk in workspaces.plan.
+    ALLOWED_PLANS = %w[entry medium ultra].freeze
 
     Result = Struct.new(
       :ok,
@@ -234,20 +233,11 @@ module Payment
       [ws_user, provisioned]
     end
 
-    # The `workspaces.plan` column currently constrains to the legacy
-    # %w[free starter pro enterprise]. T1.3 renames the set to
-    # entry|medium|ultra. Until that rename lands (agent C, parallel
-    # branch), pass legacy plans straight through and translate the new
-    # names to their nearest legacy equivalent so we don't fail validation.
-    LEGACY_PLAN_FALLBACK = {
-      "entry"  => "starter",
-      "medium" => "pro",
-      "ultra"  => "enterprise"
-    }.freeze
-
+    # Post-T1.3 every accepted plan is the canonical workspace slug already
+    # (entry|medium|ultra). Method kept as the single seam where future
+    # mapping could be added without touching callers.
     def plan_for_workspace(plan)
-      return plan if Workspace::PLANS.include?(plan)
-      LEGACY_PLAN_FALLBACK[plan] || "starter"
+      plan
     end
   end
 end
