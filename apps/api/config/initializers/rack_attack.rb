@@ -35,7 +35,7 @@ class Rack::Attack
   # /api/health and the default `/up`; admin app has its own middleware
   # for login/signup throttles since Better Auth lives there.
   Rack::Attack.safelist("allow health probe") do |req|
-    req.path == "/up" || req.path == "/healthz" || req.path == "/api/health"
+    %w[/up /healthz /health /api/health].include?(req.path)
   end
 
   # ── Public surface throttles (per-IP) ───────────────────────────────

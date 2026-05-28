@@ -13,8 +13,8 @@ RSpec.describe "Rack::Attack throttles", type: :request do
   end
 
   describe "safelist" do
-    it "never throttles /api/health" do
-      120.times { get "/api/health" }
+    it "never throttles /health" do
+      120.times { get "/health" }
       # Last response should not be 429. We don't require :ok here because
       # /api/health may legitimately return :service_unavailable in CI if
       # the DB ping fails — but a 429 means the safelist broke.
