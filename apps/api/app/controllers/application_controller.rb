@@ -22,6 +22,7 @@ class ApplicationController < ActionController::API
   rescue_from ForbiddenError,                  with: :forbidden
   rescue_from TenantError,                     with: :tenant_error
   rescue_from PlanFeatures::FeatureLocked,     with: :feature_locked
+  rescue_from AiCostCap::CapReached,           with: :ai_cost_cap_reached
 
   # Root
   def root
@@ -320,6 +321,18 @@ class ApplicationController < ActionController::API
   #   end
   def require_feature!(feature)
     PlanFeatures.require!(feature, current_workspace)
+  end
+
+  # Gate AI-spending actions behind the workspace's monthly USD cap.
+  # Should be called BEFORE invoking any Ai::*Service that bills against
+  # cost_usd. Free + Starter + Pro plans have caps; Enterprise is nil
+  # (unlimited).
+  def require_ai_budget!
+    AiCostCap.require!(current_workspace)
+  end
+
+  def ai_cost_cap_reached(error)
+    render json: error.to_json_payload, status: :payment_required
   end
 
   # Constant-time compare between the X-Health-Secret header and the

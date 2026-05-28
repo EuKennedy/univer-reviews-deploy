@@ -150,6 +150,7 @@ module Api
       def bulk_create_reviews
         require_write!
         require_feature!(:ai_bulk_generate_reviews)
+        require_ai_budget!
 
         product_id = params.require(:product_id)
         product    = current_workspace.products.find(product_id)
@@ -294,6 +295,7 @@ module Api
       def bulk_create_questions
         require_write!
         require_feature!(:ai_bulk_generate_qa)
+        require_ai_budget!
 
         product_id = params.require(:product_id)
         product    = current_workspace.products.find(product_id)
@@ -480,6 +482,7 @@ module Api
       def generate_summary_topics
         require_write!
         require_feature!(:ai_summary_topics)
+        require_ai_budget!
         product = current_workspace.products.find(params.require(:product_id))
 
         # Pre-flight ANTHROPIC_API_KEY check. The job-level rescue swallows

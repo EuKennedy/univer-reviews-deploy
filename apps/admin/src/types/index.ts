@@ -26,6 +26,10 @@ export interface AiAnalysis {
   is_synthetic: boolean
   synthetic_confidence: number
   moderation_flags: string[]
+  /** Optional free-text rationale from the moderation prompt, surfaced
+   *  in the moderation-queue card so operators see why the IA scored
+   *  the review the way it did. */
+  reason?: string | null
 }
 
 export interface Review {
