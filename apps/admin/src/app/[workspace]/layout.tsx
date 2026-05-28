@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { eq } from 'drizzle-orm'
 import { Shell } from '@/components/godmode/Shell'
@@ -13,6 +13,41 @@ interface WorkspaceLayoutProps {
   children: React.ReactNode
   params: Promise<{ workspace: string }>
 }
+
+/**
+ * Top-level segments that EXIST as sub-routes under `/[workspace]/...`.
+ *
+ * When the user types `/dashboard` (no workspace prefix), Next.js routes
+ * that to this layout with `workspace="dashboard"` — there's no DB row,
+ * but the intent is almost certainly "take me to my dashboard". Sending
+ * them to `/` so the root resolver picks the right workspace is the
+ * right UX. Random gunk that ISN'T in this list falls through to
+ * `notFound()` and renders the editorial 404 page.
+ *
+ * Keep in sync with the directory tree under
+ * `apps/admin/src/app/[workspace]/`. Adding a new top-level admin
+ * surface? Add its slug here too.
+ */
+const RESERVED_TOP_LEVEL_SLUGS = new Set<string>([
+  'ai-cost',
+  'ai-lab',
+  'ai-summaries',
+  'audit',
+  'billing',
+  'campaigns',
+  'conta',
+  'dashboard',
+  'duplicates',
+  'groups',
+  'integrations',
+  'loyalty',
+  'moderation',
+  'products',
+  'qa',
+  'reviews',
+  'rewards',
+  'settings',
+])
 
 /**
  * Server-side guard for every /[workspace]/* route.
@@ -67,10 +102,23 @@ export default async function WorkspaceLayout({
   `
 
   if (rows.length === 0) {
-    // Either the workspace doesn't exist OR the user has no row for it.
-    // Send them to the root resolver which picks their first legitimate
-    // workspace (or shows error=no_workspace if they truly have none).
-    redirect('/')
+    // Workspace doesn't exist OR the user has no row for it.
+    //
+    // We branch on intent: typing `/dashboard` is almost certainly a
+    // user who forgot the workspace segment — bouncing them to the
+    // root resolver lands them on their real dashboard. Random gunk
+    // like `/jasdkjas` is a 404 in disguise; we let it render the
+    // editorial not-found page instead of silently redirecting (which
+    // hides typos and dead links from the merchant).
+    //
+    // Keep this set in sync with `apps/admin/src/app/[workspace]/*`
+    // top-level segments. Anything that exists as a sub-route under
+    // a real workspace is a "reserved" name a confused user might
+    // strip the slug off of. Anything else → notFound.
+    if (RESERVED_TOP_LEVEL_SLUGS.has(workspace)) {
+      redirect('/')
+    }
+    notFound()
   }
 
   // LGPD acceptance state — fetched cheaply alongside the workspace
