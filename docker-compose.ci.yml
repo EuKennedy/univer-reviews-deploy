@@ -1,0 +1,66 @@
+# UniverReviews — ephemeral CI stack
+# ----------------------------------
+#
+# Brought up by scripts/local-ci.sh during the api_rspec gate (and any
+# future DB-aware gate). Designed to:
+#
+#   - Mirror the remote CI Postgres + Redis services bit-for-bit, so a
+#     spec passing locally proves the same thing it would pass remotely.
+#   - Mount data on tmpfs so postgres init is fast (< 2s) and leaves no
+#     disk residue — re-running local-ci.sh twice in a row gets two
+#     clean DBs, never a half-migrated one.
+#   - Bind to random host ports (`0:5432`) so a developer running their
+#     normal dev DB on 5432 doesn't clash. The runner reads the assigned
+#     port via `docker compose port`.
+#   - Use throw-away credentials (`ci_user/ci_pw/univerreviews_test`)
+#     identical to what the workflow file expects, so spec env-vars don't
+#     have to branch on "is this local or remote".
+#
+# This file is intentionally NOT loaded by `docker-compose.yml` defaults —
+# the local-ci.sh runner uses an explicit `-f` + `-p` so it never
+# collides with the dev compose stack.
+#
+services:
+  postgres:
+    # pgvector image bundles PG 16 + the vector extension, plus pgcrypto
+    # and pg_trgm (both required by initial_schema.rb).
+    image: pgvector/pgvector:pg16
+    restart: "no"
+    environment:
+      POSTGRES_USER:     ci_user
+      POSTGRES_PASSWORD: ci_pw
+      POSTGRES_DB:       univerreviews_test
+      # Force a deterministic locale so collation-dependent comparisons
+      # in CI match prod.
+      LANG:    C.UTF-8
+      LC_ALL:  C.UTF-8
+    # tmpfs = data lives in RAM. Container stop wipes it. We accept the
+    # data-loss risk (it's a test DB) in exchange for ~5x faster boot
+    # and zero cleanup.
+    tmpfs:
+      - /var/lib/postgresql/data:rw,size=512m
+    ports:
+      - "0:5432"   # 0 = OS picks a free host port; runner queries it back
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ci_user -d univerreviews_test"]
+      interval: 2s
+      timeout:  3s
+      retries: 15
+      start_period: 5s
+
+  redis:
+    image: redis:7-alpine
+    restart: "no"
+    # `--save ''` disables RDB snapshots — Redis runs in pure memory
+    # mode, matching how Sidekiq exercises it under test. `--appendonly no`
+    # is the default but pinned for clarity.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    tmpfs:
+      - /data:rw,size=128m
+    ports:
+      - "0:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15

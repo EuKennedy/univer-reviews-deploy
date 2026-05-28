@@ -56,3 +56,6 @@ apps/widget/coverage/
 
 # Claude session artifacts
 .claude/
+
+# Local CI runner output — see scripts/local-ci.sh / docs/LOCAL_CI.md
+.local-ci-logs/

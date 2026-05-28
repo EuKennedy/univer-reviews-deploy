@@ -6,8 +6,47 @@
 #
 # This file is for paths that should be silenced for ALL rules.
 
-# Generated bundles
-apps/widget/dist/
-.next/
-.turbo/
+# Generated / installed
 node_modules/
+**/node_modules/
+.next/
+**/.next/
+.turbo/
+**/.turbo/
+.cache/
+**/.cache/
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+.local-ci-logs/
+
+# Tests + fixtures intentionally simulate vulnerable patterns to exercise
+# our defenses — scanning them creates noise without surfacing risk.
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.rb
+**/*.test.rb
+**/spec/**
+**/__tests__/**
+**/__fixtures__/**
+**/test/fixtures/**
+
+# Lock files / generated artefacts
+pnpm-lock.yaml
+package-lock.json
+Gemfile.lock
+
+# Auth schema & migrations (Drizzle generated SQL — not application code)
+apps/admin/src/lib/db/migrations/
+
+# Widget bundle (already gitignored, defensive double-coverage)
+apps/widget/dist/
+
+# Coverage + logs
+coverage/
+**/coverage/
+**/*.log
