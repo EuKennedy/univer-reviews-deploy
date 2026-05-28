@@ -451,6 +451,19 @@ module Api
           return
         end
 
+        # Pre-flight: count reviews with body length >= 40 (the floor
+        # `Ai::SummaryTopicsService#pick_reviews` filters by). If zero,
+        # Claude would just return [] and the merchant would see a misleading
+        # "Sumário gerado" toast with nothing on screen — same path that
+        # confused merchants on products like "Kit Blindagem Capilar
+        # (home care)" where every review had body="".
+        eligible = current_workspace.reviews
+                                    .where(product_id: product.id, status: "approved")
+                                    .where("LENGTH(body) >= ?", 40)
+                                    .count
+
+        before_count = product.ai_summary_topics.where(source: "ai").count
+
         begin
           AiGenerateSummaryTopicsJob.new.perform(product.id, mode: mode)
         rescue Ai::BaseService::MissingApiKeyError => e
@@ -466,13 +479,31 @@ module Api
                                   .ordered
                                   .includes(:reviews)
 
+        ai_count_after = topics.count { |t| t.source == "ai" }
+        added = ai_count_after - before_count
+
+        # Distinguish "Claude returned 0" from "produto sem reviews válidos".
+        # Frontend uses `reason` to swap the toast from generic-success to
+        # a clear "produto sem material" warning.
+        no_op_reason =
+          if added <= 0
+            if eligible.zero?
+              "no_eligible_reviews"
+            else
+              "ai_returned_empty"
+            end
+          end
+
         render json: {
           message: "Summary topics generated",
           product_id: product.id,
           mode: mode,
           count: topics.length,
-          ai_count: topics.count { |t| t.source == "ai" },
+          ai_count: ai_count_after,
+          ai_added: [added, 0].max,
           ai_limit: AiGenerateSummaryTopicsJob::MAX_AI_TOPICS_PER_PRODUCT,
+          eligible_reviews: eligible,
+          reason: no_op_reason,
           data: topics.map { |t| {
             id: t.id, title: t.title, source: t.source,
             review_count: t.review_count, stars_avg: t.stars_avg,

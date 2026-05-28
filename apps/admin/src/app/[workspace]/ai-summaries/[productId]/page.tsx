@@ -99,19 +99,43 @@ export default function AiSummaryEditPage() {
       api.ai.generateSummaryTopics(productId, getToken(), { mode }),
     onMutate: () => setGenerating(true),
     onSuccess: (r, mode) => {
-      const aiCount = (r as { ai_count?: number } | undefined)?.ai_count
-      const totalCount = (r as { count?: number } | undefined)?.count ?? 0
-      const created = mode === 'append' ? 1 : totalCount
-      if (mode === 'append') {
-        if (aiCount != null && aiCount >= MAX_AI_TOPICS) {
+      type GenResp = {
+        ai_count?: number
+        ai_added?: number
+        eligible_reviews?: number
+        reason?: 'no_eligible_reviews' | 'ai_returned_empty' | null
+      }
+      const resp = (r as GenResp | undefined) || {}
+      const aiCount = resp.ai_count ?? 0
+      const added = resp.ai_added ?? 0
+      const eligible = resp.eligible_reviews ?? 0
+      const reason = resp.reason ?? null
+
+      if (reason === 'no_eligible_reviews') {
+        // Product has reviews but bodies are blank / too short. Honest
+        // signal beats fake-success — the merchant can see why nothing
+        // appeared.
+        toast.warning(
+          'A IA não tem texto pra resumir nesse produto. Os reviews aprovados estão sem comentário escrito (só nota).',
+          { duration: 7000 },
+        )
+      } else if (reason === 'ai_returned_empty') {
+        toast.warning(
+          'A IA leu os reviews mas não encontrou um tópico forte o bastante. Tente de novo em alguns segundos.',
+          { duration: 7000 },
+        )
+      } else if (mode === 'append' && added > 0) {
+        if (aiCount >= MAX_AI_TOPICS) {
           toast.success('Tópico adicionado — limite de 5 atingido.')
         } else {
           toast.success('Tópico adicionado pela IA.')
         }
-      } else if (created > 0) {
+      } else if (mode === 'replace' && added > 0) {
         toast.success('Sumário gerado pela IA.')
       } else {
-        toast.success('Geração concluída.')
+        // Fallback — should be unreachable now that backend stamps `reason`,
+        // but keep a generic message so it never silently passes again.
+        toast.warning(`Nada gerado (${eligible} reviews elegíveis). Tente novamente.`)
       }
       setGenerating(false)
       void inv()

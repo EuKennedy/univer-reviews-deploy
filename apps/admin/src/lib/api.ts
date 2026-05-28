@@ -231,7 +231,16 @@ class ApiClient {
         mode?: 'replace' | 'append'
         count?: number
         ai_count?: number
+        ai_added?: number
         ai_limit?: number
+        eligible_reviews?: number
+        /**
+         * Set when the generation was a no-op so the UI can warn instead
+         * of falsely celebrating:
+         *   - "no_eligible_reviews": product has zero reviews with body ≥40 chars
+         *   - "ai_returned_empty":   reviews exist but Claude returned no topics
+         */
+        reason?: 'no_eligible_reviews' | 'ai_returned_empty' | null
         data?: Array<{
           id: string
           title: string
