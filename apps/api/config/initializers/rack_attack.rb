@@ -31,35 +31,23 @@ class Rack::Attack
     end
 
   # ── Allow-list ──────────────────────────────────────────────────────
-  # Health probes must NEVER be throttled.
+  # Health probes must NEVER be throttled. The Rails app exposes only
+  # /api/health and the default `/up`; admin app has its own middleware
+  # for login/signup throttles since Better Auth lives there.
   Rack::Attack.safelist("allow health probe") do |req|
     req.path == "/up" || req.path == "/healthz" || req.path == "/api/health"
   end
 
   # ── Public surface throttles (per-IP) ───────────────────────────────
   #
-  # Login attempts: 10/min/IP.
-  throttle("login/ip", limit: 10, period: 1.minute) do |req|
-    req.ip if req.path.start_with?("/api/auth/sign-in") && req.post?
-  end
-
-  # Signup: 5/min/IP. Burst beyond that almost always means scripted
-  # account farming.
-  throttle("signup/ip", limit: 5, period: 1.minute) do |req|
-    req.ip if req.path.start_with?("/api/auth/sign-up") && req.post?
-  end
-
-  # Magic-link send: 5/min/IP. Otherwise spammers torch the Resend
-  # quota by triggering email to arbitrary addresses.
-  throttle("magic-link/ip", limit: 5, period: 1.minute) do |req|
-    req.ip if req.path.include?("/sign-in/magic-link") && req.post?
-  end
-
   # Public review submit (X-Univer-Domain): 30/min/IP. Real customers
   # don't burst-submit; bots do.
   throttle("public-review-submit/ip", limit: 30, period: 1.minute) do |req|
     req.ip if req.path.include?("/api/v1/public/reviews") && req.post?
   end
+
+  # Workspace API key creation flow (bearer auth issuance is admin-side
+  # only — no Rails public path).
 
   # ── Authenticated API throttles (per-workspace) ─────────────────────
   #
@@ -118,9 +106,14 @@ class Rack::Attack
   end
 
   # ── Response ────────────────────────────────────────────────────────
-  Rack::Attack.throttled_responder = lambda do |env|
-    match_data = env["rack.attack.match_data"] || {}
-    retry_after = match_data[:period] || 60
+  #
+  # rack-attack 6.7 invokes the responder with a Rack::Attack::Request,
+  # not a raw env hash. Pull match data off the request's env accessor
+  # so we expose `retry_after_seconds` consistently.
+  Rack::Attack.throttled_responder = lambda do |request|
+    env = request.respond_to?(:env) ? request.env : request
+    match_data = (env.is_a?(Hash) ? env["rack.attack.match_data"] : nil) || {}
+    retry_after = (match_data[:period] || 60).to_i
     [
       429,
       {
