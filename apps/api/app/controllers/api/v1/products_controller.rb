@@ -64,8 +64,41 @@ module Api
       end
 
       # POST /api/v1/products/sync
+      # Triggers a WooCommerce catalog pull. By default enqueues a background
+      # job and returns immediately. Pass `?inline=true` to run synchronously
+      # and receive { synced, failed, pages_fetched, errors, sample_after } —
+      # the admin "Sincronizar agora" button uses this so the merchant sees a
+      # real count instead of "enqueued" and has to guess whether anything
+      # happened.
       def sync
         require_write!
+
+        domain = current_workspace.woocommerce_domain
+        unless domain&.woo_store_url.present?
+          render json: { error: "not_configured", message: "WooCommerce não configurado" },
+                 status: :bad_request
+          return
+        end
+
+        if ActiveModel::Type::Boolean.new.cast(params[:inline])
+          ws_id    = current_workspace.id
+          with_rls = ->(&block) {
+            ActiveRecord::Base.transaction do
+              ActiveRecord::Base.connection.execute(
+                ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", ws_id.to_s])
+              )
+              block.call
+            end
+          }
+
+          result = ::Integrations::WooCommerceProductSyncer.run(
+            workspace: current_workspace,
+            domain:    domain,
+            with_rls:  with_rls
+          )
+          render json: result
+          return
+        end
 
         WooCommerceSyncJob.perform_later(current_workspace.id)
         render json: { message: "Product sync queued" }

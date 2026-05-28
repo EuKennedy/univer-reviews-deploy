@@ -129,16 +129,32 @@ export default function ProductsPage() {
     enabled: isAuthenticated,
   })
 
+  // Inline sync so the merchant sees a concrete result instantly — synced N,
+  // failed K — instead of "enqueued" and having to refresh. The shared
+  // syncer service runs identically in both inline and background paths so
+  // this stays consistent with the daily cron.
   const syncMutation = useMutation({
-    mutationFn: () => api.products.sync(getToken()),
-    onSuccess: () => {
-      toast.success('Sincronização enfileirada — recarregue em alguns segundos')
-      // Poll for updates over the next 30s
-      const start = Date.now()
-      const interval = setInterval(() => {
-        queryClient.invalidateQueries({ queryKey: ['products', workspace] })
-        if (Date.now() - start > 30_000) clearInterval(interval)
-      }, 5_000)
+    mutationFn: () => api.products.sync(getToken(), { inline: true }),
+    onSuccess: (res) => {
+      // Narrow the response to the inline shape. The non-inline branch
+      // returns `{ message: string }` and is never reached here.
+      const r = res as Partial<{ ok: boolean; synced: number; failed: number; pages_fetched: number; total_fetched: number; stage: string; error: string }>
+      if (r.stage) {
+        const stageLabel = r.stage === 'auth' ? 'Autenticação' : r.stage === 'connection' ? 'Conexão' : 'Erro'
+        toast.error(`${stageLabel}: ${r.error || 'Falha na sincronização'}`, { duration: 8000 })
+        return
+      }
+      const synced = r.synced ?? 0
+      const failed = r.failed ?? 0
+      const total  = r.total_fetched ?? 0
+      if (synced === 0 && total === 0) {
+        toast.warning('Sincronização rodou mas WooCommerce retornou 0 produtos. Confira credenciais e se há produtos publicados.', { duration: 8000 })
+      } else if (failed > 0) {
+        toast.warning(`${synced} sincronizados, ${failed} com erro (de ${total}). Veja o console pra detalhes.`, { duration: 8000 })
+      } else {
+        toast.success(`${synced} produto${synced === 1 ? '' : 's'} sincronizado${synced === 1 ? '' : 's'} do WooCommerce.`)
+      }
+      queryClient.invalidateQueries({ queryKey: ['products', workspace] })
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : 'Falha na sincronização'

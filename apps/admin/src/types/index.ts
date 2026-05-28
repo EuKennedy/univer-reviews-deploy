@@ -439,6 +439,25 @@ export interface WooCommerceConfig {
   }
 }
 
+/**
+ * Result returned by the inline mode of `/products/sync` and
+ * `/integrations/woocommerce/sync_products?inline=true`. Lets the admin
+ * render an honest "synced N, failed K" toast right after the click
+ * instead of "enqueued" and forcing the merchant to refresh and guess.
+ */
+export interface WcSyncResult {
+  ok: boolean
+  pages_fetched?: number
+  total_fetched?: number
+  synced: number
+  failed: number
+  errors?: Array<{ id?: number | string; name?: string | null; error: string }>
+  sample_after?: Array<[string, string | null]>
+  /** Set when the sync bailed before iterating products (auth/connection). */
+  stage?: 'auth' | 'connection' | 'fatal'
+  error?: string
+}
+
 // ─── Catalog Health ───────────────────────────────────────────────────────────
 
 export interface CatalogHealth {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import {
   Plug,
@@ -93,6 +93,7 @@ export default function WooCommercePage() {
     sync_reviews: true,
     auto_sync_interval: 3600,
   })
+  const queryClient = useQueryClient()
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{
     success: boolean
@@ -130,10 +131,34 @@ export default function WooCommercePage() {
     },
   })
 
+  // Inline sync — see ProductsPage syncMutation for rationale. Without this
+  // the merchant clicks the button, gets "iniciada", refreshes, and stares
+  // at the same stale catalog wondering whether Sidekiq ran at all.
   const syncMutation = useMutation({
-    mutationFn: () => api.integrations.woocommerce.syncProducts(getToken()),
-    onSuccess: () => toast.success('Sincronização iniciada'),
-    onError: () => toast.error('Falha na sincronização'),
+    mutationFn: () => api.integrations.woocommerce.syncProducts(getToken(), { inline: true }),
+    onSuccess: (res) => {
+      const r = res as Partial<{ ok: boolean; synced: number; failed: number; total_fetched: number; stage: string; error: string }>
+      if (r.stage) {
+        const stageLabel = r.stage === 'auth' ? 'Autenticação' : r.stage === 'connection' ? 'Conexão' : 'Erro'
+        toast.error(`${stageLabel}: ${r.error || 'Falha na sincronização'}`, { duration: 8000 })
+        return
+      }
+      const synced = r.synced ?? 0
+      const failed = r.failed ?? 0
+      const total  = r.total_fetched ?? 0
+      if (synced === 0 && total === 0) {
+        toast.warning('Sincronização rodou mas WooCommerce retornou 0 produtos. Confira credenciais e se há produtos publicados.', { duration: 8000 })
+      } else if (failed > 0) {
+        toast.warning(`${synced} sincronizados, ${failed} com erro (de ${total}).`, { duration: 8000 })
+      } else {
+        toast.success(`${synced} produto${synced === 1 ? '' : 's'} sincronizado${synced === 1 ? '' : 's'}.`)
+      }
+      queryClient.invalidateQueries({ queryKey: ['woocommerce-config', workspace] })
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Falha na sincronização'
+      toast.error(msg)
+    },
   })
 
   const disconnectMutation = useMutation({

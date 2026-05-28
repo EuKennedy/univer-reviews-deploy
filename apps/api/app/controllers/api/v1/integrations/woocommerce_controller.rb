@@ -195,68 +195,24 @@ module Api
 
         private
 
+        # Synchronous WC product pull. Delegates to the shared syncer so this
+        # path stays in lockstep with the background WooCommerceSyncJob.
         def run_inline_sync(domain)
-          adapter = ::Integrations::WooCommerceAdapter.new(
-            store_url:       domain.woo_store_url,
-            consumer_key:    domain.woo_consumer_key,
-            consumer_secret: domain.woo_consumer_secret
-          )
-
-          synced = 0
-          failed = 0
-          total  = 0
-          pages  = 0
-          errors = []
-
-          workspace = current_workspace
-          ws_id     = workspace.id
-
-          adapter.all_products do |batch|
-            pages += 1
-            total += batch.length
-
+          ws_id    = current_workspace.id
+          with_rls = ->(&block) {
             ActiveRecord::Base.transaction do
               ActiveRecord::Base.connection.execute(
                 ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", ws_id.to_s])
               )
-              batch.each do |wp|
-                begin
-                  product = workspace.products.find_or_initialize_by(
-                    platform: "woocommerce",
-                    platform_product_id: wp["id"].to_s
-                  )
-                  product.assign_attributes(
-                    title:          wp["name"],
-                    handle:         wp["slug"],
-                    image_url:      wp.dig("images", 0, "src"),
-                    price:          wp["price"].to_f,
-                    currency:       wp["currency"].presence || "BRL",
-                    active:         wp["status"] == "publish",
-                    last_synced_at: Time.current
-                  )
-                  product.save!
-                  synced += 1
-                rescue => e
-                  failed += 1
-                  errors << { id: wp["id"], name: wp["name"], error: "#{e.class}: #{e.message}" }
-                end
-              end
+              block.call
             end
-          end
-
-          {
-            ok: failed.zero?,
-            pages_fetched: pages,
-            total_fetched: total,
-            synced: synced,
-            failed: failed,
-            errors: errors.first(20),
-            sample_after: workspace.products.where(platform: "woocommerce").order(updated_at: :desc).limit(3).pluck(:platform_product_id, :title)
           }
-        rescue ::Integrations::WooCommerceAdapter::AuthenticationError => e
-          { ok: false, stage: "auth", error: e.message }
-        rescue ::Integrations::WooCommerceAdapter::ConnectionError => e
-          { ok: false, stage: "connection", error: e.message }
+
+          ::Integrations::WooCommerceProductSyncer.run(
+            workspace: current_workspace,
+            domain:    domain,
+            with_rls:  with_rls
+          )
         rescue => e
           { ok: false, stage: "fatal", class: e.class.to_s, error: e.message, backtrace: e.backtrace.first(8) }
         end

@@ -33,6 +33,7 @@ import type {
   RewardGrant,
   AiSummaryTopic,
   AiSummaryProductRow,
+  WcSyncResult,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -625,10 +626,13 @@ class ApiClient {
           { method: 'POST', body: JSON.stringify(creds) },
           token
         ),
-      syncProducts: (token: string) =>
-        this.request<{ message: string }>(
+      syncProducts: (token: string, opts?: { inline?: boolean }) =>
+        this.request<WcSyncResult | { message: string }>(
           '/integrations/woocommerce/sync_products',
-          { method: 'POST' },
+          {
+            method: 'POST',
+            params: opts?.inline ? { inline: 'true' } : undefined,
+          },
           token
         ),
       syncReviews: (token: string) =>
@@ -674,10 +678,13 @@ class ApiClient {
   products = {
     list: (params: Record<string, string | number | boolean | undefined>, token: string) =>
       this.request<PaginatedResponse<Product>>('/products', { params }, token),
-    sync: (token: string) =>
-      this.request<{ message: string }>(
+    sync: (token: string, opts?: { inline?: boolean }) =>
+      this.request<WcSyncResult | { message: string }>(
         '/products/sync',
-        { method: 'POST' },
+        {
+          method: 'POST',
+          params: opts?.inline ? { inline: 'true' } : undefined,
+        },
         token
       ),
   }
