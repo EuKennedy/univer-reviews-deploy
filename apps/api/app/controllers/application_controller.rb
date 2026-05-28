@@ -2,6 +2,11 @@ class ApplicationController < ActionController::API
   include Pagy::Backend
   include ActionController::Cookies
 
+  # Stable boot timestamp captured at class-load time so the detailed
+  # health probe can report uptime. Lives at the top of the class
+  # before any callbacks reference it.
+  BOOT_TIME = Time.current
+
   # Each authenticated request runs inside a transaction so that
   # SET LOCAL app.workspace_id persists for the entire request lifetime.
   # Without this, SET LOCAL (which is transaction-scoped) has no effect and
@@ -42,7 +47,7 @@ class ApplicationController < ActionController::API
 
     if params[:detail] == "1" && health_secret_valid?
       payload[:commit]   = ENV["GIT_COMMIT"] || ENV["RAILS_COMMIT_SHA"] || "dev"
-      payload[:uptime_s] = (Time.current - Rails.application.config.boot_time.to_time).to_i rescue nil
+      payload[:uptime_s] = (Time.current - BOOT_TIME).to_i
       payload[:redis]    = redis_healthy? ? "ok" : "degraded"
       payload[:db]       = db_ok ? "ok" : "degraded"
     end
@@ -51,9 +56,6 @@ class ApplicationController < ActionController::API
   rescue => e
     render json: { status: "degraded", error: e.message }, status: :service_unavailable
   end
-
-  # Stable boot timestamp so the detailed probe can report uptime.
-  Rails.application.config.boot_time ||= Time.now
 
   private
 
