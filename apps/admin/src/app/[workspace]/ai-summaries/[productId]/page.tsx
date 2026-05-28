@@ -245,51 +245,60 @@ export default function AiSummaryEditPage() {
             </motion.div>
           )}
 
-          {/* Topics */}
-          <AnimatePresence mode="wait">
-            {isLoading && !generating ? (
-              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="rounded-xl p-4 h-20" style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border)' }} />
-                ))}
-              </motion.div>
-            ) : generating ? (
-              <motion.div key="generating" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <TopicSkeleton count={4} />
-              </motion.div>
-            ) : hasTopics ? (
-              <motion.div key="topics" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                <AnimatePresence mode="popLayout">
-                  {(topics ?? []).map((t, i) => (
-                    <TopicCard key={t.id} topic={t} productId={productId} index={i} />
-                  ))}
-                </AnimatePresence>
-                {/* Inline append CTA — mirrors the header button. When the
-                  product hits the cap we swap in a friendly limit chip so
-                  the user understands why the button is gone. */}
-                <GenerateMoreSlot
-                  hasAiTopic={hasAiTopic}
-                  atCap={atAiCap}
-                  aiCount={aiTopicCount}
-                  max={MAX_AI_TOPICS}
-                  generating={generating || generateMut.isPending}
-                  onGenerateOne={() => generateMut.mutate(hasAiTopic ? 'append' : 'replace')}
-                />
-              </motion.div>
-            ) : (
-              <EmptyState
-                onGenerate={() => generateMut.mutate('replace')}
-                generating={generating}
-                onFocusManual={() => {
-                  setShowManualSlot(true)
-                  // Wait for the slot to mount, then focus.
-                  requestAnimationFrame(() => {
-                    document.getElementById('manual-topic-input')?.focus()
-                  })
-                }}
+          {/* Topics.
+            *
+            * Previously this whole block was wrapped in
+            * `<AnimatePresence mode="wait">` to crossfade between
+            * loading/generating/topics/empty branches. In production the
+            * "topics" branch was rendering into the DOM (264px tall, 1
+            * child = TopicCard) but with `opacity: 0` stuck — the wait
+            * mode held the new branch in its `initial` state when the
+            * previous branch had already unmounted, so the merchant saw
+            * a blank panel with the buttons but no card.
+            *
+            * Plain conditional rendering — no AnimatePresence wrap —
+            * removes the stuck-opacity foot-gun. Per-card entry
+            * animation still lives on TopicCard itself. */}
+          {isLoading && !generating ? (
+            <div className="space-y-3" aria-label="Carregando tópicos">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="rounded-xl p-4 h-20" style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border)' }} />
+              ))}
+            </div>
+          ) : generating ? (
+            <div>
+              <TopicSkeleton count={4} />
+            </div>
+          ) : hasTopics ? (
+            <div className="space-y-3">
+              {(topics ?? []).map((t, i) => (
+                <TopicCard key={t.id} topic={t} productId={productId} index={i} />
+              ))}
+              {/* Inline append CTA — mirrors the header button. When the
+                product hits the cap we swap in a friendly limit chip so
+                the user understands why the button is gone. */}
+              <GenerateMoreSlot
+                hasAiTopic={hasAiTopic}
+                atCap={atAiCap}
+                aiCount={aiTopicCount}
+                max={MAX_AI_TOPICS}
+                generating={generating || generateMut.isPending}
+                onGenerateOne={() => generateMut.mutate(hasAiTopic ? 'append' : 'replace')}
               />
-            )}
-          </AnimatePresence>
+            </div>
+          ) : (
+            <EmptyState
+              onGenerate={() => generateMut.mutate('replace')}
+              generating={generating}
+              onFocusManual={() => {
+                setShowManualSlot(true)
+                // Wait for the slot to mount, then focus.
+                requestAnimationFrame(() => {
+                  document.getElementById('manual-topic-input')?.focus()
+                })
+              }}
+            />
+          )}
 
           {/* Manual create row */}
           {(hasTopics || generating || showManualSlot) && (
