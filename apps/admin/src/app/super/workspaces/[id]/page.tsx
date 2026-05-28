@@ -30,6 +30,7 @@ import {
   ScrollText,
   CreditCard,
   AlertOctagon,
+  Ban,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -115,6 +116,53 @@ export default function SuperWorkspaceDetailPage() {
       toast.error(e instanceof ApiError ? e.message : 'Falha ao excluir'),
   })
 
+  const cancelPlanMut = useMutation({
+    mutationFn: (reason?: string) =>
+      api.superAdmin.workspaces.cancelPlan(id, getToken(), { reason }),
+    onSuccess: () => {
+      toast.success('Plano cancelado — voluntary churn registrada')
+      invalidate()
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof ApiError ? e.message : 'Falha ao cancelar plano'),
+  })
+
+  const setSeatLimitMut = useMutation({
+    mutationFn: (limit: number | null) =>
+      api.superAdmin.workspaces.setSeatLimit(id, limit, getToken()),
+    onSuccess: () => {
+      toast.success('Limite de assentos atualizado')
+      invalidate()
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof ApiError ? e.message : 'Falha ao alterar limite'),
+  })
+
+  const removeMemberMut = useMutation({
+    mutationFn: (memberId: string) =>
+      api.superAdmin.members.remove(id, memberId, getToken()),
+    onSuccess: () => {
+      toast.success('Membro removido')
+      invalidate()
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof ApiError ? e.message : 'Falha ao remover membro'),
+  })
+
+  const bulkRemoveMembersMut = useMutation({
+    mutationFn: (memberIds: string[]) =>
+      api.superAdmin.members.bulkRemove(id, memberIds, getToken()),
+    onSuccess: (res) => {
+      toast.success(
+        `${res.removed_count} ${res.removed_count === 1 ? 'membro removido' : 'membros removidos'}` +
+          (res.skipped_ids.length > 0 ? ` (${res.skipped_ids.length} ignorados)` : ''),
+      )
+      invalidate()
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof ApiError ? e.message : 'Falha na remoção em massa'),
+  })
+
   const impersonateMut = useMutation({
     mutationFn: () => api.superAdmin.workspaces.impersonate(id, getToken()),
     onSuccess: async (payload) => {
@@ -150,6 +198,7 @@ export default function SuperWorkspaceDetailPage() {
     | { kind: 'soft_destroy' }
     | { kind: 'impersonate' }
     | { kind: 'switch_plan'; plan: SuperAdminPlan }
+    | { kind: 'cancel_plan' }
     | null
   >(null)
 
@@ -158,6 +207,7 @@ export default function SuperWorkspaceDetailPage() {
     switch (confirm.kind) {
       case 'suspend': suspendMut.mutate(); break
       case 'unsuspend': unsuspendMut.mutate(); break
+      case 'cancel_plan': cancelPlanMut.mutate(undefined); break
       case 'soft_destroy':
         // We pass force=1 once the operator has typed the slug — the
         // backend's "has_data" guard exists for accidental destructive
@@ -214,7 +264,7 @@ export default function SuperWorkspaceDetailPage() {
           <PlanPill plan={ws.plan_label} />
           <StatusPill status={ws.status} />
           <Sep />
-          <Field label="MRR" value={fmtUsd(ws.mrr) + '/mês'} />
+          <Field label="MRR" value={fmtBrl(ws.mrr_brl) + '/mês'} />
           <Sep />
           <Field
             label="Cadastro"
@@ -294,14 +344,30 @@ export default function SuperWorkspaceDetailPage() {
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.22, ease: [0.2, 0.0, 0.2, 1] }}
             >
-              {tab === 'overview' && <OverviewTab ws={ws} />}
-              {tab === 'members' && <MembersTab members={ws.workspace_users} />}
+              {tab === 'overview' && (
+                <OverviewTab
+                  ws={ws}
+                  onSaveSeatLimit={(limit) => setSeatLimitMut.mutate(limit)}
+                  seatLimitPending={setSeatLimitMut.isPending}
+                />
+              )}
+              {tab === 'members' && (
+                <MembersTab
+                  workspaceId={ws.id}
+                  members={ws.workspace_users}
+                  effectiveSeatLimit={ws.effective_seat_limit}
+                  onRemove={(memberId) => removeMemberMut.mutate(memberId)}
+                  onBulkRemove={(memberIds) => bulkRemoveMembersMut.mutate(memberIds)}
+                  removePending={removeMemberMut.isPending || bulkRemoveMembersMut.isPending}
+                />
+              )}
               {tab === 'audit' && <AuditTab workspaceId={ws.id} />}
               {tab === 'billing' && (
                 <BillingTab
                   ws={ws}
                   onSwitchPlan={(plan) => setConfirm({ kind: 'switch_plan', plan })}
-                  pending={switchPlanMut.isPending}
+                  onCancelPlan={() => setConfirm({ kind: 'cancel_plan' })}
+                  pending={switchPlanMut.isPending || cancelPlanMut.isPending}
                 />
               )}
               {tab === 'danger' && (
@@ -343,20 +409,45 @@ export default function SuperWorkspaceDetailPage() {
 
 // ─── Tab content ─────────────────────────────────────────────────────────────
 
-function OverviewTab({ ws }: { ws: SuperAdminWorkspaceDetail }) {
+function OverviewTab({
+  ws,
+  onSaveSeatLimit,
+  seatLimitPending,
+}: {
+  ws: SuperAdminWorkspaceDetail
+  onSaveSeatLimit: (limit: number | null) => void
+  seatLimitPending: boolean
+}) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatTile label="Reviews" value={fmtInt(ws.reviews_count)} icon={<Star className="w-3.5 h-3.5" />} />
         <StatTile label="Produtos" value={fmtInt(ws.products_count)} icon={<Package className="w-3.5 h-3.5" />} />
-        <StatTile label="Usuários" value={fmtInt(ws.users_count)} icon={<Users className="w-3.5 h-3.5" />} />
-        <StatTile label="MRR" value={fmtUsd(ws.mrr) + '/m'} icon={<TrendingUp className="w-3.5 h-3.5" />} accent />
+        <StatTile
+          label="Usuários"
+          value={
+            ws.effective_seat_limit !== null
+              ? `${fmtInt(ws.users_count)} / ${fmtInt(ws.effective_seat_limit)}`
+              : fmtInt(ws.users_count)
+          }
+          icon={<Users className="w-3.5 h-3.5" />}
+        />
+        <StatTile label="MRR" value={fmtBrl(ws.mrr_brl) + '/m'} icon={<TrendingUp className="w-3.5 h-3.5" />} accent />
       </div>
+
+      <SeatLimitCard
+        currentOverride={ws.seat_limit}
+        effective={ws.effective_seat_limit}
+        reached={ws.seat_limit_reached}
+        onSave={onSaveSeatLimit}
+        pending={seatLimitPending}
+      />
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <Card title="Custo de IA">
-          <Row label="Este mês" value={fmtUsdPrecise(ws.ai_cost_month)} />
-          <Row label="Lifetime" value={fmtUsdPrecise(ws.ai_cost_lifetime)} />
+          <Row label="Este mês" value={fmtUsdPrecise(ws.ai_cost_month_usd)} />
+          <Row label="Lifetime" value={fmtUsdPrecise(ws.ai_cost_lifetime_usd)} />
         </Card>
 
         <Card title="Identidade">
@@ -384,7 +475,29 @@ function OverviewTab({ ws }: { ws: SuperAdminWorkspaceDetail }) {
   )
 }
 
-function MembersTab({ members }: { members: SuperAdminWorkspaceMember[] }) {
+function MembersTab({
+  workspaceId,
+  members,
+  effectiveSeatLimit,
+  onRemove,
+  onBulkRemove,
+  removePending,
+}: {
+  workspaceId: string
+  members: SuperAdminWorkspaceMember[]
+  effectiveSeatLimit: number | null
+  onRemove: (memberId: string) => void
+  onBulkRemove: (memberIds: string[]) => void
+  removePending: boolean
+}) {
+  void workspaceId
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [pendingConfirm, setPendingConfirm] = useState<
+    | { kind: 'single'; member: SuperAdminWorkspaceMember }
+    | { kind: 'bulk'; ids: string[] }
+    | null
+  >(null)
+
   if (members.length === 0) {
     return (
       <Card title="Membros">
@@ -395,57 +508,190 @@ function MembersTab({ members }: { members: SuperAdminWorkspaceMember[] }) {
     )
   }
 
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const allSelected = members.every((m) => selected.has(m.id))
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelected(new Set())
+    } else {
+      setSelected(new Set(members.map((m) => m.id)))
+    }
+  }
+
+  const seatLabel =
+    effectiveSeatLimit !== null
+      ? `${members.length} / ${effectiveSeatLimit} ${effectiveSeatLimit === 1 ? 'assento' : 'assentos'}`
+      : `${members.length} ${members.length === 1 ? 'pessoa' : 'pessoas'} · sem limite`
+
   return (
-    <Card title="Membros" subtitle={`${members.length} ${members.length === 1 ? 'pessoa' : 'pessoas'}`}>
-      <div className="divide-y" style={{ borderColor: 'var(--ur-border)' }}>
-        {members.map((m) => (
-          <div key={m.id} className="flex items-center gap-3 py-3">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{
-                background: 'var(--ur-accent-soft-3)',
-                color: 'var(--ur-accent)',
-              }}
-            >
-              {(m.name || m.email)[0]?.toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-sm font-medium truncate"
-                style={{ color: 'var(--ur-text)' }}
-              >
-                {m.name || m.email}
-              </p>
-              <p
-                className="text-xs truncate"
-                style={{ color: 'var(--ur-text-muted)' }}
-              >
-                {m.email} ·{' '}
-                {m.last_login_at
-                  ? `último acesso ${formatDistanceToNow(new Date(m.last_login_at), { addSuffix: true, locale: ptBR })}`
-                  : 'nunca acessou'}
-                {m.better_auth_user_id ? '' : ' · sem login'}
-              </p>
-            </div>
-            <span
-              className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded"
-              style={{
-                background:
-                  m.role === 'owner'
-                    ? 'var(--ur-accent-soft)'
-                    : 'var(--ur-surface-soft)',
-                color:
-                  m.role === 'owner'
-                    ? 'var(--ur-accent)'
-                    : 'var(--ur-text-soft)',
-              }}
-            >
-              {m.role}
+    <>
+      <Card title="Membros" subtitle={seatLabel}>
+        {/* Bulk action bar — only mounts when 1+ rows checked.
+          * Self-confirm is required: bulk delete is irreversible and we
+          * never want a stray click on the master checkbox + Remove to
+          * wipe a tenant's team. */}
+        {selected.size > 0 && (
+          <div
+            className="flex items-center justify-between mb-3 px-3 py-2 rounded-lg"
+            style={{
+              background: 'var(--ur-accent-glow)',
+              border: '1px solid var(--ur-accent-soft-2)',
+            }}
+          >
+            <span className="text-xs font-semibold" style={{ color: 'var(--ur-accent)' }}>
+              {selected.size} {selected.size === 1 ? 'selecionado' : 'selecionados'}
             </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelected(new Set())}
+                className="text-xs underline cursor-pointer"
+                style={{ color: 'var(--ur-text-soft)' }}
+              >
+                limpar
+              </button>
+              <ActionButton
+                variant="danger"
+                disabled={removePending}
+                onClick={() => setPendingConfirm({ kind: 'bulk', ids: Array.from(selected) })}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Remover {selected.size}
+              </ActionButton>
+            </div>
           </div>
-        ))}
-      </div>
-    </Card>
+        )}
+
+        {/* Header row */}
+        <div className="flex items-center gap-3 pb-2 mb-1" style={{ borderBottom: '1px solid var(--ur-border)' }}>
+          <input
+            type="checkbox"
+            aria-label="Selecionar todos os membros"
+            checked={allSelected}
+            onChange={toggleAll}
+            className="cursor-pointer"
+            style={{ accentColor: 'var(--ur-accent)' }}
+          />
+          <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--ur-text-muted)' }}>
+            Todos
+          </span>
+        </div>
+
+        <div className="divide-y" style={{ borderColor: 'var(--ur-border)' }}>
+          {members.map((m) => {
+            const isChecked = selected.has(m.id)
+            return (
+              <div key={m.id} className="flex items-center gap-3 py-3">
+                <input
+                  type="checkbox"
+                  aria-label={`Selecionar ${m.email}`}
+                  checked={isChecked}
+                  onChange={() => toggle(m.id)}
+                  className="cursor-pointer shrink-0"
+                  style={{ accentColor: 'var(--ur-accent)' }}
+                />
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                  style={{
+                    background: 'var(--ur-accent-soft-3)',
+                    color: 'var(--ur-accent)',
+                  }}
+                >
+                  {(m.name || m.email)[0]?.toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-sm font-medium truncate"
+                    style={{ color: 'var(--ur-text)' }}
+                  >
+                    {m.name || m.email}
+                  </p>
+                  <p
+                    className="text-xs truncate"
+                    style={{ color: 'var(--ur-text-muted)' }}
+                  >
+                    {m.email} ·{' '}
+                    {m.last_login_at
+                      ? `último acesso ${formatDistanceToNow(new Date(m.last_login_at), { addSuffix: true, locale: ptBR })}`
+                      : 'nunca acessou'}
+                    {m.better_auth_user_id ? '' : ' · sem login'}
+                  </p>
+                </div>
+                <span
+                  className="text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded"
+                  style={{
+                    background:
+                      m.role === 'owner'
+                        ? 'var(--ur-accent-soft)'
+                        : 'var(--ur-surface-soft)',
+                    color:
+                      m.role === 'owner'
+                        ? 'var(--ur-accent)'
+                        : 'var(--ur-text-soft)',
+                  }}
+                >
+                  {m.role}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Remover ${m.email}`}
+                  onClick={() => setPendingConfirm({ kind: 'single', member: m })}
+                  disabled={removePending}
+                  className="p-1.5 rounded-md cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ color: 'var(--ur-danger)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--ur-danger-bg)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </Card>
+
+      {pendingConfirm && (
+        <ConfirmModal
+          title={pendingConfirm.kind === 'bulk' ? 'Remover membros selecionados' : 'Remover membro'}
+          subtitle={
+            pendingConfirm.kind === 'bulk'
+              ? `${pendingConfirm.ids.length} ${pendingConfirm.ids.length === 1 ? 'pessoa' : 'pessoas'}`
+              : pendingConfirm.member.email
+          }
+          confirmLabel="Remover"
+          variant="danger"
+          description={
+            pendingConfirm.kind === 'bulk'
+              ? `Os ${pendingConfirm.ids.length} membros perdem o acesso ao workspace imediatamente. O usuário Better Auth NÃO é removido — só o link com este workspace. Operação registrada em audit.`
+              : `${pendingConfirm.member.email} perde acesso ao workspace imediatamente. O usuário Better Auth segue ativo (poderá ser reconvidado depois). Operação registrada em audit.`
+          }
+          // Bulk delete demands the literal "REMOVER" token so a stray
+          // checkbox + click sequence can't wipe a team. Single delete
+          // demands the member email verbatim — same defensive bar as
+          // the rest of the Danger lane on this page.
+          confirmToken={pendingConfirm.kind === 'bulk' ? 'REMOVER' : pendingConfirm.member.email}
+          onClose={() => setPendingConfirm(null)}
+          onConfirm={() => {
+            if (pendingConfirm.kind === 'bulk') {
+              onBulkRemove(pendingConfirm.ids)
+              setSelected(new Set())
+            } else {
+              onRemove(pendingConfirm.member.id)
+            }
+            setPendingConfirm(null)
+          }}
+          loading={removePending}
+        />
+      )}
+    </>
   )
 }
 
@@ -550,17 +796,21 @@ function AuditTab({ workspaceId }: { workspaceId: string }) {
 function BillingTab({
   ws,
   onSwitchPlan,
+  onCancelPlan,
   pending,
 }: {
   ws: SuperAdminWorkspaceDetail
   onSwitchPlan: (plan: SuperAdminPlan) => void
+  onCancelPlan: () => void
   pending: boolean
 }) {
+  const isCancelled = ws.status === 'cancelled'
   return (
     <div className="space-y-4">
-      <Card title="Plano atual" subtitle={fmtUsd(ws.mrr) + '/mês'}>
-        <div className="flex items-center gap-2">
+      <Card title="Plano atual" subtitle={fmtBrl(ws.mrr_brl) + '/mês'}>
+        <div className="flex items-center gap-2 flex-wrap">
           <PlanPill plan={ws.plan_label} size="md" />
+          <StatusPill status={ws.status} />
           <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
             slug DB: {ws.plan}
           </span>
@@ -597,7 +847,129 @@ function BillingTab({
           })}
         </div>
       </Card>
+
+      {/* Cancel plan — voluntary churn lane. Distinct from Danger →
+        * Suspend (which we use for moderation / abuse) so the audit log
+        * can tell the two intents apart later. */}
+      <Card
+        title="Cancelar plano"
+        subtitle="Marca como churn voluntário (diferente de suspender)"
+      >
+        <p className="text-sm mb-3" style={{ color: 'var(--ur-text-soft)' }}>
+          {isCancelled
+            ? 'Este workspace já está cancelado. Para reativar, troque o plano acima ou use Reativar em Danger.'
+            : 'O painel segue acessível, mas todo gate de plano passa a bloquear. Use quando o cliente pediu para sair (não use para suspender por inadimplência ou abuso — isso vai em Danger).'}
+        </p>
+        <ActionButton
+          variant="danger"
+          onClick={onCancelPlan}
+          disabled={isCancelled || pending}
+        >
+          <Ban className="w-3.5 h-3.5" />
+          Cancelar plano
+        </ActionButton>
+      </Card>
     </div>
+  )
+}
+
+/**
+ * Per-workspace seat-limit override card. Lives in the Overview tab so
+ * the founder can grant a custom seat pool (e.g., a Medium customer who
+ * negotiates 10 seats instead of the default 5) without bumping the
+ * plan or hard-coding it in PlanFeatures. Empty input = clear the
+ * override and fall back to the plan default.
+ */
+function SeatLimitCard({
+  currentOverride,
+  effective,
+  reached,
+  onSave,
+  pending,
+}: {
+  currentOverride: number | null
+  effective: number | null
+  reached: boolean
+  onSave: (limit: number | null) => void
+  pending: boolean
+}) {
+  const [draft, setDraft] = useState<string>(
+    currentOverride === null ? '' : String(currentOverride),
+  )
+  const parsed = draft.trim() === '' ? null : Number(draft)
+  const invalid =
+    parsed !== null && (!Number.isInteger(parsed) || parsed < 1 || parsed > 10_000)
+
+  // True when the input differs from the persisted override AND is valid.
+  const dirty =
+    !invalid && parsed !== currentOverride
+
+  return (
+    <Card
+      title="Limite de assentos"
+      subtitle={
+        effective === null
+          ? 'Sem limite — herdado do plano ultra'
+          : `Cap efetivo: ${effective}${currentOverride === null ? ' (plano)' : ' (override)'}`
+      }
+    >
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="flex flex-col gap-1 min-w-0">
+          <label
+            className="text-[10px] uppercase tracking-wider font-semibold"
+            style={{ color: 'var(--ur-text-muted)' }}
+          >
+            Override (vazio = usar plano)
+          </label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={10000}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={
+              effective === null ? 'sem limite' : `padrão: ${effective}`
+            }
+            className="rounded-lg px-3 py-2 text-sm outline-none w-40"
+            style={{
+              background: 'var(--ur-bg)',
+              border: `1px solid ${invalid ? 'var(--ur-danger)' : 'var(--ur-border)'}`,
+              color: 'var(--ur-text)',
+            }}
+          />
+        </div>
+        <ActionButton
+          variant="primary"
+          onClick={() => onSave(parsed)}
+          disabled={!dirty || invalid || pending}
+        >
+          Salvar
+        </ActionButton>
+        {currentOverride !== null && (
+          <ActionButton
+            variant="ghost"
+            onClick={() => {
+              setDraft('')
+              onSave(null)
+            }}
+            disabled={pending}
+          >
+            Limpar override
+          </ActionButton>
+        )}
+      </div>
+      {invalid && (
+        <p className="text-xs mt-2" style={{ color: 'var(--ur-danger)' }}>
+          Use um inteiro entre 1 e 10.000.
+        </p>
+      )}
+      {reached && (
+        <p className="text-xs mt-2" style={{ color: 'var(--ur-warn)' }}>
+          Workspace atingiu o cap atual. Novos convites serão rejeitados.
+        </p>
+      )}
+    </Card>
   )
 }
 
@@ -831,7 +1203,8 @@ function confirmCopy(
     | { kind: 'unsuspend' }
     | { kind: 'soft_destroy' }
     | { kind: 'impersonate' }
-    | { kind: 'switch_plan'; plan: SuperAdminPlan },
+    | { kind: 'switch_plan'; plan: SuperAdminPlan }
+    | { kind: 'cancel_plan' },
   ws: SuperAdminWorkspaceDetail,
 ): {
   title: string
@@ -841,6 +1214,15 @@ function confirmCopy(
   description: React.ReactNode
 } {
   switch (c.kind) {
+    case 'cancel_plan':
+      return {
+        title: 'Cancelar plano',
+        subtitle: ws.name,
+        confirmLabel: 'Cancelar plano',
+        variant: 'danger',
+        description:
+          'Marca o workspace como cancelado (voluntary churn). Diferente de suspender — o painel segue acessível, mas todo gate de plano passa a bloquear até o cliente reassinar ou trocar de plano.',
+      }
     case 'suspend':
       return {
         title: 'Suspender workspace',
@@ -895,6 +1277,17 @@ function confirmCopy(
 
 function fmtInt(n: number) {
   return new Intl.NumberFormat('pt-BR').format(n)
+}
+/**
+ * Brazilian-real formatter for everything tenant-facing — MRR, billing
+ * copy, etc. Anthropic-side AI cost continues to use the USD path below.
+ */
+function fmtBrl(n: number) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: n < 100 ? 2 : 0,
+  }).format(n)
 }
 function fmtUsd(n: number) {
   return new Intl.NumberFormat('en-US', {

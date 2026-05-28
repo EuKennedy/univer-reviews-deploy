@@ -589,17 +589,24 @@ export interface RewardGrant {
 // is the product-facing name (free/entry/medium/ultra).
 
 export type SuperAdminPlan = 'entry' | 'medium' | 'ultra' | 'free'
-export type SuperAdminStatus = 'active' | 'trial' | 'suspended'
+export type SuperAdminStatus = 'active' | 'trial' | 'suspended' | 'cancelled'
 
 export interface SuperAdminWorkspaceRow {
   id: string
   slug: string
   name: string
-  plan: 'free' | 'starter' | 'pro' | 'enterprise'
+  plan: 'entry' | 'medium' | 'ultra'
   plan_label: SuperAdminPlan
   status: SuperAdminStatus
   brand_color: string | null
-  mrr: number
+  /** Monthly recurring revenue in BRL (R$). Source of truth for the
+   *  founder dashboard's MRR aggregations. */
+  mrr_brl: number
+  currency: 'BRL'
+  /** Explicit per-workspace seat cap override. NULL = use plan default. */
+  seat_limit: number | null
+  /** Computed seat cap: override OR plan default. NULL = unlimited. */
+  effective_seat_limit: number | null
   created_at: string | null
   last_active_at: string | null
   owner_email: string | null
@@ -609,8 +616,12 @@ export interface SuperAdminWorkspaceRow {
 export interface SuperAdminWorkspaceDetail extends SuperAdminWorkspaceRow {
   reviews_count: number
   products_count: number
-  ai_cost_month: number
-  ai_cost_lifetime: number
+  /** Whether adding one more member would bust the cap. */
+  seat_limit_reached: boolean
+  /** AI spend is kept in USD because Anthropic bills us in USD. The
+   *  dashboard converts at display time only. */
+  ai_cost_month_usd: number
+  ai_cost_lifetime_usd: number
   workspace_users: SuperAdminWorkspaceMember[]
 }
 
@@ -624,13 +635,21 @@ export interface SuperAdminWorkspaceMember {
   created_at: string | null
 }
 
+/** Standalone member type so the new super_admin/members API doesn't
+ *  pretend to carry workspace-level context. Same shape as
+ *  SuperAdminWorkspaceMember but kept distinct so future divergence
+ *  doesn't require a cross-cutting rename. */
+export type SuperAdminMember = SuperAdminWorkspaceMember
+
 export interface SuperAdminWorkspaceListMeta {
   total_workspaces: number
   active_workspaces: number
   trial_workspaces: number
   suspended_workspaces: number
-  mrr_estimate_usd: number
+  cancelled_workspaces: number
+  mrr_estimate_brl: number
   ai_cost_month_usd: number
+  currency: 'BRL'
 }
 
 export interface SuperAdminUser {

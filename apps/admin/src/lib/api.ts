@@ -38,6 +38,7 @@ import type {
   SuperAdminWorkspaceDetail,
   SuperAdminWorkspaceListMeta,
   SuperAdminUser,
+  SuperAdminMember,
   SuperAdminAuditLog,
   SuperAdminImpersonatePayload,
   SuperAdminPlan,
@@ -1245,6 +1246,68 @@ class ApiClient {
           { params: params as Record<string, string | number | boolean | undefined> },
           token,
         ),
+
+      cancelPlan: (id: string, token: string, opts: { reason?: string } = {}) =>
+        this.request<{ data: SuperAdminWorkspaceDetail }>(
+          `/super_admin/workspaces/${id}/cancel_plan`,
+          { method: 'POST', body: JSON.stringify({ reason: opts.reason }) },
+          token,
+        ).then(r => r.data),
+
+      setSeatLimit: (id: string, seatLimit: number | null, token: string) =>
+        this.request<{ data: SuperAdminWorkspaceDetail }>(
+          `/super_admin/workspaces/${id}/seat_limit`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify({ seat_limit: seatLimit === null ? null : seatLimit }),
+          },
+          token,
+        ).then(r => r.data),
+    },
+
+    members: {
+      list: (workspaceId: string, token: string) =>
+        this.request<{
+          data: SuperAdminMember[]
+          meta: { effective_seat_limit: number | null }
+        }>(
+          `/super_admin/workspaces/${workspaceId}/members`,
+          {},
+          token,
+        ),
+
+      setRole: (
+        workspaceId: string,
+        memberId: string,
+        role: 'owner' | 'admin' | 'editor' | 'moderator' | 'viewer',
+        token: string,
+      ) =>
+        this.request<{ data: SuperAdminMember }>(
+          `/super_admin/workspaces/${workspaceId}/members/${memberId}`,
+          { method: 'PATCH', body: JSON.stringify({ role }) },
+          token,
+        ).then(r => r.data),
+
+      remove: (workspaceId: string, memberId: string, token: string) =>
+        this.request<void>(
+          `/super_admin/workspaces/${workspaceId}/members/${memberId}`,
+          { method: 'DELETE' },
+          token,
+        ),
+
+      bulkRemove: (workspaceId: string, memberIds: string[], token: string) =>
+        this.request<{
+          data: {
+            removed_count: number
+            removed_ids: string[]
+            skipped_ids: string[]
+            remaining_users_count: number
+          }
+        }>(
+          `/super_admin/workspaces/${workspaceId}/members/bulk_destroy`,
+          { method: 'POST', body: JSON.stringify({ member_ids: memberIds }) },
+          token,
+        ).then(r => r.data),
     },
 
     users: {

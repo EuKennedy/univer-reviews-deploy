@@ -4,7 +4,9 @@ module Api
       # Cross-tenant workspace management for the founder. Inherits the
       # super-admin auth + RLS-bypass from SuperAdmin::ApplicationController.
       class WorkspacesController < ApplicationController
-        before_action :set_workspace, only: %i[show suspend unsuspend switch_plan soft_destroy impersonate]
+        before_action :set_workspace,
+                      only: %i[show suspend unsuspend switch_plan soft_destroy impersonate
+                               seat_limit cancel_plan]
 
         # After T1.3 the DB only stores entry/medium/ultra (see migration
         # 20260528142804_rename_plans_to_entry_medium_ultra). We accept the
@@ -101,6 +103,59 @@ module Api
           @workspace.update!(plan: requested)
           record_audit("super_admin.workspace.plan_switched",
                        metadata: { previous_plan: previous, new_plan: requested })
+          render json: { data: serialize_one(@workspace) }
+        end
+
+        # PATCH /api/v1/super_admin/workspaces/:id/seat_limit
+        # body: { seat_limit: <int> | null }
+        #
+        # NULL means "use plan default" — the workspace inherits
+        # PlanFeatures::LIMITS[plan][:max_team_members]. Any positive
+        # integer becomes an explicit per-workspace override (e.g., a
+        # Medium customer negotiates 10 seats instead of the default 5).
+        def seat_limit
+          requested = params.key?(:seat_limit) ? params[:seat_limit] : params.dig(:workspace, :seat_limit)
+          new_limit =
+            if requested.nil? || requested == "" || requested == "null"
+              nil
+            else
+              Integer(requested) rescue nil
+            end
+
+          # Distinguish "explicit null clears override" from "malformed
+          # value" by checking the raw param. A nil result from a non-blank
+          # input means "couldn't parse" → 400.
+          if new_limit.nil? && requested.present? && requested != "null"
+            return render json: { error: "bad_request", message: "seat_limit must be a positive integer or null" },
+                          status: :bad_request
+          end
+
+          previous = @workspace.seat_limit
+          @workspace.update!(seat_limit: new_limit)
+          record_audit("super_admin.workspace.seat_limit_updated",
+                       metadata: { previous_seat_limit: previous, new_seat_limit: new_limit })
+          render json: { data: serialize_one(@workspace) }
+        rescue ActiveRecord::RecordInvalid => e
+          render json: { error: "unprocessable_entity", message: e.message },
+                 status: :unprocessable_entity
+        end
+
+        # POST /api/v1/super_admin/workspaces/:id/cancel_plan
+        #
+        # Voluntary churn. Distinct from `suspend` (which implies
+        # founder-initiated moderation). The workspace stays readable for
+        # the merchant but PlanFeatures.require! starts blocking every
+        # gated action — see ApplicationController's `cancelled?` rescue
+        # path for the user-facing 402.
+        def cancel_plan
+          previous_status = @workspace.status
+          if previous_status == "cancelled"
+            return render json: { data: serialize_one(@workspace), message: "already_cancelled" }
+          end
+
+          @workspace.update!(status: "cancelled")
+          record_audit("super_admin.workspace.plan_cancelled",
+                       metadata: { previous_status: previous_status, reason: params[:reason].to_s.presence })
           render json: { data: serialize_one(@workspace) }
         end
 
@@ -204,24 +259,30 @@ module Api
         def serialize_one(ws)
           mrr = mrr_for(ws)
           {
-            id:               ws.id,
-            slug:             ws.slug,
-            name:             ws.name,
-            plan:             ws.plan,
+            id:                    ws.id,
+            slug:                  ws.slug,
+            name:                  ws.name,
+            plan:                  ws.plan,
             # New product-facing plan name (the founder's UI uses this).
-            plan_label:       plan_label_for(ws.plan),
-            status:           ws.status,
-            brand_color:      ws.brand_color,
-            mrr:              mrr,
-            created_at:       ws.created_at&.iso8601,
-            last_active_at:   last_active_at_for(ws),
-            owner_email:      owner_email_for(ws),
-            reviews_count:    ws.reviews.count,
-            products_count:   ws.products.count,
-            users_count:      ws.workspace_users.count,
-            ai_cost_month:    ai_cost_for(ws, since: Time.current.beginning_of_month),
-            ai_cost_lifetime: ai_cost_for(ws),
-            workspace_users:  ws.workspace_users.order(created_at: :asc).map { |u| serialize_member(u) },
+            plan_label:            plan_label_for(ws.plan),
+            status:                ws.status,
+            brand_color:           ws.brand_color,
+            mrr_brl:               mrr,
+            currency:              "BRL",
+            seat_limit:            ws.seat_limit,
+            effective_seat_limit:  ws.effective_seat_limit,
+            seat_limit_reached:    ws.seat_limit_reached?,
+            created_at:            ws.created_at&.iso8601,
+            last_active_at:        last_active_at_for(ws),
+            owner_email:           owner_email_for(ws),
+            reviews_count:         ws.reviews.count,
+            products_count:        ws.products.count,
+            users_count:           ws.workspace_users.count,
+            # AI cost stays in USD because that's how Anthropic bills us;
+            # the dashboard shows it converted at display time.
+            ai_cost_month_usd:     ai_cost_for(ws, since: Time.current.beginning_of_month),
+            ai_cost_lifetime_usd:  ai_cost_for(ws),
+            workspace_users:       ws.workspace_users.order(created_at: :asc).map { |u| serialize_member(u) },
           }
         end
 
@@ -234,19 +295,22 @@ module Api
           scope.map do |ws|
             mrr = mrr_for(ws)
             {
-              id:             ws.id,
-              slug:           ws.slug,
-              name:           ws.name,
-              plan:           ws.plan,
-              plan_label:     plan_label_for(ws.plan),
-              status:         ws.status,
-              brand_color:    ws.brand_color,
-              mrr:            mrr,
-              created_at:     ws.created_at&.iso8601,
-              last_active_at: ws.workspace_users.map(&:last_login_at).compact.max&.iso8601,
-              owner_email:    ws.workspace_users.find { |u| u.role == "owner" }&.email ||
-                              ws.workspace_users.first&.email,
-              users_count:    ws.workspace_users.length,
+              id:                    ws.id,
+              slug:                  ws.slug,
+              name:                  ws.name,
+              plan:                  ws.plan,
+              plan_label:            plan_label_for(ws.plan),
+              status:                ws.status,
+              brand_color:           ws.brand_color,
+              mrr_brl:               mrr,
+              currency:              "BRL",
+              seat_limit:            ws.seat_limit,
+              effective_seat_limit:  ws.effective_seat_limit,
+              created_at:            ws.created_at&.iso8601,
+              last_active_at:        ws.workspace_users.map(&:last_login_at).compact.max&.iso8601,
+              owner_email:           ws.workspace_users.find { |u| u.role == "owner" }&.email ||
+                                     ws.workspace_users.first&.email,
+              users_count:           ws.workspace_users.length,
             }
           end
         end
@@ -265,12 +329,14 @@ module Api
 
         def aggregate_stats(rows)
           {
-            total_workspaces:  rows.size,
-            active_workspaces: rows.count { |r| r[:status] == "active" },
-            trial_workspaces:  rows.count { |r| r[:status] == "trial" },
+            total_workspaces:     rows.size,
+            active_workspaces:    rows.count { |r| r[:status] == "active" },
+            trial_workspaces:     rows.count { |r| r[:status] == "trial" },
             suspended_workspaces: rows.count { |r| r[:status] == "suspended" },
-            mrr_estimate_usd:  rows.sum { |r| r[:mrr] },
-            ai_cost_month_usd: total_ai_cost_month,
+            cancelled_workspaces: rows.count { |r| r[:status] == "cancelled" },
+            mrr_estimate_brl:     rows.sum { |r| r[:mrr_brl] || 0 },
+            ai_cost_month_usd:    total_ai_cost_month,
+            currency:             "BRL",
           }
         end
 

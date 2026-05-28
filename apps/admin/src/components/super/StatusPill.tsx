@@ -22,6 +22,10 @@ const META: Record<StatusKey, { dot: string; ring: string; bg: string; text: str
   active:    { dot: '#16a34a', ring: 'rgba(22, 163, 74, 0.35)',  bg: 'rgba(22, 163, 74, 0.1)',   text: '#15803d', label: 'Ativo' },
   trial:     { dot: '#d4a850', ring: 'rgba(212, 168, 80, 0.35)', bg: 'rgba(212, 168, 80, 0.1)',  text: '#a07830', label: 'Trial', pulse: true },
   suspended: { dot: '#dc2626', ring: 'rgba(220, 38, 38, 0.35)',  bg: 'rgba(220, 38, 38, 0.1)',   text: '#b91c1c', label: 'Suspenso' },
+  // Distinct from `suspended` — voluntary churn, no abuse implied. Slate
+  // tone keeps it visually neutral so the founder can scan an inactive
+  // tenant without it screaming danger.
+  cancelled: { dot: '#64748b', ring: 'rgba(100, 116, 139, 0.35)', bg: 'rgba(100, 116, 139, 0.1)', text: '#475569', label: 'Cancelado' },
   deleted:   { dot: '#9ca3af', ring: 'rgba(156, 163, 175, 0.3)', bg: 'rgba(156, 163, 175, 0.1)', text: '#6b7280', label: 'Excluído' },
 }
 

@@ -108,7 +108,7 @@ export default function SuperDashboardPage() {
         <StatCard
           index={2}
           label="MRR estimado"
-          value={fmtUsd(meta?.mrr_estimate_usd ?? rows.reduce((s, r) => s + r.mrr, 0))}
+          value={fmtBrl(meta?.mrr_estimate_brl ?? rows.reduce((s, r) => s + (r.mrr_brl || 0), 0))}
           icon={<TrendingUp className="w-3.5 h-3.5" />}
         />
         <StatCard
@@ -345,7 +345,7 @@ function WorkspaceRow({ row, index }: { row: SuperAdminWorkspaceRow; index: numb
             className="text-sm font-semibold tabular-nums tracking-tight"
             style={{ color: 'var(--ur-text)' }}
           >
-            {fmtUsd(row.mrr)}
+            {fmtBrl(row.mrr_brl)}
             <span
               className="text-[10px] font-normal ml-1 uppercase tracking-wider"
               style={{ color: 'var(--ur-text-muted)' }}
@@ -422,6 +422,19 @@ function EmptyState({ search }: { search: string }) {
 
 function fmtInt(n: number) {
   return new Intl.NumberFormat('pt-BR').format(n)
+}
+
+/**
+ * Brazilian-real currency formatter for everything tenant-facing — MRR,
+ * billing copy, etc. AI cost stays in USD because Anthropic bills us in
+ * USD; that path uses `fmtUsd` below.
+ */
+function fmtBrl(n: number) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    maximumFractionDigits: n < 100 ? 2 : 0,
+  }).format(n)
 }
 
 function fmtUsd(n: number) {

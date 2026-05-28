@@ -190,10 +190,17 @@ Rails.application.routes.draw do
             post   :suspend
             post   :unsuspend
             post   :switch_plan
+            post   :cancel_plan
             post   :impersonate
             delete :soft_destroy
+            patch  :seat_limit
           end
           resources :audit_logs, only: :index
+          resources :members, only: %i[index update destroy] do
+            collection do
+              post :bulk_destroy
+            end
+          end
         end
         resources :users, only: :index do
           member do
