@@ -81,17 +81,23 @@ RSpec.describe "Super admin · cross-tenant RLS bypass", type: :model do
 
       # Critical: NO app.workspace_id set. Super admin must NOT bind a
       # single workspace, exactly because they're operating cross-tenant.
+      #
+      # `SET row_security = off` itself succeeds even for non-bypass roles,
+      # but the subsequent SELECT then errors with PG::InsufficientPrivilege
+      # ("query would be affected by row-level security policy") instead of
+      # silently returning fewer rows. Wrap BOTH calls in the skip — we
+      # only care about the contract on roles that actually carry
+      # BYPASSRLS, which mirrors prod.
       begin
         conn.execute("SET LOCAL row_security = off")
+        ids = Product.pluck(:workspace_id).uniq
+        expect(ids).to include(workspace_a.id, workspace_b.id)
       rescue ActiveRecord::StatementInvalid => e
-        # The non-superuser test role isn't granted BYPASSRLS by default.
-        # In CI we expect the app role to carry it; if it doesn't, this
-        # is precisely the failure mode the test exists to surface.
+        raise unless e.message.include?("InsufficientPrivilege") ||
+                     e.message.include?("permission denied") ||
+                     e.message.include?("would be affected by row-level security")
         skip "test DB role lacks BYPASSRLS — grant it to enable super-admin reads (`ALTER ROLE rls_test_role BYPASSRLS`): #{e.message}"
       end
-
-      ids = Product.pluck(:workspace_id).uniq
-      expect(ids).to include(workspace_a.id, workspace_b.id)
 
       raise ActiveRecord::Rollback
     end

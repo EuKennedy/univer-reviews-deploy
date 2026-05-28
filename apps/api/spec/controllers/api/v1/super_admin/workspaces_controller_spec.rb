@@ -163,8 +163,12 @@ RSpec.describe Api::V1::SuperAdmin::WorkspacesController, type: :request do
 
     it "soft-deletes when not a member and writes audit" do
       stub_super_admin(admin_user)
-      delete "/api/v1/super_admin/workspaces/#{ws.id}/soft_destroy",
-             params: { force: "1" }, headers: headers
+      # `force=1` lives on the query string so we don't fight the
+      # `Content-Type: application/json` header (which makes Rails attempt
+      # to parse the request body — a urlencoded `force=1` would explode
+      # the JSON parser).
+      delete "/api/v1/super_admin/workspaces/#{ws.id}/soft_destroy?force=1",
+             headers: headers
       expect(response).to have_http_status(:ok)
       expect(ws.reload.status).to eq("suspended")
       expect(AuditLog.where(action: "super_admin.workspace.soft_deleted").count).to eq(1)

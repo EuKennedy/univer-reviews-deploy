@@ -8,7 +8,15 @@ class PaymentEvent < ApplicationRecord
   # circuits with `{ ok: true, idempotent: true }`. This protects us from
   # provider retry storms, double workspace creation, and duplicate magic-
   # link e-mails.
-  validates :transaction_id, presence: true, uniqueness: true
+  # Uniqueness is enforced by the DB unique index on transaction_id (see
+  # migration). We deliberately DO NOT add a Rails-level uniqueness
+  # validator: it would convert a duplicate INSERT into
+  # `ActiveRecord::RecordInvalid` instead of `ActiveRecord::RecordNotUnique`,
+  # and the webhook controller's idempotent short-circuit specifically
+  # catches RecordNotUnique. The Rails validator also races on concurrent
+  # inserts (both see no row, both INSERT); the DB index is the only safe
+  # enforcement point.
+  validates :transaction_id, presence: true
   validates :event,          presence: true
 
   scope :unprocessed, -> { where(processed_at: nil) }
