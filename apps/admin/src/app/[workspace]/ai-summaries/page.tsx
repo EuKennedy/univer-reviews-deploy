@@ -154,10 +154,10 @@ export default function AiSummariesIndexPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-5 py-4">
-        <StatCard label="Produtos" value={formatNumber(allRows.length)} icon={<Package className="w-3.5 h-3.5" />} />
-        <StatCard label="Aprovadas" value={formatNumber(totalApproved)} icon={<Star className="w-3.5 h-3.5" />} accent />
-        <StatCard label="Tópicos criados" value={formatNumber(totalTopics)} icon={<FileText className="w-3.5 h-3.5" />} />
-        <StatCard label="Atualizado" value={dataUpdatedAt ? formatDistanceToNow(dataUpdatedAt, { addSuffix: true, locale: ptBR }) : '—'} icon={<RefreshCw className="w-3.5 h-3.5" />} subtle />
+        <StatCard index={0} label="Produtos" value={formatNumber(allRows.length)} icon={<Package className="w-3.5 h-3.5" />} />
+        <StatCard index={1} label="Aprovadas" value={formatNumber(totalApproved)} icon={<Star className="w-3.5 h-3.5" />} accent />
+        <StatCard index={2} label="Tópicos criados" value={formatNumber(totalTopics)} icon={<FileText className="w-3.5 h-3.5" />} />
+        <StatCard index={3} label="Atualizado" value={dataUpdatedAt ? formatDistanceToNow(dataUpdatedAt, { addSuffix: true, locale: ptBR }) : '—'} icon={<RefreshCw className="w-3.5 h-3.5" />} subtle />
       </div>
 
       <Toolbar
@@ -182,24 +182,22 @@ export default function AiSummariesIndexPage() {
           </div>
         }
         right={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setSort(s => s === 'reviews' ? 'recent' : s === 'recent' ? 'title' : 'reviews')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer"
-              style={{
-                background: 'var(--ur-bg)',
-                border: '1px solid var(--ur-border)',
-                color: 'var(--ur-text-soft)',
-              }}
-              aria-label="Trocar ordenação"
-            >
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--ur-text-muted)' }}>
               <ArrowUpDown className="w-3 h-3" />
-              {sort === 'reviews' && 'Mais avaliadas'}
-              {sort === 'recent' && 'Geração recente'}
-              {sort === 'title' && 'A–Z'}
-            </button>
-            <span className="text-xs hidden sm:inline" style={{ color: 'var(--ur-text-muted)' }}>
+              <span>Ordenar</span>
+            </div>
+            <FilterChips
+              value={sort}
+              onChange={setSort}
+              options={[
+                { value: 'reviews', label: 'Mais avaliadas' },
+                { value: 'recent',  label: 'Recentes' },
+                { value: 'title',   label: 'A–Z' },
+              ]}
+              ariaLabel="Ordenação"
+            />
+            <span className="text-xs hidden md:inline tabular-nums" style={{ color: 'var(--ur-text-muted)' }}>
               {visible.length} {visible.length === 1 ? 'produto' : 'produtos'}
             </span>
           </div>
@@ -234,10 +232,13 @@ export default function AiSummariesIndexPage() {
 
 // ─── Components ───────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon, accent, subtle }: { label: string; value: string; icon?: React.ReactNode; accent?: boolean; subtle?: boolean }) {
+function StatCard({ index = 0, label, value, icon, accent, subtle }: { index?: number; label: string; value: string; icon?: React.ReactNode; accent?: boolean; subtle?: boolean }) {
   return (
-    <div
-      className="rounded-xl p-4"
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.08 + index * 0.06, ease: [0.2, 0.0, 0.2, 1] }}
+      className="rounded-xl p-4 relative overflow-hidden"
       style={{
         background: accent
           ? 'linear-gradient(135deg, var(--ur-accent-glow), transparent)'
@@ -245,13 +246,22 @@ function StatCard({ label, value, icon, accent, subtle }: { label: string; value
         border: `1px solid ${accent ? 'var(--ur-accent-soft-2)' : 'var(--ur-border)'}`,
       }}
     >
-      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-1.5"
+      {accent && (
+        <motion.div
+          aria-hidden
+          className="absolute -top-8 -right-8 w-24 h-24 rounded-full pointer-events-none"
+          style={{ background: 'var(--ur-accent-ring)', filter: 'blur(28px)' }}
+          animate={{ opacity: [0.25, 0.45, 0.25] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
+      <div className="relative flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider mb-1.5"
            style={{ color: accent ? 'var(--ur-accent)' : 'var(--ur-text-muted)' }}>
         {icon}
         <span>{label}</span>
       </div>
       <p
-        className="font-semibold tabular-nums tracking-tight"
+        className="relative font-semibold tabular-nums tracking-tight"
         style={{
           color: subtle ? 'var(--ur-text-soft)' : 'var(--ur-text)',
           fontSize: subtle ? 14 : 22,
@@ -259,7 +269,7 @@ function StatCard({ label, value, icon, accent, subtle }: { label: string; value
       >
         {value}
       </p>
-    </div>
+    </motion.div>
   )
 }
 
@@ -270,11 +280,11 @@ function ProductRow({ workspace, product, index }: { workspace: string; product:
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.28, delay: Math.min(index * 0.025, 0.4), ease: [0.2, 0.0, 0.2, 1] }}
+      transition={{ duration: 0.32, delay: Math.min(index * 0.03, 0.45), ease: [0.2, 0.0, 0.2, 1] }}
     >
       <Link
         href={`/${workspace}/ai-summaries/${product.id}`}
-        className="group flex items-center gap-4 p-3.5 rounded-xl transition-all cursor-pointer"
+        className="group relative flex items-center gap-4 p-3.5 rounded-xl transition-all cursor-pointer overflow-hidden"
         style={{
           background: 'var(--ur-bg-soft)',
           border: '1px solid var(--ur-border)',
@@ -282,16 +292,32 @@ function ProductRow({ workspace, product, index }: { workspace: string; product:
         onMouseEnter={(e) => {
           e.currentTarget.style.borderColor = 'var(--ur-accent-soft-3)'
           e.currentTarget.style.background = 'var(--ur-surface)'
-          e.currentTarget.style.boxShadow = 'var(--ur-shadow-md)'
+          e.currentTarget.style.boxShadow = '0 8px 24px -12px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.04)'
           e.currentTarget.style.transform = 'translateY(-1px)'
+          const stripe = e.currentTarget.querySelector('[data-accent-stripe]') as HTMLElement | null
+          if (stripe) stripe.style.opacity = '1'
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.borderColor = 'var(--ur-border)'
           e.currentTarget.style.background = 'var(--ur-bg-soft)'
           e.currentTarget.style.boxShadow = 'none'
           e.currentTarget.style.transform = 'translateY(0)'
+          const stripe = e.currentTarget.querySelector('[data-accent-stripe]') as HTMLElement | null
+          if (stripe) stripe.style.opacity = '0'
         }}
       >
+        {/* Accent stripe — appears on hover, anchors the row to the gold rhythm of the page */}
+        <span
+          data-accent-stripe
+          aria-hidden
+          className="absolute left-0 top-2 bottom-2 w-[2px] rounded-r"
+          style={{
+            background: 'linear-gradient(180deg, var(--ur-accent), transparent 90%)',
+            opacity: 0,
+            transition: 'opacity 0.2s ease',
+          }}
+        />
+
         {product.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -336,7 +362,7 @@ function ProductRow({ workspace, product, index }: { workspace: string; product:
         <StatusPill status={product.status} />
 
         <ChevronRight
-          className="w-4 h-4 shrink-0 transition-transform"
+          className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5"
           style={{ color: 'var(--ur-text-muted)' }}
           aria-hidden="true"
         />

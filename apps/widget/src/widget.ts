@@ -2036,9 +2036,11 @@ class UniverAiCarousel extends HTMLElement {
     scroll-snap-type: x mandatory;
     scrollbar-width: thin;
     scroll-padding-left: 2px;
-    /* Soft fade on the right edge to hint scrollability */
-    mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
-    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
+    /* Soft fade on both edges to hint scrollability + tame the visual cut.
+       Left edge fade kicks in only after the user scrolls — the initial
+       paint shows cards flush to the left. */
+    mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 32px), transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 32px), transparent);
   }
   .topic-scroller::-webkit-scrollbar { height: 6px; }
   .topic-scroller::-webkit-scrollbar-track { background: transparent; }

@@ -234,24 +234,33 @@ export default function AiSummaryEditPage() {
 
       <div className="flex-1 overflow-y-auto px-5 pt-2 pb-8">
         <div className="max-w-4xl mx-auto">
-          {/* Hero — product context strip */}
+          {/* Hero — product context strip with subtle accent backdrop */}
           {product && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="flex items-center gap-3 mb-5 px-1"
+              className="relative flex items-center gap-3 mb-5 px-3 py-2.5 rounded-xl overflow-hidden"
+              style={{
+                background: 'linear-gradient(135deg, var(--ur-accent-glow), transparent 80%)',
+                border: '1px solid var(--ur-accent-soft-2)',
+              }}
             >
+              <div
+                aria-hidden
+                className="absolute -top-12 -left-12 w-40 h-40 rounded-full pointer-events-none"
+                style={{ background: 'var(--ur-accent-ring)', filter: 'blur(40px)', opacity: 0.25 }}
+              />
               {product.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.image_url} alt="" className="w-9 h-9 rounded-lg object-cover" style={{ border: '1px solid var(--ur-border-strong)' }} />
+                <img src={product.image_url} alt="" className="relative w-10 h-10 rounded-lg object-cover shrink-0" style={{ border: '1px solid var(--ur-border-strong)' }} />
               ) : (
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border)' }}>
+                <div className="relative w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--ur-surface-soft)', border: '1px solid var(--ur-border)' }}>
                   <Package className="w-4 h-4" style={{ color: 'var(--ur-text-muted)' }} />
                 </div>
               )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
                   {generating ? (
                     <StatusPill status="processing" label="Extraindo tópicos…" />
                   ) : hasAiTopic ? (
@@ -261,9 +270,18 @@ export default function AiSummaryEditPage() {
                   ) : (
                     <StatusPill status="pending" />
                   )}
-                  <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
-                    {product.approved_reviews != null ? `${product.approved_reviews} avaliações aprovadas` : ''}
-                  </span>
+                  {product.approved_reviews != null && (
+                    <span className="inline-flex items-center gap-1 text-xs tabular-nums" style={{ color: 'var(--ur-text-muted)' }}>
+                      <span className="w-1 h-1 rounded-full" style={{ background: 'var(--ur-text-faint)' }} />
+                      {product.approved_reviews} avaliações aprovadas
+                    </span>
+                  )}
+                  {hasAiTopic && (
+                    <span className="inline-flex items-center gap-1 text-xs tabular-nums" style={{ color: 'var(--ur-text-muted)' }}>
+                      <span className="w-1 h-1 rounded-full" style={{ background: 'var(--ur-text-faint)' }} />
+                      {aiTopicCount}/{MAX_AI_TOPICS} sumários IA
+                    </span>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -413,8 +431,20 @@ function TopicCard({ topic, productId, index }: { topic: AiSummaryTopic; product
   })
 
   const sourceMeta = topic.source === 'ai'
-    ? { label: 'Gerado por IA', bg: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0.05))', color: '#7e22ce', border: 'rgba(168, 85, 247, 0.3)' }
-    : { label: 'Manual', bg: 'var(--ur-surface-soft)', color: 'var(--ur-text-secondary)', border: 'var(--ur-border)' }
+    ? {
+        label: 'Gerado por IA',
+        bg: 'linear-gradient(135deg, rgba(168, 85, 247, 0.16), rgba(124, 58, 237, 0.06))',
+        color: '#a855f7',
+        border: 'rgba(168, 85, 247, 0.32)',
+        stripe: 'linear-gradient(180deg, #a855f7, rgba(168, 85, 247, 0.0))',
+      }
+    : {
+        label: 'Manual',
+        bg: 'linear-gradient(135deg, var(--ur-surface-soft), transparent)',
+        color: 'var(--ur-text-secondary)',
+        border: 'var(--ur-border-strong)',
+        stripe: 'linear-gradient(180deg, var(--ur-accent), rgba(212, 168, 80, 0))',
+      }
 
   return (
     <motion.div
@@ -422,11 +452,17 @@ function TopicCard({ topic, productId, index }: { topic: AiSummaryTopic; product
       initial={{ opacity: 0, y: 12, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96 }}
-      transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.4), ease: [0.2, 0.0, 0.2, 1] }}
-      className="rounded-xl overflow-hidden group"
+      transition={{ duration: 0.38, delay: Math.min(index * 0.05, 0.45), ease: [0.2, 0.0, 0.2, 1] }}
+      className="rounded-xl overflow-hidden group relative"
       style={{ background: 'var(--ur-bg-soft)', border: '1px solid var(--ur-border)' }}
-      whileHover={{ y: -1, boxShadow: 'var(--ur-shadow-md)' }}
+      whileHover={{ y: -1, boxShadow: '0 14px 36px -16px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.04)' }}
     >
+      {/* Source accent stripe — vertical bar, source-tinted (purple for AI, gold for manual) */}
+      <span
+        aria-hidden
+        className="absolute left-0 top-3 bottom-3 w-[2px] rounded-r opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ background: sourceMeta.stripe }}
+      />
       {/* Header */}
       <div className="p-4 flex items-center gap-3">
         <button
