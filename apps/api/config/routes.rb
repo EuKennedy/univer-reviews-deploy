@@ -180,6 +180,28 @@ Rails.application.routes.draw do
         end
       end
 
+      # Super admin (founder-only, role='admin' in Better Auth).
+      # Auth + RLS-bypass live in Api::V1::SuperAdmin::ApplicationController.
+      # 404 (not 401/403) on unauthorized access so the surface is invisible
+      # to non-admins — same defense as the Next.js /super layout.
+      namespace :super_admin do
+        resources :workspaces, only: %i[index show] do
+          member do
+            post   :suspend
+            post   :unsuspend
+            post   :switch_plan
+            post   :impersonate
+            delete :soft_destroy
+          end
+          resources :audit_logs, only: :index
+        end
+        resources :users, only: :index do
+          member do
+            post :set_role
+          end
+        end
+      end
+
       # WordPress sync. The PHP plugin pushes status changes and replies via
       # /api/v1/wp/reviews/:id/{status,reply} — these mirror the standard
       # /reviews/:id/status and /reviews/:id/replies endpoints but live under

@@ -582,3 +582,88 @@ export interface RewardGrant {
   created_at: string
   redeemed_at: string | null
 }
+
+// ─── Super admin (founder-only) ───────────────────────────────────────────────
+// Mirrors the JSON payload from Api::V1::SuperAdmin::* controllers. The
+// `plan` field is the DB slug (free/starter/pro/enterprise); `plan_label`
+// is the product-facing name (free/entry/medium/ultra).
+
+export type SuperAdminPlan = 'entry' | 'medium' | 'ultra' | 'free'
+export type SuperAdminStatus = 'active' | 'trial' | 'suspended'
+
+export interface SuperAdminWorkspaceRow {
+  id: string
+  slug: string
+  name: string
+  plan: 'free' | 'starter' | 'pro' | 'enterprise'
+  plan_label: SuperAdminPlan
+  status: SuperAdminStatus
+  brand_color: string | null
+  mrr: number
+  created_at: string | null
+  last_active_at: string | null
+  owner_email: string | null
+  users_count: number
+}
+
+export interface SuperAdminWorkspaceDetail extends SuperAdminWorkspaceRow {
+  reviews_count: number
+  products_count: number
+  ai_cost_month: number
+  ai_cost_lifetime: number
+  workspace_users: SuperAdminWorkspaceMember[]
+}
+
+export interface SuperAdminWorkspaceMember {
+  id: string
+  email: string
+  name: string
+  role: 'owner' | 'admin' | 'editor' | 'moderator' | 'viewer'
+  better_auth_user_id: string | null
+  last_login_at: string | null
+  created_at: string | null
+}
+
+export interface SuperAdminWorkspaceListMeta {
+  total_workspaces: number
+  active_workspaces: number
+  trial_workspaces: number
+  suspended_workspaces: number
+  mrr_estimate_usd: number
+  ai_cost_month_usd: number
+}
+
+export interface SuperAdminUser {
+  id: string
+  email: string
+  name: string
+  role: 'admin' | 'user' | null
+  banned: boolean
+  created_at: string | null
+  memberships: Array<{
+    workspace_id: string
+    workspace_slug: string | null
+    workspace_name: string | null
+    role: string
+    created_at: string | null
+  }>
+}
+
+export interface SuperAdminAuditLog {
+  id: string
+  action: string
+  entity_type: string | null
+  entity_id: string | null
+  metadata: Record<string, unknown> | null
+  actor: { id: string | null; email: string; name: string | null } | null
+  ip_address: string | null
+  user_agent: string | null
+  created_at: string
+}
+
+export interface SuperAdminImpersonatePayload {
+  user_id: string
+  email: string
+  endpoint: string
+  redirect_to: string
+}

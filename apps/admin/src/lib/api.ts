@@ -34,6 +34,14 @@ import type {
   AiSummaryTopic,
   AiSummaryProductRow,
   WcSyncResult,
+  SuperAdminWorkspaceRow,
+  SuperAdminWorkspaceDetail,
+  SuperAdminWorkspaceListMeta,
+  SuperAdminUser,
+  SuperAdminAuditLog,
+  SuperAdminImpersonatePayload,
+  SuperAdminPlan,
+  SuperAdminStatus,
 } from '@/types'
 
 export class ApiError extends Error {
@@ -91,7 +99,10 @@ class ApiClient {
     // routes under /:workspace_slug/...
     if (typeof window !== 'undefined') {
       const slug = window.location.pathname.split('/').filter(Boolean)[0]
-      if (slug && !['login', 'invite', 'auth', 'api', '_next'].includes(slug)) {
+      // 'super' is the founder ops surface — cross-tenant by design, MUST NOT
+      // carry a single workspace hint or the API would try to bind every
+      // super-admin request to the literal slug "super" (which doesn't exist).
+      if (slug && !['login', 'invite', 'auth', 'api', '_next', 'super'].includes(slug)) {
         headers['X-Univer-Workspace-Slug'] = slug
       }
     }
@@ -1153,6 +1164,113 @@ class ApiClient {
       ),
     get: (id: string, token: string) =>
       this.request<{ data: RewardGrant }>(`/reward_grants/${id}`, {}, token).then(r => r.data),
+  }
+
+  // ─── Super admin (founder-only) ────────────────────────────────────────────
+  // Cross-tenant ops endpoints. Auth gate lives server-side in
+  // Api::V1::SuperAdmin::ApplicationController — a non-admin gets 404 from
+  // every call here, NOT 401/403, so we never leak that the surface exists.
+  superAdmin = {
+    workspaces: {
+      list: (
+        params: {
+          plan?: SuperAdminPlan | ''
+          status?: SuperAdminStatus | ''
+          q?: string
+          sort?: 'mrr_desc' | 'last_active_desc' | 'signup_desc'
+        } = {},
+        token: string,
+      ) =>
+        this.request<{ data: SuperAdminWorkspaceRow[]; meta: SuperAdminWorkspaceListMeta }>(
+          '/super_admin/workspaces',
+          { params: params as Record<string, string | number | boolean | undefined> },
+          token,
+        ),
+
+      get: (id: string, token: string) =>
+        this.request<{ data: SuperAdminWorkspaceDetail }>(
+          `/super_admin/workspaces/${id}`,
+          {},
+          token,
+        ).then(r => r.data),
+
+      suspend: (id: string, token: string) =>
+        this.request<{ data: SuperAdminWorkspaceDetail }>(
+          `/super_admin/workspaces/${id}/suspend`,
+          { method: 'POST' },
+          token,
+        ).then(r => r.data),
+
+      unsuspend: (id: string, token: string) =>
+        this.request<{ data: SuperAdminWorkspaceDetail }>(
+          `/super_admin/workspaces/${id}/unsuspend`,
+          { method: 'POST' },
+          token,
+        ).then(r => r.data),
+
+      switchPlan: (id: string, plan: SuperAdminPlan, token: string) =>
+        this.request<{ data: SuperAdminWorkspaceDetail }>(
+          `/super_admin/workspaces/${id}/switch_plan`,
+          { method: 'POST', body: JSON.stringify({ plan }) },
+          token,
+        ).then(r => r.data),
+
+      impersonate: (id: string, token: string) =>
+        this.request<{ data: SuperAdminImpersonatePayload }>(
+          `/super_admin/workspaces/${id}/impersonate`,
+          { method: 'POST' },
+          token,
+        ).then(r => r.data),
+
+      softDestroy: (id: string, token: string, opts: { force?: boolean } = {}) =>
+        this.request<{ data: SuperAdminWorkspaceDetail }>(
+          `/super_admin/workspaces/${id}/soft_destroy`,
+          {
+            method: 'DELETE',
+            params: opts.force ? { force: '1' } : undefined,
+          },
+          token,
+        ).then(r => r.data),
+
+      audit: (
+        id: string,
+        params: { page?: number; per_page?: number; action?: string; scope?: 'super_admin' | '' } = {},
+        token: string,
+      ) =>
+        this.request<{
+          data: SuperAdminAuditLog[]
+          meta: { current_page: number; total_pages: number; total_count: number; per_page: number }
+        }>(
+          `/super_admin/workspaces/${id}/audit_logs`,
+          { params: params as Record<string, string | number | boolean | undefined> },
+          token,
+        ),
+    },
+
+    users: {
+      list: (
+        params: { q?: string; page?: number; per_page?: number } = {},
+        token: string,
+      ) =>
+        this.request<{
+          data: SuperAdminUser[]
+          meta: { current_page: number; total_pages: number; total_count: number; per_page: number }
+        }>(
+          '/super_admin/users',
+          { params: params as Record<string, string | number | boolean | undefined> },
+          token,
+        ),
+
+      setRole: (id: string, role: 'admin' | 'user', token: string, opts: { force?: boolean } = {}) =>
+        this.request<{ data: SuperAdminUser }>(
+          `/super_admin/users/${id}/set_role`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ role, force: opts.force ? '1' : undefined }),
+          },
+          token,
+        ).then(r => r.data),
+    },
   }
 }
 
