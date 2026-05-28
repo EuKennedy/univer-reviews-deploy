@@ -81,7 +81,7 @@ export function AppearanceTab({ workspace }: { workspace: Workspace }) {
     starShape: (workspace.widget?.star_shape ?? workspace.branding?.rating_icon ?? 'star') as WidgetStarShape,
     showQa: workspace.widget?.show_qa ?? true,
     showWriteReview: workspace.widget?.show_write_review ?? true,
-    perPage: workspace.widget?.per_page ?? 10,
+    perPage: workspace.widget?.per_page ?? 5,
     customCss: workspace.widget?.custom_css ?? '',
   }), [workspace])
 
@@ -426,28 +426,64 @@ export function AppearanceTab({ workspace }: { workspace: Workspace }) {
           />
         </Section>
 
-        {/* Per page */}
+        {/* Per page — gratuito em todos os planos. Slider granular 1-100
+           pra cada loja escolher o ritmo de scroll que combina com o
+           tema (mobile-heavy → 5, desktop landing → 20+). Padrão 5
+           combina com Judge.me/Yotpo. */}
         <Section
           label="Reviews por página"
-          hint="Mais reviews por página = menos paginação, mais altura. Padrão: 10."
+          hint="De 1 a 100 reviews por página. Padrão 5 — leve no mobile, sem scroll infinito."
         >
           <div className="flex items-center gap-4">
             <input
               type="range"
-              min={5}
-              max={50}
-              step={5}
+              min={1}
+              max={100}
+              step={1}
               value={perPage}
               onChange={(e) => setPerPage(parseInt(e.target.value, 10))}
               className="flex-1 max-w-sm accent-current"
               style={{ accentColor: 'var(--ur-accent)' }}
+              aria-label="Reviews por página"
             />
-            <span
-              className="font-mono text-sm font-semibold tabular-nums w-10 text-right"
-              style={{ color: 'var(--ur-text)' }}
-            >
-              {perPage}
-            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={perPage}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10)
+                  if (!Number.isNaN(n)) setPerPage(Math.max(1, Math.min(100, n)))
+                }}
+                className="w-16 px-2 py-1.5 rounded-md text-sm font-mono tabular-nums text-right outline-none"
+                style={{
+                  background: 'var(--ur-bg-soft)',
+                  border: '1px solid var(--ur-surface-soft)',
+                  color: 'var(--ur-text)',
+                }}
+              />
+              <span className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+                /página
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            {[5, 10, 20, 50].map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setPerPage(preset)}
+                className="px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
+                style={{
+                  background: perPage === preset ? 'var(--ur-accent-soft)' : 'var(--ur-bg-soft)',
+                  color: perPage === preset ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
+                  border: `1px solid ${perPage === preset ? 'var(--ur-accent-soft-3)' : 'var(--ur-border)'}`,
+                }}
+              >
+                {preset}
+              </button>
+            ))}
           </div>
         </Section>
 

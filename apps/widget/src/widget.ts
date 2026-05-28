@@ -793,7 +793,7 @@ class UniverReviewsWidget extends HTMLElement {
   private currentPage = 1
   private totalPages = 1
   private totalCount = 0
-  private perPage = 10
+  private perPage = 5
 
   private ratingFilter: RatingFilter = 0
   private mediaFilter: MediaFilter = 'all'

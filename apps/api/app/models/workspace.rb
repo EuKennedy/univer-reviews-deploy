@@ -83,7 +83,7 @@ class Workspace < ApplicationRecord
       star_icon_empty_url: rating_icon_empty.presence,
       show_qa:           widget_show_qa.nil? ? true : widget_show_qa,
       show_write_review: widget_show_write_review.nil? ? true : widget_show_write_review,
-      per_page:          widget_per_page.presence || 10,
+      per_page:          widget_per_page.presence || 5,
       custom_css:        widget_custom_css.to_s,
     }
   end
