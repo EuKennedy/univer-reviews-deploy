@@ -561,6 +561,15 @@ class Univer_Shortcode {
      * @return string             HTML output
      */
     public function render( array|string $atts, ?string $content = null ): string {
+        // Sentinel '' for per_page: when the caller did NOT explicitly pass
+        // it, we OMIT the `per-page` attribute on the rendered element so the
+        // widget falls back to the workspace-level config served by the API
+        // (`GET /api/v1/public/widget-config`). This makes the Rails admin
+        // dashboard the single source of truth for pagination size — match-
+        // ing how the merchant expects "save slider → render reflects" to
+        // behave. Setting per_page="N" in the shortcode itself still wins
+        // (per-attribute precedence inside the widget).
+        $raw_atts = is_array( $atts ) ? $atts : [];
         $atts = shortcode_atts(
             [
                 'product_id'        => '',
@@ -572,13 +581,14 @@ class Univer_Shortcode {
                 'star_shape'        => get_option( 'univer_widget_star_shape', 'star' ),
                 'show_qa'           => (string) get_option( 'univer_widget_show_qa', '1' ) === '1' ? 'true' : 'false',
                 'show_write_review' => (string) get_option( 'univer_widget_show_write_review', '1' ) === '1' ? 'true' : 'false',
-                'per_page'          => (string) (int) get_option( 'univer_widget_per_page', 10 ),
+                'per_page'          => '',
                 'api_url'           => get_option( 'univer_api_url', UNIVER_API_URL ),
                 'class'             => '',
             ],
             $atts,
             'univer_reviews'
         );
+        $per_page_explicit = array_key_exists( 'per_page', $raw_atts ) && $raw_atts['per_page'] !== '';
 
         // Resolve product_id: use shortcode attr, fall back to current WooCommerce product
         $product_id = sanitize_text_field( $atts['product_id'] );
@@ -606,7 +616,7 @@ class Univer_Shortcode {
         $star_shape    = in_array( (string) $atts['star_shape'], $valid_shapes, true ) ? $atts['star_shape'] : 'star';
         $show_qa       = in_array( $atts['show_qa'], [ 'true', '1', 'yes' ], true ) ? 'true' : 'false';
         $show_wr       = in_array( $atts['show_write_review'], [ 'true', '1', 'yes' ], true ) ? 'true' : 'false';
-        $per_page      = max( 1, min( 100, (int) $atts['per_page'] ) );
+        $per_page      = $per_page_explicit ? max( 1, min( 100, (int) $atts['per_page'] ) ) : null;
         $api_url       = esc_url( $atts['api_url'] );
         $extra_class   = sanitize_html_class( $atts['class'] );
         $custom_css    = (string) get_option( 'univer_widget_custom_css', '' );
@@ -634,6 +644,13 @@ class Univer_Shortcode {
             );
         }
 
+        // Only emit per-page="..." when the caller explicitly passed it in
+        // the shortcode. Otherwise omit it so the widget falls back to the
+        // workspace config served by the API. Same source-of-truth rule
+        // could later be applied to theme_color/locale/etc — leaving those
+        // hardcoded for now to avoid a wider behaviour change in this fix.
+        $per_page_attr = $per_page === null ? '' : sprintf( 'per-page="%d"', $per_page );
+
         return sprintf(
             '<div id="univer-reviews-anchor" class="univer-reviews-wrapper %s">
                 <univer-reviews
@@ -647,7 +664,7 @@ class Univer_Shortcode {
                     star-shape="%s"
                     show-qa="%s"
                     show-write-review="%s"
-                    per-page="%d"
+                    %s
                 >%s</univer-reviews>
             </div>',
             esc_attr( $extra_class ),
@@ -661,7 +678,7 @@ class Univer_Shortcode {
             esc_attr( $star_shape ),
             esc_attr( $show_qa ),
             esc_attr( $show_wr ),
-            $per_page,
+            $per_page_attr,
             $custom_css_html
         );
     }

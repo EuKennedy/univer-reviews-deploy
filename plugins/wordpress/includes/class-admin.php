@@ -412,7 +412,7 @@ class Univer_Admin {
         $star_shape         = get_option( 'univer_widget_star_shape', 'star' );
         $show_qa            = (string) get_option( 'univer_widget_show_qa', '1' );
         $show_write_review  = (string) get_option( 'univer_widget_show_write_review', '1' );
-        $per_page           = (int) get_option( 'univer_widget_per_page', 10 );
+        $per_page           = (int) get_option( 'univer_widget_per_page', 5 );
         $custom_css         = (string) get_option( 'univer_widget_custom_css', '' );
         $sync_enabled       = get_option( 'univer_sync_enabled', '1' );
         $auto_pull          = get_option( 'univer_auto_pull', '1' );
