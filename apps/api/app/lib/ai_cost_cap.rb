@@ -7,15 +7,22 @@
 # *prevents* the request from running once the cap is crossed —
 # protecting the workspace from a runaway loop burning Anthropic credit.
 #
-# Plan caps in USD per calendar month. nil = unlimited (Enterprise).
-# Numbers mirror the soft thresholds returned by ai_controller#cost_report
-# so users see the same value in the gauge and the 402 response.
+# Plan caps in USD per calendar month. Every paid tier carries a cap
+# because the upstream Anthropic credit is a hard cost on us — leaving
+# any plan uncapped means a single broken merchant integration (e.g. a
+# webhook loop) can drain weeks of margin before we notice. Numbers
+# mirror the soft thresholds returned by ai_controller#cost_report so
+# users see the same value in the gauge and the 402 response.
+#
+# Ratios are deliberate: ultra = 5× medium so a power user graduating
+# tiers always buys back at least 5× the headroom, and medium = 10×
+# entry so a serious merchant moving off entry never feels rate-limited
+# by the cap on day one.
 module AiCostCap
   PLAN_MONTHLY_CAP_USD = {
-    "free"       => 0.50,
-    "starter"    => 5.00,
-    "pro"        => 50.00,
-    "enterprise" => nil,
+    "entry"  => 1.00,
+    "medium" => 10.00,
+    "ultra"  => 50.00,
   }.freeze
 
   # Some flows (e.g. moderate-pending bulk) deliberately bypass the cap
@@ -39,9 +46,12 @@ module AiCostCap
   end
 
   # True when the workspace has consumed >= 100% of its monthly cap.
+  # cap_for() returns nil for unknown / mis-migrated plans; we treat
+  # that as "no cap" so a stale row doesn't accidentally lock the
+  # workspace out — wrong direction to fail, vs. silently allowing.
   def exceeded?(workspace)
     cap = cap_for(workspace)
-    return false if cap.nil? # enterprise / unlimited
+    return false if cap.nil?
     month_spent(workspace) >= cap
   end
 

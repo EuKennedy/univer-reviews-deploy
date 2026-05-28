@@ -261,12 +261,16 @@ export const auth = betterAuth({
               const slug = `${baseSlug || 'workspace'}-${suffix}`
               const wsName = name || localPart || 'Meu workspace'
 
+              // Brand-new workspaces start on the entry tier with status="trial"
+              // so the merchant has a working dashboard while the external
+              // payment platform completes the first charge. Post-T1.3 there is
+              // no free tier — the trial status is what gates billing, not the plan.
               const newWs = await tx<{ id: string }[]>`
                 INSERT INTO public.workspaces (slug, name, plan, status, brand_color, default_locale, default_currency, created_at, updated_at)
                 VALUES (
                   ${slug},
                   ${wsName},
-                  'free',
+                  'entry',
                   'trial',
                   '#d4a850',
                   'pt-BR',

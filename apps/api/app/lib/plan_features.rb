@@ -9,117 +9,97 @@
 #
 # Keep the leaf set small + named after the user-visible action, not the
 # implementation detail. "ai_summary_topics" not "anthropic_haiku_call".
+#
+# Plan ladder (T1.3): collapsed the legacy free/starter/pro/enterprise
+# tuple into a three-tier paid funnel (entry/medium/ultra). Freemium was
+# never live and the external payment platform doesn't support trials,
+# so "entry" replaces both free and starter. See the rename migration's
+# header for the rationale.
 module PlanFeatures
   # Plans sorted weakest → strongest. Inclusion-based: stronger plans
   # inherit the features of weaker ones plus their own additions.
-  TIERS = %w[free starter pro enterprise].freeze
+  TIERS = %w[entry medium ultra].freeze
+
+  # Entry is the floor: a single operator running the storefront widget
+  # with AI generation enabled. No bulk operations, no team, capped at
+  # a small catalog.
+  ENTRY_FEATURES = %i[
+    reviews_basic
+    widget_basic
+    qa_basic
+    workspace_branding
+    ai_moderation
+    ai_reply_suggestions
+    ai_generate
+    bulk_reviews_csv
+    campaign_email
+    campaign_analytics_basic
+    custom_brand_color
+  ].freeze
+
+  # Medium is the working merchant: ops can dedup, has a small team,
+  # widget can be customized, webhook auto-register kicks in so the
+  # storefront sync is hands-off.
+  MEDIUM_FEATURES = (ENTRY_FEATURES + %i[
+    ai_dedup
+    ai_summary_topics
+    multi_user
+    custom_brand_icon
+    widget_custom_css
+    campaign_analytics_pro
+    loyalty_program
+    api_keys
+    multi_domain
+    webhook_auto_register
+  ]).freeze
+
+  # Ultra is scale: bulk AI ops on the entire catalog, no caps, full
+  # white-label + governance features.
+  ULTRA_FEATURES = (MEDIUM_FEATURES + %i[
+    ai_bulk_generate_reviews
+    ai_bulk_generate_qa
+    bulk_qa
+    bulk_ai_summary
+    whitelabel
+    sso
+    audit_log_export
+    priority_support
+    sla
+  ]).freeze
 
   FEATURES = {
-    "free" => %i[
-      reviews_basic
-      widget_basic
-      qa_basic
-      workspace_branding
-    ].freeze,
-
-    "starter" => %i[
-      reviews_basic
-      widget_basic
-      qa_basic
-      workspace_branding
-      ai_moderation
-      ai_reply_suggestions
-      bulk_reviews_csv
-      campaign_email
-      campaign_analytics_basic
-      custom_brand_color
-    ].freeze,
-
-    "pro" => %i[
-      reviews_basic
-      widget_basic
-      qa_basic
-      workspace_branding
-      ai_moderation
-      ai_reply_suggestions
-      bulk_reviews_csv
-      campaign_email
-      campaign_analytics_basic
-      custom_brand_color
-      ai_summary_topics
-      ai_bulk_generate_reviews
-      ai_bulk_generate_qa
-      ai_dedup
-      custom_brand_icon
-      widget_custom_css
-      campaign_analytics_pro
-      loyalty_program
-      api_keys
-      multi_domain
-    ].freeze,
-
-    "enterprise" => %i[
-      reviews_basic
-      widget_basic
-      qa_basic
-      workspace_branding
-      ai_moderation
-      ai_reply_suggestions
-      bulk_reviews_csv
-      campaign_email
-      campaign_analytics_basic
-      custom_brand_color
-      ai_summary_topics
-      ai_bulk_generate_reviews
-      ai_bulk_generate_qa
-      ai_dedup
-      custom_brand_icon
-      widget_custom_css
-      campaign_analytics_pro
-      loyalty_program
-      api_keys
-      multi_domain
-      whitelabel
-      sso
-      audit_log_export
-      priority_support
-      sla
-    ].freeze,
+    "entry"  => ENTRY_FEATURES,
+    "medium" => MEDIUM_FEATURES,
+    "ultra"  => ULTRA_FEATURES,
   }.freeze
 
-  # Hard limits per plan. nil means "unlimited" (enterprise tier).
+  # Hard limits per plan. nil means "unlimited" (ultra tier).
   LIMITS = {
-    "free" => {
-      max_products:               25,
-      max_reviews_per_month:      500,
+    "entry" => {
+      max_products:               100,
+      max_reviews_per_month:      1_000,
+      max_ai_generations_month:   200,
       max_ai_summary_topics:      0,    # zero = blocked
       max_ai_bulk_reviews_month:  0,
       max_workspace_domains:      1,
       max_team_members:           1,
     }.freeze,
 
-    "starter" => {
-      max_products:               250,
-      max_reviews_per_month:      5_000,
-      max_ai_summary_topics:      0,
-      max_ai_bulk_reviews_month:  100,
-      max_workspace_domains:      1,
-      max_team_members:           3,
-    }.freeze,
-
-    "pro" => {
-      max_products:               2_500,
-      max_reviews_per_month:      50_000,
+    "medium" => {
+      max_products:               1_000,
+      max_reviews_per_month:      10_000,
+      max_ai_generations_month:   2_000,
       max_ai_summary_topics:      5,
-      max_ai_bulk_reviews_month:  1_000,
-      max_workspace_domains:      5,
-      max_team_members:           10,
+      max_ai_bulk_reviews_month:  500,
+      max_workspace_domains:      3,
+      max_team_members:           5,
     }.freeze,
 
-    "enterprise" => {
+    "ultra" => {
       max_products:               nil,
       max_reviews_per_month:      nil,
-      max_ai_summary_topics:      10,
+      max_ai_generations_month:   nil,
+      max_ai_summary_topics:      nil,
       max_ai_bulk_reviews_month:  nil,
       max_workspace_domains:      nil,
       max_team_members:           nil,
@@ -129,18 +109,18 @@ module PlanFeatures
   module_function
 
   # Whether the workspace's current plan grants the named feature.
-  # Tolerates string/symbol input. Unknown plan → free fallback so a
-  # mis-migrated row never accidentally unlocks Pro features.
+  # Tolerates string/symbol input. Unknown plan → entry fallback so a
+  # mis-migrated row never accidentally unlocks Ultra features.
   def allow?(feature, workspace_or_plan)
     plan = plan_of(workspace_or_plan)
-    list = FEATURES[plan] || FEATURES["free"]
+    list = FEATURES[plan] || FEATURES["entry"]
     list.include?(feature.to_sym)
   end
 
   # Numeric cap for a plan (returns nil = unlimited).
   def limit(limit_name, workspace_or_plan)
     plan = plan_of(workspace_or_plan)
-    map  = LIMITS[plan] || LIMITS["free"]
+    map  = LIMITS[plan] || LIMITS["entry"]
     map[limit_name.to_sym]
   end
 
@@ -151,7 +131,7 @@ module PlanFeatures
   def require!(feature, workspace)
     return if allow?(feature, workspace)
     plan = plan_of(workspace)
-    required = required_plan_for(feature) || "pro"
+    required = required_plan_for(feature) || "medium"
     raise FeatureLocked.new(feature: feature.to_sym, current_plan: plan, required_plan: required)
   end
 
@@ -167,7 +147,7 @@ module PlanFeatures
     when Workspace      then workspace_or_plan.plan.to_s
     else
       ws = workspace_or_plan
-      ws.respond_to?(:plan) ? ws.plan.to_s : "free"
+      ws.respond_to?(:plan) ? ws.plan.to_s : "entry"
     end
   end
 
@@ -177,8 +157,8 @@ module PlanFeatures
     plan = plan_of(workspace)
     {
       plan:     plan,
-      features: (FEATURES[plan] || FEATURES["free"]).map(&:to_s),
-      limits:   LIMITS[plan]   || LIMITS["free"],
+      features: (FEATURES[plan] || FEATURES["entry"]).map(&:to_s),
+      limits:   LIMITS[plan]   || LIMITS["entry"],
     }
   end
 
@@ -195,7 +175,7 @@ module PlanFeatures
     def to_json_payload
       {
         error:         "feature_locked",
-        message:       "Esta funcionalidade exige plano #{required_plan.capitalize}.",
+        message:       "Esta funcionalidade exige o plano #{required_plan.capitalize}.",
         feature:       feature.to_s,
         current_plan:  current_plan,
         required_plan: required_plan,

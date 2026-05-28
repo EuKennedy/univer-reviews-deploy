@@ -7,7 +7,10 @@ import { PageHeader } from '@/components/godmode/PageHeader'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 
-type PlanKey = 'free' | 'starter' | 'pro' | 'enterprise'
+// Three-tier paid ladder (T1.3). Source of truth for the tier names is
+// Rails (Workspace::PLANS) — renaming here without the DB migration will
+// desync the dropdown from the backend's CHECK constraint.
+type PlanKey = 'entry' | 'medium' | 'ultra'
 
 interface Plan {
   key: PlanKey
@@ -15,16 +18,64 @@ interface Plan {
   price: string
   reviews: string
   users: string
+  tagline: string
   features: string[]
-  // null = not purchasable via checkout (free = default, enterprise = contact sales)
-  checkoutKey: 'starter' | 'pro' | 'enterprise' | null
 }
 
+// Layout intentionally identical to pre-T1.3 cards — only strings + tier
+// keys changed. The external payment platform handles the actual
+// purchase, so we no longer redirect to an in-app checkout; the CTA
+// opens the merchant's external billing area.
 const PLANS: Plan[] = [
-  { key: 'free',       name: 'Free',       price: 'R$0',           reviews: '500',       users: '1',         features: ['Widget', 'Moderação básica'], checkoutKey: null },
-  { key: 'starter',    name: 'Starter',    price: 'R$29',          reviews: '5.000',     users: '3',         features: ['Widget', 'Moderação por IA', 'Campanhas'], checkoutKey: 'starter' },
-  { key: 'pro',        name: 'Pro',        price: 'R$99',          reviews: '50.000',    users: '10',        features: ['Tudo do Starter', 'Lab de IA', 'Marca personalizada', 'Acesso à API'], checkoutKey: 'pro' },
-  { key: 'enterprise', name: 'Enterprise', price: 'Sob consulta',  reviews: 'Ilimitado', users: 'Ilimitado', features: ['Tudo do Pro', 'SLA', 'Suporte dedicado', 'SSO'], checkoutKey: 'enterprise' },
+  {
+    key: 'entry',
+    name: 'Entry',
+    price: 'R$29',
+    reviews: '1.000',
+    users: '1',
+    tagline: 'O essencial para começar a coletar avaliações.',
+    features: [
+      'Widget completo na vitrine',
+      'Moderação por IA',
+      'Geração de avaliações por IA',
+      'Importação por CSV',
+      'Campanhas por e-mail',
+    ],
+  },
+  {
+    key: 'medium',
+    name: 'Medium',
+    price: 'R$99',
+    reviews: '10.000',
+    users: '5',
+    tagline: 'Para a operação rodando — equipe, dedup e marca.',
+    features: [
+      'Tudo do Entry',
+      'Deduplicação por IA',
+      'Sumários de IA por produto',
+      'Equipe com até 5 usuários',
+      'Marca personalizada (ícone + CSS)',
+      'Acesso à API e webhooks automáticos',
+      'Programa de fidelidade',
+    ],
+  },
+  {
+    key: 'ultra',
+    name: 'Ultra',
+    price: 'R$299',
+    reviews: 'Ilimitado',
+    users: 'Ilimitado',
+    tagline: 'Para escalar sem teto — bulk AI e governança.',
+    features: [
+      'Tudo do Medium',
+      'Geração em massa de avaliações por IA',
+      'Geração em massa de Q&A por IA',
+      'Sumários em massa de IA',
+      'Whitelabel completo',
+      'SSO e exportação de audit log',
+      'SLA e suporte prioritário',
+    ],
+  },
 ]
 
 export default function BillingPage() {
@@ -36,26 +87,25 @@ export default function BillingPage() {
     enabled: isAuthenticated,
   })
 
-  const currentPlan: PlanKey = subscription?.plan ?? 'free'
+  const currentPlan: PlanKey = subscription?.plan ?? 'entry'
 
   const checkoutMut = useMutation({
-    mutationFn: (plan: 'starter' | 'pro' | 'enterprise') =>
-      api.billing.createCheckout(plan, getToken()),
+    mutationFn: (plan: PlanKey) => api.billing.createCheckout(plan, getToken()),
     onSuccess: (r) => {
-      // Stripe Checkout — full-page redirect so the merchant lands on the
-      // hosted payment form. window.location wins over router.push here
-      // because the target is on a third-party domain.
+      // External payment platform — full-page redirect so the merchant
+      // lands on the hosted payment form. window.location wins over
+      // router.push because the target is a third-party domain.
       window.location.href = r.url
     },
     onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : 'Falha ao iniciar checkout'),
+      toast.error(e instanceof Error ? e.message : 'Falha ao iniciar a contratação'),
   })
 
   const portalMut = useMutation({
     mutationFn: () => api.billing.portal(getToken()),
     onSuccess: (r) => { window.location.href = r.url },
     onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : 'Falha ao abrir portal de billing'),
+      toast.error(e instanceof Error ? e.message : 'Falha ao abrir o portal de cobrança'),
   })
 
   const current = PLANS.find(p => p.key === currentPlan) ?? PLANS[0]
@@ -72,7 +122,7 @@ export default function BillingPage() {
         <div className="max-w-4xl mx-auto">
           {/* Current plan */}
           <div
-            className="rounded-xl p-5 mb-8"
+            className="rounded-xl p-5 mb-6"
             style={{ background: 'var(--ur-accent-glow)', border: '1px solid var(--ur-accent-soft-3)' }}
           >
             <div className="flex items-center justify-between">
@@ -110,38 +160,44 @@ export default function BillingPage() {
                     ) : (
                       <ExternalLink className="w-3 h-3" />
                     )}
-                    Gerenciar no Stripe
+                    Gerenciar cobrança
                   </button>
                 )}
               </div>
             </div>
           </div>
 
+          {/* External-platform notice. T1.3 moved the actual purchase to
+              a third-party gateway — make this explicit so the merchant
+              doesn't expect the upgrade to happen inside this UI. */}
+          <p
+            className="text-xs mb-6 leading-relaxed"
+            style={{ color: 'var(--ur-text-muted)' }}
+          >
+            A contratação e os pagamentos são processados na plataforma de pagamentos
+            externa. Ao escolher um plano abaixo, você é direcionado ao checkout seguro
+            e, após a confirmação, seu workspace é atualizado automaticamente.
+          </p>
+
           {/* Plans */}
           <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ur-text)' }}>
-            {currentPlan === 'enterprise' ? 'Sua assinatura' : 'Faça upgrade do seu plano'}
+            {currentPlan === 'ultra' ? 'Sua assinatura' : 'Escolha o plano ideal'}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {PLANS.map((plan, i) => {
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {PLANS.map((plan) => {
               const isCurrent = plan.key === currentPlan
-              const isPopular = plan.key === 'pro'
-              const canCheckout = plan.checkoutKey != null && !isCurrent
-              const isContactSales = plan.key === 'enterprise'
+              const isPopular = plan.key === 'medium'
 
               const handleClick = () => {
-                if (isCurrent || !canCheckout) return
-                if (isContactSales) {
-                  window.location.href = 'mailto:vendas@univerreviews.com?subject=Plano%20Enterprise%20-%20UniverReviews'
-                  return
-                }
-                checkoutMut.mutate(plan.checkoutKey as 'starter' | 'pro')
+                if (isCurrent) return
+                checkoutMut.mutate(plan.key)
               }
 
-              const pending = checkoutMut.isPending && checkoutMut.variables === plan.checkoutKey
+              const pending = checkoutMut.isPending && checkoutMut.variables === plan.key
 
               return (
                 <div
-                  key={plan.name}
+                  key={plan.key}
                   className="rounded-xl p-5 relative"
                   style={{
                     background: isPopular ? 'var(--ur-accent-glow)' : 'var(--ur-surface)',
@@ -159,18 +215,32 @@ export default function BillingPage() {
                   <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--ur-text)' }}>
                     {plan.name}
                   </h3>
-                  <p className="text-xl font-bold mb-4" style={{ color: isPopular ? 'var(--ur-accent)' : 'var(--ur-text)' }}>
+                  <p
+                    className="text-xs mb-3 leading-snug"
+                    style={{ color: 'var(--ur-text-muted)' }}
+                  >
+                    {plan.tagline}
+                  </p>
+                  <p
+                    className="text-2xl font-bold mb-4"
+                    style={{ color: isPopular ? 'var(--ur-accent)' : 'var(--ur-text)' }}
+                  >
                     {plan.price}
-                    {plan.price !== 'Sob consulta' && (
-                      <span className="text-xs font-normal ml-1" style={{ color: 'var(--ur-text-muted)' }}>
-                        /mês
-                      </span>
-                    )}
+                    <span
+                      className="text-xs font-normal ml-1"
+                      style={{ color: 'var(--ur-text-muted)' }}
+                    >
+                      /mês
+                    </span>
                   </p>
 
                   <div className="space-y-2 mb-5">
                     {plan.features.map((f) => (
-                      <p key={f} className="text-xs flex items-center gap-1.5" style={{ color: 'var(--ur-text-soft)' }}>
+                      <p
+                        key={f}
+                        className="text-xs flex items-start gap-1.5"
+                        style={{ color: 'var(--ur-text-soft)' }}
+                      >
                         <span style={{ color: 'var(--ur-success)' }}>✓</span> {f}
                       </p>
                     ))}
@@ -190,14 +260,12 @@ export default function BillingPage() {
                   >
                     {pending ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Iniciando…
+                        <Loader2 className="w-3 h-3 animate-spin" /> Redirecionando…
                       </span>
                     ) : isCurrent ? (
                       'Plano atual'
-                    ) : isContactSales ? (
-                      'Falar com vendas'
                     ) : (
-                      `Fazer upgrade para ${plan.name}`
+                      `Contratar ${plan.name}`
                     )}
                   </button>
                 </div>

@@ -205,7 +205,10 @@ export interface Workspace {
   branding: WorkspaceBranding
   /** Storefront widget customization. Optional so older payloads still type-check. */
   widget?: WidgetConfig
-  plan: 'free' | 'starter' | 'pro' | 'enterprise'
+  // Three-tier paid ladder (T1.3). Source of truth: Rails Workspace::PLANS
+  // and the workspaces_plan_check CHECK constraint. Renaming here without
+  // running the DB migration will desync the admin from the backend.
+  plan: 'entry' | 'medium' | 'ultra'
   users: WorkspaceUser[]
   domains: WorkspaceDomain[]
   created_at: string

@@ -3,77 +3,71 @@ require "securerandom"
 
 puts "Seeding billing plans..."
 
+# Three-tier paid ladder (T1.3): entry/medium/ultra. Each slug doubles as
+# the canonical Workspace#plan value — the Stripe webhook copies the
+# checkout's plan_slug straight into workspaces.plan, so any rename here
+# must move with PlanFeatures::TIERS and the workspaces_plan_check CHECK
+# constraint or every checkout will silently fail validation.
 plans = [
   {
-    slug: "free",
-    name: "Free",
-    price_monthly_cents: 0,
-    price_yearly_cents: 0,
-    max_reviews: 100,
-    max_products: 10,
+    slug: "entry",
+    name: "Entry",
+    price_monthly_cents: 2900,
+    price_yearly_cents: 29_000,
+    max_reviews: 1_000,
+    max_products: 100,
     max_users: 1,
     features: {
-      ai_moderation: false,
-      ai_replies: false,
-      campaigns: false,
-      rewards: false,
-      widget: true,
-      api_access: false,
-      csv_import: true,
-      analytics: "basic"
-    }
-  },
-  {
-    slug: "starter",
-    name: "Starter",
-    price_monthly_cents: 1900,
-    price_yearly_cents: 19_000,
-    max_reviews: 1_000,
-    max_products: 50,
-    max_users: 3,
-    features: {
       ai_moderation: true,
-      ai_replies: false,
+      ai_replies: true,
+      ai_generate: true,
       campaigns: true,
       rewards: false,
       widget: true,
-      api_access: true,
+      api_access: false,
       csv_import: true,
       analytics: "standard"
     }
   },
   {
-    slug: "pro",
-    name: "Pro",
-    price_monthly_cents: 4900,
-    price_yearly_cents: 49_000,
+    slug: "medium",
+    name: "Medium",
+    price_monthly_cents: 9900,
+    price_yearly_cents: 99_000,
     max_reviews: 10_000,
-    max_products: 500,
-    max_users: 10,
+    max_products: 1_000,
+    max_users: 5,
     features: {
       ai_moderation: true,
       ai_replies: true,
+      ai_generate: true,
+      ai_dedup: true,
       campaigns: true,
       rewards: true,
       widget: true,
       api_access: true,
       csv_import: true,
       woocommerce_sync: true,
-      analytics: "advanced",
-      dedup: true
+      webhook_auto_register: true,
+      analytics: "advanced"
     }
   },
   {
-    slug: "enterprise",
-    name: "Enterprise",
-    price_monthly_cents: 19_900,
-    price_yearly_cents: 199_000,
+    slug: "ultra",
+    name: "Ultra",
+    price_monthly_cents: 29_900,
+    price_yearly_cents: 299_000,
     max_reviews: nil,
     max_products: nil,
     max_users: nil,
     features: {
       ai_moderation: true,
       ai_replies: true,
+      ai_generate: true,
+      ai_dedup: true,
+      ai_bulk_generate: true,
+      bulk_qa: true,
+      bulk_ai_summary: true,
       campaigns: true,
       rewards: true,
       widget: true,
@@ -81,8 +75,8 @@ plans = [
       csv_import: true,
       woocommerce_sync: true,
       shopify_sync: true,
+      webhook_auto_register: true,
       analytics: "enterprise",
-      dedup: true,
       sla: true,
       white_label: true
     }
@@ -101,7 +95,7 @@ puts "Seeding Lizzon workspace..."
 
 lizzon = Workspace.find_or_create_by!(slug: "lizzon") do |w|
   w.name            = "Lizzon"
-  w.plan            = "pro"
+  w.plan            = "medium"
   w.status          = "active"
   w.brand_color     = "#d4a850"
   w.default_locale  = "pt-BR"
@@ -160,14 +154,14 @@ end
 puts "  Domain: #{domain.domain}"
 
 # Subscription
-pro_plan = BillingPlan.find_by!(slug: "pro")
+default_plan = BillingPlan.find_by!(slug: "medium")
 
 sub = Subscription.find_or_create_by!(workspace: lizzon) do |s|
-  s.plan                = pro_plan
+  s.plan                = default_plan
   s.status              = "active"
   s.current_period_start = Time.current.beginning_of_month
   s.current_period_end   = Time.current.end_of_month
 end
 
-puts "  Subscription: #{sub.status} on #{pro_plan.name}"
+puts "  Subscription: #{sub.status} on #{default_plan.name}"
 puts "Done."

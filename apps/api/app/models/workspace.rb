@@ -23,7 +23,10 @@ class Workspace < ApplicationRecord
   has_many :platform_events,    dependent: :destroy
   has_one  :subscription,       dependent: :destroy
 
-  PLANS   = %w[free starter pro enterprise].freeze
+  # T1.3 collapsed the legacy free/starter/pro/enterprise tuple into the
+  # current paid-only ladder. See the rename migration header for why
+  # freemium was removed and how rows were remapped.
+  PLANS   = %w[entry medium ultra].freeze
   STATUSES = %w[active suspended trial].freeze
   WIDGET_LAYOUTS = %w[default compact grid carousel].freeze
   WIDGET_STAR_SHAPES = %w[star heart flame thumb diamond].freeze
@@ -50,10 +53,9 @@ class Workspace < ApplicationRecord
   def suspended? = status == "suspended"
   def trial?     = status == "trial"
 
-  def plan_free?       = plan == "free"
-  def plan_starter?    = plan == "starter"
-  def plan_pro?        = plan == "pro"
-  def plan_enterprise? = plan == "enterprise"
+  def plan_entry?  = plan == "entry"
+  def plan_medium? = plan == "medium"
+  def plan_ultra?  = plan == "ultra"
 
   def woocommerce_domain
     workspace_domains.find_by(platform: "woocommerce")
