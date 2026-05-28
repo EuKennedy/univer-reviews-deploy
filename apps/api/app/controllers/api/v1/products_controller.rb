@@ -81,20 +81,9 @@ module Api
         end
 
         if ActiveModel::Type::Boolean.new.cast(params[:inline])
-          ws_id    = current_workspace.id
-          with_rls = ->(&block) {
-            ActiveRecord::Base.transaction do
-              ActiveRecord::Base.connection.execute(
-                ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", ws_id.to_s])
-              )
-              block.call
-            end
-          }
-
           result = ::Integrations::WooCommerceProductSyncer.run(
             workspace: current_workspace,
-            domain:    domain,
-            with_rls:  with_rls
+            domain:    domain
           )
           render json: result
           return

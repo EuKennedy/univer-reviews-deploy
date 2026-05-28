@@ -196,22 +196,12 @@ module Api
         private
 
         # Synchronous WC product pull. Delegates to the shared syncer so this
-        # path stays in lockstep with the background WooCommerceSyncJob.
+        # path stays in lockstep with the background WooCommerceSyncJob. The
+        # syncer owns the RLS contract internally.
         def run_inline_sync(domain)
-          ws_id    = current_workspace.id
-          with_rls = ->(&block) {
-            ActiveRecord::Base.transaction do
-              ActiveRecord::Base.connection.execute(
-                ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", ws_id.to_s])
-              )
-              block.call
-            end
-          }
-
           ::Integrations::WooCommerceProductSyncer.run(
             workspace: current_workspace,
-            domain:    domain,
-            with_rls:  with_rls
+            domain:    domain
           )
         rescue => e
           { ok: false, stage: "fatal", class: e.class.to_s, error: e.message, backtrace: e.backtrace.first(8) }

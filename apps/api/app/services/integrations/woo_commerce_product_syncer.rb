@@ -5,22 +5,18 @@ module Integrations
   # endpoint that powers the admin "Sincronizar agora" button so merchants
   # see a real count instead of "enqueued" with no further signal.
   #
-  # Returns a hash with synced/failed counts + a sample of the most recently
-  # touched rows so the caller can render an honest result.
+  # The service owns the RLS contract: each batch upsert runs inside a
+  # transaction with `SET LOCAL app.workspace_id = …` so RLS policies on
+  # the products table see the correct tenant. Callers do NOT need to
+  # provide their own transaction wrapper.
   class WooCommerceProductSyncer
-    # `with_rls` is a callable that wraps every batch write in a transaction
-    # with `SET LOCAL app.workspace_id = …`. The job already provides one via
-    # ApplicationJob#with_workspace_rls; the inline controller path inlines
-    # the same SQL. We accept it as a parameter so this service stays
-    # framework-agnostic and easy to unit-test.
-    def self.run(workspace:, domain:, with_rls:)
-      new(workspace: workspace, domain: domain, with_rls: with_rls).run
+    def self.run(workspace:, domain:)
+      new(workspace: workspace, domain: domain).run
     end
 
-    def initialize(workspace:, domain:, with_rls:)
+    def initialize(workspace:, domain:)
       @workspace = workspace
       @domain    = domain
-      @with_rls  = with_rls
     end
 
     def run
@@ -46,7 +42,11 @@ module Integrations
           "first_id=#{batch.first&.dig('id')} last_id=#{batch.last&.dig('id')}"
         )
 
-        @with_rls.call do
+        ActiveRecord::Base.transaction do
+          ActiveRecord::Base.connection.execute(
+            ActiveRecord::Base.sanitize_sql(["SET LOCAL app.workspace_id = ?", @workspace.id.to_s])
+          )
+
           batch.each do |woo_product|
             begin
               upsert(woo_product, @domain.platform)
