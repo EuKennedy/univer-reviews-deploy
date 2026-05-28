@@ -16,6 +16,7 @@ class ApplicationController < ActionController::API
   rescue_from UnauthorizedError,               with: :unauthorized
   rescue_from ForbiddenError,                  with: :forbidden
   rescue_from TenantError,                     with: :tenant_error
+  rescue_from PlanFeatures::FeatureLocked,     with: :feature_locked
 
   # Root
   def root
@@ -274,5 +275,24 @@ class ApplicationController < ActionController::API
       error: "tenant_error",
       message: error&.message || "Workspace not found"
     }, status: :not_found
+  end
+
+  # PlanFeatures::FeatureLocked → 402 Payment Required + upgrade hint.
+  # Frontend renders a paywall modal that deep-links to /billing with
+  # the suggested plan pre-selected.
+  def feature_locked(error)
+    render json: error.to_json_payload, status: :payment_required
+  end
+
+  # Public helper for controllers to gate an action behind a plan
+  # feature. Raises PlanFeatures::FeatureLocked which is rescued above.
+  #
+  # Usage:
+  #   def create
+  #     require_feature!(:ai_summary_topics)
+  #     ...
+  #   end
+  def require_feature!(feature)
+    PlanFeatures.require!(feature, current_workspace)
   end
 end

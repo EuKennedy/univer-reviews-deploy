@@ -1,8 +1,12 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { eq } from 'drizzle-orm'
 import { Shell } from '@/components/godmode/Shell'
 import { auth } from '@/lib/auth'
-import { sql } from '@/lib/db'
+import { db, sql } from '@/lib/db'
+import { user as authUser } from '@/lib/db/schema'
+import { CookieConsent } from '@/components/legal/CookieConsent'
+import { LegalReAcceptBanner } from '@/components/legal/LegalReAcceptBanner'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -68,5 +72,31 @@ export default async function WorkspaceLayout({
     redirect('/')
   }
 
-  return <Shell workspace={workspace}>{children}</Shell>
+  // LGPD acceptance state — fetched cheaply alongside the workspace
+  // check. Banner only blocks when versions diverge.
+  const me = await db
+    .select({
+      acceptedTermsVersion: authUser.acceptedTermsVersion,
+      acceptedPrivacyVersion: authUser.acceptedPrivacyVersion,
+      deletionRequestedAt: authUser.deletionRequestedAt,
+    })
+    .from(authUser)
+    .where(eq(authUser.id, session.user.id))
+    .limit(1)
+
+  // Account marked for deletion — bounce to /goodbye and force re-auth.
+  if (me[0]?.deletionRequestedAt) {
+    redirect('/login?error=account_pending_deletion')
+  }
+
+  return (
+    <Shell workspace={workspace}>
+      {children}
+      <LegalReAcceptBanner
+        acceptedTermsVersion={me[0]?.acceptedTermsVersion ?? null}
+        acceptedPrivacyVersion={me[0]?.acceptedPrivacyVersion ?? null}
+      />
+      <CookieConsent />
+    </Shell>
+  )
 }

@@ -49,7 +49,10 @@ module Api
               plan_name:           ws.subscription.plan&.name,
               current_period_end:  ws.subscription.current_period_end&.iso8601,
               trial_ends_at:       ws.subscription.trial_ends_at&.iso8601
-            } : nil
+            } : nil,
+            # Feature snapshot so the admin can paywall buttons cheaply.
+            # Backend re-enforces via PlanFeatures.require! in controllers.
+            plan_features: PlanFeatures.snapshot(ws)
           }
         }
       end

@@ -25,6 +25,18 @@ export const user = authSchema.table('user', {
   banned: boolean('banned').default(false),
   banReason: text('ban_reason'),
   banExpires: timestamp('ban_expires', { withTimezone: true }),
+  // ─── LGPD ────────────────────────────────────────────────────────────────
+  // Versioned acceptance of Terms + Privacy. Re-aceite banner compares
+  // current values against the constants in lib/legal.ts; mismatch
+  // blocks the dashboard until the user clicks "Aceitar".
+  acceptedTermsVersion: text('accepted_terms_version'),
+  acceptedPrivacyVersion: text('accepted_privacy_version'),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  // Soft-delete flag for Art. 18 VI requests. When set, middleware
+  // redirects every request to /goodbye and Rails refuses to issue API
+  // tokens. A scheduled hard-delete job purges the row after the legal
+  // retention window (default 30d).
+  deletionRequestedAt: timestamp('deletion_requested_at', { withTimezone: true }),
 })
 
 export const session = authSchema.table('session', {

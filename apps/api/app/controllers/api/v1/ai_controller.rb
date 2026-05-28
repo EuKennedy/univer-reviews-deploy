@@ -88,6 +88,7 @@ module Api
       # reviews so the UI can preview/edit immediately.
       def bulk_create_reviews
         require_write!
+        require_feature!(:ai_bulk_generate_reviews)
 
         product_id = params.require(:product_id)
         product    = current_workspace.products.find(product_id)
@@ -231,6 +232,7 @@ module Api
       # in the storefront Q&A panel immediately.
       def bulk_create_questions
         require_write!
+        require_feature!(:ai_bulk_generate_qa)
 
         product_id = params.require(:product_id)
         product    = current_workspace.products.find(product_id)
@@ -389,6 +391,7 @@ module Api
       # POST /api/v1/ai/dedup
       def dedup
         require_write!
+        require_feature!(:ai_dedup)
 
         review_id = params.require(:review_id)
         review = current_workspace.reviews.find(review_id)
@@ -415,6 +418,7 @@ module Api
       # action). Pass `async=true` to fall back to Sidekiq enqueue.
       def generate_summary_topics
         require_write!
+        require_feature!(:ai_summary_topics)
         product = current_workspace.products.find(params.require(:product_id))
 
         # Pre-flight ANTHROPIC_API_KEY check. The job-level rescue swallows

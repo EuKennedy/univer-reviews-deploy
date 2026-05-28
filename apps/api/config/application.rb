@@ -20,9 +20,11 @@ module UniverseReviewsApi
     # Autoload paths
     config.autoload_paths += %W[
       #{root}/app/errors
+      #{root}/app/lib
       #{root}/app/services
       #{root}/app/serializers
     ]
+    config.eager_load_paths << "#{root}/app/lib"
 
     # JSON serialization with Oj
     config.middleware.use ActionDispatch::RequestId, header: "X-Request-Id"

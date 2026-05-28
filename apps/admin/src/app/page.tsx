@@ -19,8 +19,13 @@ export default async function RootPage() {
     redirect('/login')
   }
 
-  const rows = await sql<{ slug: string }[]>`
-    SELECT w.slug
+  const rows = await sql<
+    Array<{ slug: string; domain_count: number; product_count: number }>
+  >`
+    SELECT
+      w.slug,
+      COALESCE((SELECT COUNT(*) FROM public.workspace_domains wd WHERE wd.workspace_id = w.id), 0) AS domain_count,
+      COALESCE((SELECT COUNT(*) FROM public.products p WHERE p.workspace_id = w.id), 0)            AS product_count
     FROM public.workspaces w
     INNER JOIN public.workspace_users wu ON wu.workspace_id = w.id
     WHERE wu.better_auth_user_id = ${session.user.id}
@@ -32,5 +37,13 @@ export default async function RootPage() {
     redirect('/login?error=no_workspace')
   }
 
-  redirect(`/${rows[0].slug}/dashboard`)
+  const me = rows[0]
+  // First-time user (no domain or no products) lands on the onboarding
+  // wizard. Once they have at least one of each, the root jumps straight
+  // to the dashboard.
+  if (Number(me.domain_count) === 0 || Number(me.product_count) === 0) {
+    redirect('/onboarding')
+  }
+
+  redirect(`/${me.slug}/dashboard`)
 }
