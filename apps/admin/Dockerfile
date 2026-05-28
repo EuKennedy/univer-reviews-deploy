@@ -20,9 +20,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Cap the Node heap so `next build` + standalone tracing fits on the
 # Coolify host. Default V8 limit on Node 20 grows unbounded toward host
 # RAM, which on a 4 GB VPS gets the docker build SIGKILLed during the
-# final "Collecting build traces" step (exit code 255). 2 GB is enough
-# headroom for Next 15 + the dashboard's bundle.
-ENV NODE_OPTIONS=--max-old-space-size=2048
+# final "Collecting build traces" step (exit code 255).
+#
+# 2 GB was the original ceiling and it now SIGKILLs partway through
+# "Creating an optimized production build…" — the Next 15.5 + React 19
+# + Radix x12 + Recharts + Framer + Drizzle + Better-Auth surface peaks
+# around 2.8–3.2 GB during the SWC compile pass. 4 GB gives a safety
+# margin without starving the postgres/redis containers running
+# alongside. Bump higher only if the VPS spec grows.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 # ─── Stage 3: runner ────────────────────────────────────────────────────────
