@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/invite']
+const PUBLIC_PATHS = ['/login', '/invite', '/termos', '/privacidade', '/status', '/goodbye']
 
 /**
  * Edge middleware: gate authenticated routes.
