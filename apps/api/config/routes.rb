@@ -66,6 +66,10 @@ Rails.application.routes.draw do
         # Hyphen alias so callers using /api-keys keep working.
         resources :api_keys, controller: "workspace_api_keys", only: %i[index create destroy], path: "api-keys", as: :api_keys_hyphen
         resources :domains, controller: "workspace_domains", only: %i[index create destroy]
+
+        # Webhook secret rotation (per workspace_domain).
+        get  "webhooks",              to: "workspace_webhooks#index"
+        post "webhooks/:domain_id/rotate", to: "workspace_webhooks#rotate"
         # Brand asset uploads (custom rating-star icon, future logos).
         # Multipart POST → returns the public URL the admin can save back
         # to the workspace via PATCH /workspace.
@@ -170,7 +174,11 @@ Rails.application.routes.draw do
       end
 
       # Audit log
-      resources :audit_logs, only: [:index]
+      resources :audit_logs, only: [:index] do
+        collection do
+          get :actions, action: :actions_list
+        end
+      end
 
       # WordPress sync. The PHP plugin pushes status changes and replies via
       # /api/v1/wp/reviews/:id/{status,reply} — these mirror the standard

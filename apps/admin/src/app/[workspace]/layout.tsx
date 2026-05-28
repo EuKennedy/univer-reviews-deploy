@@ -7,6 +7,7 @@ import { db, sql } from '@/lib/db'
 import { user as authUser } from '@/lib/db/schema'
 import { CookieConsent } from '@/components/legal/CookieConsent'
 import { LegalReAcceptBanner } from '@/components/legal/LegalReAcceptBanner'
+import { HelpWidget } from '@/components/HelpWidget'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -97,6 +98,7 @@ export default async function WorkspaceLayout({
         acceptedPrivacyVersion={me[0]?.acceptedPrivacyVersion ?? null}
       />
       <CookieConsent />
+      <HelpWidget />
     </Shell>
   )
 }

@@ -214,6 +214,39 @@ class ApiClient {
       ),
 
     /**
+     * GET /audit_logs — workspace activity timeline.
+     */
+    auditLogs: (
+      params: {
+        page?: number
+        per_page?: number
+        action?: string
+        user_id?: string
+        entity_type?: string
+        from?: string
+        to?: string
+      },
+      token: string,
+    ) =>
+      this.request<{
+        data: Array<{
+          id: string
+          action: string
+          entity_type: string | null
+          entity_id: string | null
+          metadata: Record<string, unknown> | null
+          actor: { id: string; email: string; name: string | null } | null
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string
+        }>
+        meta: { current_page: number; total_pages: number; total_count: number; per_page: number }
+      }>('/audit_logs', { params: params as Record<string, string | number | undefined> }, token),
+
+    auditActions: (token: string) =>
+      this.request<{ data: string[] }>('/audit_logs/actions', {}, token).then(r => r.data),
+
+    /**
      * GET /ai/cost-report — per-workspace AI consumption window.
      * Powers the AI Lab "consumo" chart + dashboard cost gauge.
      */
