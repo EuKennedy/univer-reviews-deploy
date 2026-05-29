@@ -49,10 +49,13 @@ RSpec.describe Univercart::EntitlementProcessor, type: :service do
 
     it "is idempotent across repeated grants for the same subscription" do
       described_class.process!(event_type: "entitlement.granted", data: data)
+      # `change(...).by(0)` lets us chain a no-op assertion through `.and`.
+      # `not_to change(...)` doesn't compose, and `not_change` isn't a real
+      # matcher — RSpec only ships positive ones for `.and` composition.
       expect {
         described_class.process!(event_type: "entitlement.granted", data: data)
-      }.not_to change(Workspace, :count)
-       .and not_change(WorkspaceUser, :count)
+      }.to change(Workspace, :count).by(0)
+       .and change(WorkspaceUser, :count).by(0)
     end
   end
 
