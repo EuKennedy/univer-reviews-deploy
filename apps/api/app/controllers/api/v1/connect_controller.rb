@@ -47,7 +47,33 @@ module Api
           return
         end
 
-        # ── 3. Hit Univercart ───────────────────────────────────────────
+        # ── 3. Dev bypass (NEVER set in production) ─────────────────────
+        # Lets the founder simulate the full Univercart flow offline:
+        # `scripts/univercart-simulate.rb` fires a webhook + emits a
+        # magic-link URL whose JTI doesn't exist on Univercart's side.
+        # When this env var is set the redeem short-circuits with 200
+        # so the buyer lands on /<workspace>/dashboard without us
+        # talking to Univercart.
+        #
+        # Guards:
+        #   - ENV var name is intentionally verbose so it can't get set by
+        #     mistake (no `DEV_MODE` umbrella).
+        #   - Logs a loud warning every hit.
+        #   - Refuses to bypass if Rails.env is production AND the env
+        #     value isn't literally the string "force"; gives the founder
+        #     a deliberate footgun if they ever genuinely need to bypass
+        #     prod for a one-off recovery, but blocks accidental
+        #     contamination from a stray Coolify env paste.
+        bypass = ENV["UNIVERCART_DEV_SKIP_REDEEM"].to_s
+        if bypass.present? && (!Rails.env.production? || bypass == "force")
+          Rails.logger.warn(
+            "[connect-redeem] DEV BYPASS active — jti=#{jti} env=#{Rails.env} value=#{bypass.inspect}"
+          )
+          render json: { ok: true, dev_bypass: true }
+          return
+        end
+
+        # ── 4. Hit Univercart ───────────────────────────────────────────
         result = ::Univercart::TokenRedeemer.redeem(jti: jti)
         Rails.logger.info("[connect-redeem] jti=#{jti} status=#{result.status} reason=#{result.reason}")
 
