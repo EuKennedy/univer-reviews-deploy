@@ -67,7 +67,10 @@ RSpec.describe Api::V1::SuperAdmin::WorkspacesController, type: :request do
       body = JSON.parse(response.body)
       slugs = body["data"].map { |r| r["slug"] }
       expect(slugs).to include("tenant-a", "tenant-b", "tenant-c")
-      expect(body["meta"]).to include("total_workspaces", "mrr_estimate_usd")
+      # MRR rolled up in BRL (the merchant pays us in BRL). AI cost stays
+      # in USD because Anthropic bills us in USD — see aggregate_stats
+      # comment in the controller.
+      expect(body["meta"]).to include("total_workspaces", "mrr_estimate_brl", "ai_cost_month_usd", "currency")
     end
 
     it "filters by plan (entry/medium/ultra)" do
