@@ -14,6 +14,12 @@ The Rails app now fails boot in production when any of these are missing. Set th
 | `RESEND_WEBHOOK_SECRET` | Verifies Resend webhooks (svix-format) | `/api/v1/webhooks/resend` rejects every delivery |
 | `FEEDSPACE_WEBHOOK_SECRET` | Shared secret for Feedspace integration | `/api/v1/webhooks/feedspace` rejects every delivery |
 | `PAYMENT_WEBHOOK_SECRET` | HMAC key for external payment-platform webhook (`/api/v1/webhooks/payment`) | Endpoint returns 503 (fail-closed). No buyer can be auto-provisioned. |
+| `UNIVERCART_WEBHOOK_SECRET` | HMAC key for `/api/v1/webhooks/univercart` (`whsec_<…>` from Univercart admin → endpoints). | Endpoint returns 503; no Univercart sales can land. |
+| `UNIVERCART_JWT_SECRET` | HS256 shared secret used to verify magic-link JWTs at `dash/connect/setup?t=<JWT>`. | Setup page errors out with `connect_misconfigured`. |
+| `UNIVERCART_API_KEY` | Bearer `sk_live_<…>` for `POST /v1/tokens/:jti/redeem`. Lives on Rails only. | Rails redeem proxy returns 503; no buyer can log in via the magic-link. |
+| `UNIVERCART_API_URL` | Optional override; defaults to `https://api.univercart.com`. | Uses default. |
+| `UNIVERCART_PARTNER_SLUG` | Our `aud` claim in inbound JWTs (`univerreviews`). | Defaults to `univerreviews`. |
+| `CONNECT_PROXY_SECRET` | Shared secret between Next `/connect/setup` and Rails `/api/v1/connect/redeem` so a stray visitor can't trigger redemptions. Generate with `openssl rand -hex 32`. | Endpoint returns 503. |
 | `FRONTEND_URL` | Allowlist for Stripe redirects | Falls back to `https://dash.univerreviews.com` |
 | `STRIPE_SECRET_KEY` | Stripe API client | Stripe calls fail with auth errors |
 | `ANTHROPIC_API_KEY` | AI moderation / generation | AI endpoints return missing-key error |

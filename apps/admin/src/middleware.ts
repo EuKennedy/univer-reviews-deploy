@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/invite', '/termos', '/privacidade', '/status', '/goodbye']
+// `/connect/*` is the Univercart Connect magic-link landing. The page is a
+// server component that mints its own Better Auth session after verifying
+// the JWT — middleware must NOT redirect to /login here, otherwise the
+// buyer never reaches the verify flow.
+const PUBLIC_PATHS = ['/login', '/invite', '/termos', '/privacidade', '/status', '/goodbye', '/connect']
 
 /**
  * Edge middleware: gate authenticated routes.

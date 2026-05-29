@@ -258,7 +258,19 @@ Rails.application.routes.draw do
         # Better Auth user + workspace + workspace_user on first payment and
         # e-mails the buyer a 24h magic-link.
         post "payment",     to: "payment#receive"
+        # Univercart Connect (founder's SaaS sales platform). HMAC-verified
+        # entitlement.* events; auto-provisions workspaces, the buyer logs
+        # in via the JWT magic-link Univercart sends them (handled by
+        # Next.js /connect/setup → /api/v1/connect/redeem).
+        post "univercart",  to: "univercart#receive"
       end
+
+      # Univercart Connect server-side proxy. The Next.js /connect/setup
+      # page calls /v1/connect/redeem/:jti here AFTER verifying the inbound
+      # HS256 JWT; we hold the partner API key and forward the redeem to
+      # Univercart's /v1/tokens/:jti/redeem. Bare route (not nested) maps
+      # to Api::V1::ConnectController#redeem directly.
+      post "connect/redeem/:jti", to: "connect#redeem", constraints: { jti: /[A-Za-z0-9_\-]+/ }
     end
   end
 
