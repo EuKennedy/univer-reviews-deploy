@@ -49,7 +49,11 @@ module Api
         end
 
         ext = content_type == "image/svg+xml" ? ".svg" : ".png"
-        key = "workspaces/#{current_workspace.id}/brand/rating-icon-#{SecureRandom.hex(8)}#{ext}"
+        # Key under `public/` so the MinIO bucket's anonymous-download
+        # policy (set by minio-init on the `public/` prefix) serves the
+        # icon to the storefront widget even if per-object ACLs aren't
+        # honoured by this MinIO build.
+        key = "public/workspaces/#{current_workspace.id}/brand/rating-icon-#{SecureRandom.hex(8)}#{ext}"
 
         url = StorageService.new.upload(
           key: key,
