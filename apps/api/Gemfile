@@ -3,7 +3,12 @@ ruby "~> 3.3"
 
 gem "rails", "~> 8.0"
 gem "pg", "~> 1.5"
-gem "puma", "~> 6.4"
+gem "puma", "~> 7.2", ">= 7.2.1"
+# Security floor for a transitive dep (pulled by mail/actionmailer). The
+# Gemfile.lock is gitignored, so CI resolves fresh from the Gemfile — pin
+# the patched net-imap here so the bundler-audit job can't regress to the
+# vulnerable 0.6.4 (CVE-2026-47241 DoS / CVE-2026-47242 command injection).
+gem "net-imap", ">= 0.6.4.1"
 gem "rack-cors"
 gem "rack-attack", "~> 6.7"
 gem "bcrypt", "~> 3.1"
