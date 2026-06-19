@@ -55,12 +55,20 @@ module Api
         # honoured by this MinIO build.
         key = "public/workspaces/#{current_workspace.id}/brand/rating-icon-#{SecureRandom.hex(8)}#{ext}"
 
-        url = StorageService.new.upload(
+        StorageService.new.upload(
           key: key,
           body: body,
           content_type: content_type,
           public: true,
         )
+
+        # Store a URL that points at OUR public proxy, not the raw bucket.
+        # StorageService#url_for would emit an S3/MinIO URL that (a) can hit
+        # the wrong host when only MINIO_* envs are set and (b) isn't
+        # reachable/CSP-friendly from third-party storefronts. The proxy
+        # (api.univerreviews.com) streams the object and is stable + cached.
+        base = ENV["API_PUBLIC_URL"].presence || request.base_url
+        url = Api::V1::Public::BrandAssetsController.icon_url(key, base)
 
         old_key = extract_key_from_url(current_workspace.rating_icon_filled)
         current_workspace.update!(rating_icon_filled: url)
@@ -132,6 +140,14 @@ module Api
       def extract_key_from_url(url)
         return nil if url.blank?
 
+        # Current format: our public proxy URL
+        #   "{base}/api/v1/public/brand-assets/rating-icon/{token}"
+        # where token is urlsafe-base64 of the object key. Decode it back.
+        if (m = url.match(%r{/api/v1/public/brand-assets/rating-icon/([A-Za-z0-9_\-]+)\z}))
+          return Api::V1::Public::BrandAssetsController.decode_token(m[1])
+        end
+
+        # Legacy formats (pre-proxy uploads stored a raw bucket URL).
         endpoint = ENV["AWS_S3_ENDPOINT"].to_s
         bucket   = S3_BUCKET
 

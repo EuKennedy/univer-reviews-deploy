@@ -40,6 +40,16 @@ class StorageService
     @client.delete_object(bucket: @bucket, key: key)
   end
 
+  # Fetch an object's bytes + content-type so the API can stream it to the
+  # browser (public brand-asset proxy). Returns nil when the key is absent
+  # so callers can 404 cleanly instead of 500ing on a missing object.
+  def download(key)
+    obj = @client.get_object(bucket: @bucket, key: key)
+    { body: obj.body.read, content_type: obj.content_type }
+  rescue Aws::S3::Errors::NoSuchKey, Aws::S3::Errors::NotFound
+    nil
+  end
+
   def url_for(key)
     endpoint = ENV.fetch("AWS_S3_ENDPOINT", nil)
     if endpoint.present?

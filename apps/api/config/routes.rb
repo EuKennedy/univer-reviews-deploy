@@ -242,6 +242,11 @@ Rails.application.routes.draw do
         post "questions/:product_id",   to: "questions#create"
         get  "videos/:product_id",      to: "videos#index"
         get  "widget-config",           to: "widget_config#show"
+        # Public proxy for workspace brand assets (custom rating icon). The
+        # token is urlsafe-base64 of the object key; the controller only
+        # serves keys under public/workspaces/<id>/brand/.
+        get  "brand-assets/rating-icon/:token", to: "brand_assets#rating_icon",
+             constraints: { token: /[A-Za-z0-9_\-]+/ }
       end
 
       # Webhooks — each sub-controller exposes a `create` action.

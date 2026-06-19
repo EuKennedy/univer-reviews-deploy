@@ -58,17 +58,27 @@ RSpec.describe Api::V1::WorkspaceBrandAssetsController, type: :request do
 
       expect(response).to have_http_status(:ok)
       body = JSON.parse(response.body)
-      expect(body.dig("data", "rating_icon_url")).to eq(@stored_url)
+      url = body.dig("data", "rating_icon_url")
+
+      # The saved URL points at OUR public proxy, not the raw bucket, and
+      # its token round-trips back to the stored object key.
+      expect(url).to start_with("http")
+      expect(url).to include("/api/v1/public/brand-assets/rating-icon/")
+      token   = url.split("/").last
+      decoded = Api::V1::Public::BrandAssetsController.decode_token(token)
+      expect(decoded).to match(
+        %r{\Apublic/workspaces/#{workspace.id}/brand/rating-icon-[0-9a-f]+\.svg\z},
+      )
 
       expect(@storage).to have_received(:upload).with(
         hash_including(
-          key: a_string_starting_with("workspaces/#{workspace.id}/brand/rating-icon-"),
+          key: a_string_starting_with("public/workspaces/#{workspace.id}/brand/rating-icon-"),
           content_type: "image/svg+xml",
           public: true,
         ),
       )
 
-      expect(workspace.reload.rating_icon_filled).to eq(@stored_url)
+      expect(workspace.reload.rating_icon_filled).to eq(url)
     end
 
     it "accepts a PNG upload" do
@@ -146,12 +156,9 @@ RSpec.describe Api::V1::WorkspaceBrandAssetsController, type: :request do
 
   describe "DELETE /workspace/brand-assets/rating-icon" do
     it "clears the column and asks StorageService to delete the previous object" do
-      workspace.update!(
-        rating_icon_filled: "https://cdn.example.com/test-bucket/workspaces/#{workspace.id}/brand/rating-icon-old.svg",
-      )
-      allow(ENV).to receive(:[]).and_call_original
-      allow(ENV).to receive(:[]).with("AWS_S3_ENDPOINT").and_return("https://cdn.example.com")
-      stub_const("S3_BUCKET", "test-bucket")
+      key   = "public/workspaces/#{workspace.id}/brand/rating-icon-old.svg"
+      proxy = Api::V1::Public::BrandAssetsController.icon_url(key, "https://api.univerreviews.com")
+      workspace.update!(rating_icon_filled: proxy)
 
       delete "/api/v1/workspace/brand-assets/rating-icon", headers: auth_headers
 
@@ -159,9 +166,8 @@ RSpec.describe Api::V1::WorkspaceBrandAssetsController, type: :request do
       expect(JSON.parse(response.body).dig("data", "rating_icon_url")).to be_nil
       expect(workspace.reload.rating_icon_filled).to be_blank
 
-      expect(@storage).to have_received(:delete).with(
-        "workspaces/#{workspace.id}/brand/rating-icon-old.svg",
-      )
+      # extract_key_from_url decodes the proxy token back to the object key.
+      expect(@storage).to have_received(:delete).with(key)
     end
 
     it "is a no-op when no icon was set" do
