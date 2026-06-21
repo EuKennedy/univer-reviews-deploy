@@ -17,7 +17,7 @@ Rails.application.routes.draw do
       delete "auth/logout",   to: "auth#logout"
 
       # Reviews (authenticated staff)
-      resources :reviews, only: %i[index show create destroy] do
+      resources :reviews, only: %i[index show create update destroy] do
         collection do
           post :bulk
           post :bulk_import, action: :bulk_import, path: "bulk_import"
@@ -47,6 +47,7 @@ Rails.application.routes.draw do
         post "bulk-create-reviews",       action: :bulk_create_reviews
         post "bulk-create-questions",     action: :bulk_create_questions
         post "bulk-create-questions-all", action: :bulk_create_questions_all
+        post "upload-author-photo",       action: :upload_author_photo
         post :reply
         post "auto-reply", action: :auto_reply
         get  :duplicates

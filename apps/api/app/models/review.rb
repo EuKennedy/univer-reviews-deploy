@@ -8,7 +8,10 @@ class Review < ApplicationRecord
   has_neighbors :embedding
 
   SOURCES    = %w[manual csv woo shopify ryviu_import email whatsapp widget].freeze
-  STATUSES   = %w[pending approved rejected hidden spam].freeze
+  # "draft" = AI-generated, awaiting operator review in the bulk-draft editor.
+  # Kept out of the storefront AND the normal pending moderation queue until
+  # the operator hits "Publicar" (which flips it to approved).
+  STATUSES   = %w[draft pending approved rejected hidden spam].freeze
   SENTIMENTS = %w[positive negative neutral mixed].freeze
 
   validates :rating,       presence: true, inclusion: { in: 1..5 }
@@ -31,6 +34,7 @@ class Review < ApplicationRecord
 
   scope :approved,     -> { where(status: "approved") }
   scope :pending,      -> { where(status: "pending") }
+  scope :draft,        -> { where(status: "draft") }
   scope :for_product,  ->(product_id) { where(product_id: product_id) }
   scope :recent,       -> { order(created_at: :desc) }
   scope :featured,     -> { where(is_featured: true) }

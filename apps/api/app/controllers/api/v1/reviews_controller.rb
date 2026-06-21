@@ -1,7 +1,7 @@
 module Api
   module V1
     class ReviewsController < ApplicationController
-      before_action :set_review, only: %i[show destroy status attach_media]
+      before_action :set_review, only: %i[show update destroy status attach_media]
 
       # GET /api/v1/reviews
       def index
@@ -72,6 +72,29 @@ module Api
       end
 
       # DELETE /api/v1/reviews/:id
+      # PATCH/PUT /api/v1/reviews/:id
+      # Full edit used by the AI draft editor: rating, title, body, author
+      # name/email/country/gender, avatar, and status. Publishing a draft is
+      # just status=approved here — the set_approved_at callback timestamps it.
+      def update
+        require_write!
+
+        if @review.update(review_params)
+          AuditLog.record(
+            workspace: current_workspace,
+            action: "review.updated",
+            entity: @review,
+            request: request
+          )
+          render json: { data: serialize_review(@review) }
+        else
+          render json: {
+            error: "unprocessable_entity",
+            issues: @review.errors.full_messages
+          }, status: :unprocessable_entity
+        end
+      end
+
       def destroy
         require_write!
 
@@ -344,6 +367,8 @@ module Api
         params.require(:review).permit(
           :product_id, :rating, :title, :body,
           :author_name, :author_email, :author_country,
+          :author_gender, :author_avatar_url,
+          :status,
           :source, :is_verified_purchase, :is_featured,
           :order_id, :language, :external_id,
           metadata: {}
@@ -362,6 +387,8 @@ module Api
           author_name:          review.author_name,
           author_email:         review.author_email,
           author_country:       review.author_country,
+          author_gender:        review.author_gender,
+          author_avatar_url:    review.author_avatar_url,
           source:               review.source,
           status:               review.status,
           is_featured:          review.is_featured,

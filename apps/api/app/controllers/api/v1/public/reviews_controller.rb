@@ -597,6 +597,7 @@ module Api
             body: review.body,
             author_name: review.author_name,
             author_country: review.author_country,
+            author_avatar_url: review.author_avatar_url,
             is_verified_purchase: review.is_verified_purchase,
             is_featured: review.is_featured,
             helpful_count: review.helpful_count.to_i,

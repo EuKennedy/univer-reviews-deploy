@@ -29,7 +29,14 @@ module Api
       def update
         require_write!
 
-        if params.dig(:question, :answer).present?
+        # Full-edit path (AI draft editor): when the operator sends content
+        # fields (body / author_*), apply the whole permitted set in one shot
+        # WITHOUT auto-publishing — editing a draft's answer must not flip it
+        # live. The answer!/status shortcuts stay for the legacy answer +
+        # moderation flows that send only those keys.
+        if editing_full?
+          @question.update!(question_params)
+        elsif params.dig(:question, :answer).present?
           @question.answer!(
             body: params[:question][:answer],
             user: fetch_current_user
@@ -143,7 +150,18 @@ module Api
       end
 
       def question_params
-        params.require(:question).permit(:status)
+        params.require(:question).permit(
+          :status, :body, :answer, :author_name,
+          :author_gender, :author_avatar_url, :product_id
+        )
+      end
+
+      # True when the request carries content fields (not just answer/status),
+      # i.e. the operator is editing the record in the draft editor.
+      def editing_full?
+        q = params[:question]
+        return false unless q.respond_to?(:keys)
+        (q.keys.map(&:to_s) & %w[body author_name author_gender author_avatar_url]).any?
       end
 
       def fetch_current_user
@@ -157,6 +175,7 @@ module Api
           id: q.id, product_id: q.product_id,
           question_group_id: q.question_group_id,
           author_name: q.author_name, body: q.body,
+          author_gender: q.author_gender, author_avatar_url: q.author_avatar_url,
           answer: q.answer, answered_at: q.answered_at&.iso8601,
           helpful_count: q.helpful_count, status: q.status,
           created_at: q.created_at&.iso8601, updated_at: q.updated_at&.iso8601

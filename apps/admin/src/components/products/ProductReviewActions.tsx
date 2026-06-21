@@ -25,6 +25,7 @@ import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { useFocusTrap } from '@/lib/useFocusTrap'
 import type { Product } from '@/types'
+import { AiDraftEditor, type DraftItem } from './AiDraftEditor'
 
 type Mode = null | 'manual' | 'ai'
 
@@ -254,12 +255,20 @@ function BulkAIGeneratorModal({
   // Reviews tab state
   const [reviewCount, setReviewCount] = useState(5)
   const [reviewTone, setReviewTone] = useState('positivo, autêntico, variado')
-  const [reviewStatus, setReviewStatus] = useState<'pending' | 'approved'>('approved')
   const [dateSpread, setDateSpread] = useState(30)
 
   // Q&A tab state
   const [qaCount, setQaCount] = useState(5)
-  const [qaStatus, setQaStatus] = useState<'pending' | 'published'>('published')
+
+  // After generation the modal flips into the draft editor for the batch.
+  const [editing, setEditing] = useState<{ kind: 'review' | 'question'; items: DraftItem[] } | null>(null)
+
+  function finishEditing() {
+    queryClient.invalidateQueries({ queryKey: ['reviews'] })
+    queryClient.invalidateQueries({ queryKey: ['questions'] })
+    queryClient.invalidateQueries({ queryKey: ['products'] })
+    onClose()
+  }
 
   // Chunked client-side progress. Big batches (count > 10) were crashing
   // server-side because Claude truncated mid-array at max_tokens. Now we
@@ -297,34 +306,43 @@ function BulkAIGeneratorModal({
     }, 2200)
 
     let createdTotal = 0
+    const collected: DraftItem[] = []
     try {
       for (let i = 0; i < chunkCount; i++) {
         const remaining = total - createdTotal
         const thisChunk = Math.min(REVIEW_CHUNK, remaining)
         setProgress((p) => ({ ...p, chunkIndex: i + 1 }))
 
+        // No status → backend persists as `draft`; the operator publishes
+        // from the editor after reviewing/editing.
         const res = await api.ai.bulkCreateReviews(
           {
             product_id: product.id,
             count: thisChunk,
             tone: reviewTone,
-            status: reviewStatus,
             date_spread_days: dateSpread,
           },
           getToken(),
         )
 
         createdTotal += res.meta.created
+        for (const r of res.data) {
+          collected.push({
+            id: r.id,
+            rating: r.rating,
+            title: r.title,
+            body: r.body,
+            author_name: r.author_name,
+            author_gender: r.author_gender,
+            author_avatar_url: r.author_avatar_url,
+          })
+        }
         setProgress((p) => ({ ...p, done: createdTotal }))
       }
 
-      setProgress((p) => ({ ...p, state: 'done', stage: `${createdTotal} avaliações criadas` }))
-      toast.success(`${createdTotal} avaliações geradas com IA`)
-      queryClient.invalidateQueries({ queryKey: ['reviews'] })
-      queryClient.invalidateQueries({ queryKey: ['products'] })
-      // Hold the success state visible for a beat so the operator sees
-      // the 100% bar before the modal closes.
-      window.setTimeout(onClose, 900)
+      setProgress((p) => ({ ...p, state: 'done', stage: `${createdTotal} rascunhos prontos` }))
+      // Flip into the draft editor for review/edit/publish.
+      setEditing({ kind: 'review', items: collected })
     } catch (err: unknown) {
       const msg = err instanceof ApiError ? err.message : 'Falha na geração IA'
       setProgress((p) => ({ ...p, state: 'error', error: msg }))
@@ -343,19 +361,27 @@ function BulkAIGeneratorModal({
   }
 
   const genQuestions = useMutation({
+    // No status → backend persists as `draft` for review in the editor.
     mutationFn: () =>
       api.ai.bulkCreateQuestions(
         {
           product_id: product.id,
           count: qaCount,
-          status: qaStatus,
         },
         getToken(),
       ),
     onSuccess: (res) => {
-      toast.success(`${res.meta.created} perguntas + respostas geradas`)
-      queryClient.invalidateQueries({ queryKey: ['questions'] })
-      onClose()
+      setEditing({
+        kind: 'question',
+        items: res.data.map((q) => ({
+          id: q.id,
+          body: q.body,
+          answer: q.answer,
+          author_name: q.author_name,
+          author_gender: q.author_gender,
+          author_avatar_url: q.author_avatar_url,
+        })),
+      })
     },
     onError: (err: unknown) => {
       const msg = err instanceof ApiError ? err.message : 'Falha na geração IA'
@@ -366,7 +392,17 @@ function BulkAIGeneratorModal({
   const busy = genReviews.isPending || genQuestions.isPending
 
   return (
-    <ModalShell ref={dialogRef} title={`Gerar com IA · ${product.name}`} onClose={onClose}>
+    <ModalShell ref={dialogRef} title={editing ? `Revisar · ${product.name}` : `Gerar com IA · ${product.name}`} onClose={onClose}>
+      {editing ? (
+        <AiDraftEditor
+          kind={editing.kind}
+          productName={product.name}
+          drafts={editing.items}
+          onClose={finishEditing}
+          onDone={finishEditing}
+        />
+      ) : (
+      <>
       <div
         className="flex p-1 rounded-lg mb-4"
         style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)' }}
@@ -464,25 +500,9 @@ function BulkAIGeneratorModal({
             />
           </Field>
 
-          <Field label="Status">
-            <div className="flex gap-2">
-              {(['approved', 'pending'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setReviewStatus(s)}
-                  className="flex-1 px-3 py-2 rounded-md text-xs font-medium transition-colors"
-                  style={{
-                    background: reviewStatus === s ? 'var(--ur-accent-soft)' : 'var(--ur-bg)',
-                    border: `1px solid ${reviewStatus === s ? 'var(--ur-accent-soft-3)' : 'var(--ur-border)'}`,
-                    color: reviewStatus === s ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
-                  }}
-                >
-                  {s === 'approved' ? 'Publicar direto' : 'Deixar pendente'}
-                </button>
-              ))}
-            </div>
-          </Field>
+          <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+            As avaliações são geradas como rascunho. Você revisa, edita e publica no próximo passo.
+          </p>
 
           <ModalFooter
             loading={busy}
@@ -513,25 +533,9 @@ function BulkAIGeneratorModal({
             />
           </Field>
 
-          <Field label="Status">
-            <div className="flex gap-2">
-              {(['published', 'pending'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setQaStatus(s)}
-                  className="flex-1 px-3 py-2 rounded-md text-xs font-medium transition-colors"
-                  style={{
-                    background: qaStatus === s ? 'var(--ur-accent-soft)' : 'var(--ur-bg)',
-                    border: `1px solid ${qaStatus === s ? 'var(--ur-accent-soft-3)' : 'var(--ur-border)'}`,
-                    color: qaStatus === s ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
-                  }}
-                >
-                  {s === 'published' ? 'Publicar direto' : 'Deixar pendente'}
-                </button>
-              ))}
-            </div>
-          </Field>
+          <p className="text-xs" style={{ color: 'var(--ur-text-muted)' }}>
+            As perguntas são geradas como rascunho. Você revisa, edita e publica no próximo passo.
+          </p>
 
           <ModalFooter
             loading={busy}
@@ -540,6 +544,8 @@ function BulkAIGeneratorModal({
             icon={<Wand2 className="w-4 h-4" />}
           />
         </form>
+      )}
+      </>
       )}
     </ModalShell>
   )

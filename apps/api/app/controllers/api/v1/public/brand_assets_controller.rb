@@ -24,8 +24,9 @@ module Api
       # token can't be used to read arbitrary objects out of the bucket.
       class BrandAssetsController < ApplicationController
         # Object keys we are willing to stream. Locks the proxy to brand
-        # assets and blocks path traversal / arbitrary-object reads.
-        KEY_RE = %r{\Apublic/workspaces/\d+/brand/[A-Za-z0-9._\-]+\z}
+        # assets + AI-draft author photos and blocks path traversal /
+        # arbitrary-object reads.
+        KEY_RE = %r{\Apublic/workspaces/\d+/(brand|authors)/[A-Za-z0-9._\-]+\z}
 
         def rating_icon
           key = self.class.decode_token(params[:token])

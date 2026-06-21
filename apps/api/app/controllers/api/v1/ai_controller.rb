@@ -156,7 +156,11 @@ module Api
         # admin client chunks larger jobs (10 per call) and aggregates,
         # which surfaces real progress instead of one long opaque wait.
         count      = (params[:count] || 5).to_i.clamp(1, 50)
-        target_status = %w[pending approved].include?(params[:status]) ? params[:status] : "approved"
+        # New flow: AI reviews land as `draft`. They stay out of the storefront
+        # AND the pending moderation queue until the operator reviews/edits them
+        # in the bulk-draft editor and hits "Publicar" (→ approved). Legacy
+        # callers can still force pending/approved via `status`.
+        target_status = %w[draft pending approved].include?(params[:status]) ? params[:status] : "draft"
         spread_days   = (params[:date_spread_days] || 30).to_i.clamp(0, 365)
         tone          = params[:tone].to_s.presence || "positive, authentic, varied"
         language      = params[:language].to_s.presence || current_workspace.default_locale
@@ -192,12 +196,14 @@ module Api
             # Spread the created_at across the requested window so the AI batch
             # doesn't show up as 50 reviews on the same minute.
             backdate = Time.current - rand(0..spread_days).days - rand(0..23).hours - rand(0..59).minutes
+            author_name, author_gender = fake_author(idx)
             review = current_workspace.reviews.create!(
               product:        product,
               rating:         (v[:rating] || 5).to_i.clamp(1, 5),
               title:          v[:title].to_s[0, 200],
               body:           v[:body].to_s[0, 4_000],
-              author_name:    fake_author_name(idx),
+              author_name:    author_name,
+              author_gender:  author_gender,
               source:         "manual",
               status:         target_status,
               language:       language,
@@ -221,7 +227,8 @@ module Api
           data: created.map { |r|
             {
               id: r.id, rating: r.rating, title: r.title, body: r.body,
-              author_name: r.author_name, status: r.status,
+              author_name: r.author_name, author_gender: r.author_gender,
+              author_avatar_url: r.author_avatar_url, status: r.status,
               created_at: r.created_at&.iso8601
             }
           },
@@ -235,6 +242,51 @@ module Api
         Rails.logger.error("[ai.bulk_create_reviews] #{e.class}: #{e.message}")
         Sentry.capture_exception(e) if defined?(Sentry)
         render json: { error: "ai_error", message: e.message }, status: :unprocessable_entity
+      end
+
+      # POST /api/v1/ai/upload-author-photo  (multipart: file)
+      #
+      # Optional custom avatar for an AI-draft author. Stored under the
+      # `public/workspaces/<id>/authors/` prefix and served through the same
+      # public proxy as brand assets (bucket stays private, URL is stable +
+      # CSP-friendly for the storefront widget). Returns { data: { url } }.
+      AUTHOR_PHOTO_MIME = %w[image/jpeg image/png image/webp].freeze
+      AUTHOR_PHOTO_MAX  = 2_000_000
+
+      def upload_author_photo
+        require_write!
+
+        file = params[:file]
+        unless file.respond_to?(:read) && file.respond_to?(:original_filename)
+          return render json: { error: "file_required", message: "Anexe uma imagem JPG, PNG ou WEBP." }, status: :bad_request
+        end
+
+        content_type = (file.content_type.presence || "application/octet-stream").downcase
+        unless AUTHOR_PHOTO_MIME.include?(content_type)
+          return render json: { error: "unsupported_type", message: "Apenas JPG, PNG ou WEBP." }, status: :unprocessable_entity
+        end
+
+        body = file.read
+        if body.bytesize > AUTHOR_PHOTO_MAX
+          return render json: { error: "too_large", message: "Imagem acima de #{AUTHOR_PHOTO_MAX / 1024} KB." }, status: :unprocessable_entity
+        end
+
+        ext = case content_type
+              when "image/png"  then ".png"
+              when "image/webp" then ".webp"
+              else ".jpg"
+              end
+        key = "public/workspaces/#{current_workspace.id}/authors/avatar-#{SecureRandom.hex(8)}#{ext}"
+
+        StorageService.new.upload(key: key, body: body, content_type: content_type, public: true)
+
+        base = ENV["API_PUBLIC_URL"].presence || request.base_url
+        url  = Api::V1::Public::BrandAssetsController.icon_url(key, base)
+
+        render json: { data: { url: url } }
+      rescue => e
+        Rails.logger.error("[ai.upload_author_photo] #{e.class}: #{e.message}")
+        render json: { error: "upload_error", message: e.message }, status: :unprocessable_entity
       end
 
       # POST /api/v1/ai/bulk-create-questions-all
@@ -298,7 +350,9 @@ module Api
         product_id = params.require(:product_id)
         product    = current_workspace.products.find(product_id)
         count      = (params[:count] || 5).to_i.clamp(1, 30)
-        target_status = %w[pending published].include?(params[:status]) ? params[:status] : "published"
+        # New flow: AI Q&A lands as `draft` for review in the bulk-draft editor.
+        # Legacy callers can still force pending/published via `status`.
+        target_status = %w[draft pending published].include?(params[:status]) ? params[:status] : "draft"
         language   = params[:language].to_s.presence || current_workspace.default_locale
 
         pairs = Ai::GenerateService.new(current_workspace).generate_qa_pairs(
@@ -314,9 +368,11 @@ module Api
           )
 
           pairs.each_with_index do |qa, idx|
+            author_name, author_gender = fake_author(idx)
             q = current_workspace.questions.create!(
               product:        product,
-              author_name:    fake_author_name(idx),
+              author_name:    author_name,
+              author_gender:  author_gender,
               body:           qa[:question].to_s[0, 1_000],
               answer:         qa[:answer].to_s[0, 5_000],
               status:         target_status,
@@ -334,7 +390,11 @@ module Api
 
         render json: {
           data: created.map { |q|
-            { id: q.id, body: q.body, answer: q.answer, author_name: q.author_name, status: q.status }
+            {
+              id: q.id, body: q.body, answer: q.answer,
+              author_name: q.author_name, author_gender: q.author_gender,
+              author_avatar_url: q.author_avatar_url, status: q.status
+            }
           },
           meta: { created: created.length, requested: count, product_id: product.id }
         }
@@ -740,9 +800,15 @@ module Api
 
       # Generate a plausible Brazilian first-name + surname for AI reviews.
       # Pool is large enough that 50 reviews in a batch never collide.
-      FIRST_NAMES = %w[
+      # Gendered first-name pools so an AI draft never ships a masculine name
+      # tagged female (or vice-versa). The operator can still flip the gender
+      # in the draft editor, which re-derives a matching name.
+      FIRST_NAMES_F = %w[
         Ana Beatriz Carla Daniela Eduarda Fernanda Gabriela Helena Isabela
         Julia Karina Larissa Mariana Nicole Olivia Patricia Renata Sofia Vanessa Yasmin
+      ].freeze
+
+      FIRST_NAMES_M = %w[
         Bruno Carlos Daniel Eduardo Felipe Gabriel Henrique Igor Joao Leonardo
         Marcos Nicolas Otavio Pedro Rafael Samuel Thiago Vitor William
       ].freeze
@@ -753,11 +819,18 @@ module Api
         Fernandes Moraes Nascimento Pinto Reis Vieira Cunha Teixeira Mendes Castro
       ].freeze
 
-      def fake_author_name(seed)
-        first = FIRST_NAMES[(seed + rand(0..1000)) % FIRST_NAMES.length]
-        last  = LAST_NAMES[(seed * 7 + rand(0..1000)) % LAST_NAMES.length]
-        "#{first} #{last[0]}."
+      # Returns [display_name, gender]. Gender alternates by seed parity for
+      # batch variety; the first name is always drawn from the matching pool.
+      def fake_author(seed)
+        gender = seed.even? ? "female" : "male"
+        pool   = gender == "female" ? FIRST_NAMES_F : FIRST_NAMES_M
+        first  = pool[(seed / 2 + rand(0..1000)) % pool.length]
+        last   = LAST_NAMES[(seed * 7 + rand(0..1000)) % LAST_NAMES.length]
+        ["#{first} #{last[0]}.", gender]
       end
+
+      # Back-compat shim — callers that only need the name.
+      def fake_author_name(seed) = fake_author(seed).first
     end
   end
 end

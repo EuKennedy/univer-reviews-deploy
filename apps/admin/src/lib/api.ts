@@ -169,6 +169,26 @@ class ApiClient {
         { method: 'POST', body: JSON.stringify({ status }) },
         token
       ),
+    // Full edit (AI draft editor): rating, title, body, author fields,
+    // gender, avatar, status. Publishing a draft = { status: 'approved' }.
+    update: (
+      id: string,
+      data: Partial<{
+        rating: number
+        title: string
+        body: string
+        author_name: string
+        author_gender: string
+        author_avatar_url: string | null
+        status: ReviewStatus
+      }>,
+      token: string,
+    ) =>
+      this.request<{ data: Review }>(
+        `/reviews/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ review: data }) },
+        token,
+      ).then((r) => r.data),
     delete: (id: string, token: string) =>
       this.request(`/reviews/${id}`, { method: 'DELETE' }, token),
     bulk: (ids: string[], action: BulkAction, token: string) =>
@@ -468,7 +488,7 @@ class ApiClient {
       token: string,
     ) =>
       this.request<{
-        data: Array<{ id: string; rating: number; title: string | null; body: string; author_name: string; status: string; created_at: string }>
+        data: Array<{ id: string; rating: number; title: string | null; body: string; author_name: string; author_gender: string | null; author_avatar_url: string | null; status: string; created_at: string }>
         meta: { created: number; requested: number; product_id: string }
       }>(
         '/ai/bulk-create-reviews',
@@ -489,13 +509,47 @@ class ApiClient {
       token: string,
     ) =>
       this.request<{
-        data: Array<{ id: string; body: string; answer: string; author_name: string | null; status: string }>
+        data: Array<{ id: string; body: string; answer: string; author_name: string | null; author_gender: string | null; author_avatar_url: string | null; status: string }>
         meta: { created: number; requested: number; product_id: string }
       }>(
         '/ai/bulk-create-questions',
         { method: 'POST', body: JSON.stringify(input) },
         token,
       ),
+
+    /**
+     * Upload a custom author avatar for an AI draft (multipart). Bypasses
+     * `request` because it forces JSON. Returns the public proxy URL.
+     */
+    uploadAuthorPhoto: async (file: File, token: string): Promise<{ url: string }> => {
+      const form = new FormData()
+      form.append('file', file)
+
+      const headers: Record<string, string> = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+      if (typeof window !== 'undefined') {
+        const slug = window.location.pathname.split('/').filter(Boolean)[0]
+        if (slug && !['login', 'invite', 'auth', 'api', '_next'].includes(slug)) {
+          headers['X-Univer-Workspace-Slug'] = slug
+        }
+      }
+
+      const res = await fetch(`${this.baseUrl}/api/v1/ai/upload-author-photo`, {
+        method: 'POST',
+        headers, // NO Content-Type — browser sets the multipart boundary
+        body: form,
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'unknown', message: res.statusText }))
+        throw new ApiError(res.status, err.message || err.error, err.issues)
+      }
+
+      const json = (await res.json()) as { data: { url: string } }
+      return json.data
+    },
 
     /**
      * Fan out Q&A generation across EVERY active product in the workspace.
@@ -768,6 +822,26 @@ class ApiClient {
         { method: 'PATCH', body: JSON.stringify({ question: { status } }) },
         token,
       ),
+    // Full edit (AI draft editor): question body, answer, author name/gender,
+    // avatar, status. Sends content fields so the backend takes the
+    // full-edit path (no auto-publish). Publishing = { status: 'published' }.
+    update: (
+      id: string,
+      data: Partial<{
+        body: string
+        answer: string
+        author_name: string
+        author_gender: string
+        author_avatar_url: string | null
+        status: QuestionStatus
+      }>,
+      token: string,
+    ) =>
+      this.request<{ data: Question }>(
+        `/questions/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ question: data }) },
+        token,
+      ).then((r) => r.data),
     delete: (id: string, token: string) =>
       this.request(`/questions/${id}`, { method: 'DELETE' }, token),
   }

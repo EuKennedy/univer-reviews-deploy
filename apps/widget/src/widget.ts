@@ -23,6 +23,7 @@ interface Review {
   body: string
   author_name: string
   author_country: string | null
+  author_avatar_url: string | null
   is_verified_purchase: boolean
   is_featured: boolean
   helpful_count: number
@@ -457,6 +458,7 @@ button { font-family: inherit; cursor: pointer; }
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-weight: 600; font-size: 13px; flex-shrink: 0;
 }
+.ur-avatar-img { object-fit: cover; display: block; }
 .ur-author {
   display: flex; flex-direction: column; min-width: 0; flex: 1;
 }
@@ -1323,11 +1325,15 @@ ${items.length === 0
     const color = avatarColor(name)
     const time = relativeTime(r.created_at, this.locale)
     const userVote = this.votes[r.id]
+    // Custom uploaded avatar wins; otherwise the deterministic initials chip.
+    const avatar = r.author_avatar_url
+      ? `<img class="ur-avatar ur-avatar-img" src="${escapeHtml(r.author_avatar_url)}" alt="" loading="lazy" />`
+      : `<div class="ur-avatar" style="background:${color}">${initialOf(name)}</div>`
 
     return `
 <article class="ur-card" data-id="${r.id}">
   <div class="ur-card-head">
-    <div class="ur-avatar" style="background:${color}">${initialOf(name)}</div>
+    ${avatar}
     <div class="ur-author">
       <div class="ur-author-line">
         <span>${escapeHtml(name)}</span>
