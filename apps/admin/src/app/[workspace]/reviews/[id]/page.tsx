@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -16,6 +16,10 @@ import {
   Globe,
   ShoppingBag,
   Shield,
+  Pencil,
+  Save,
+  X,
+  Upload,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -28,7 +32,7 @@ import { AiScoreGauge } from '@/components/ai/AiScoreGauge'
 import { api } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
 import { getInitials } from '@/lib/utils'
-import type { ReviewStatus } from '@/types'
+import type { Review, ReviewStatus } from '@/types'
 import Link from 'next/link'
 
 export default function ReviewDetailPage() {
@@ -42,6 +46,7 @@ export default function ReviewDetailPage() {
   const [replyText, setReplyText] = useState('')
   const [replyTone, setReplyTone] = useState('professional')
   const [generatingReply, setGeneratingReply] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   const { data: review, isLoading } = useQuery({
     queryKey: ['review', id],
@@ -139,6 +144,21 @@ export default function ReviewDetailPage() {
               Voltar
             </Link>
 
+            {!editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  background: 'var(--ur-accent-soft)',
+                  border: '1px solid var(--ur-accent-soft-3)',
+                  color: 'var(--ur-accent)',
+                }}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Editar
+              </button>
+            )}
+
             {review.status !== 'approved' && (
               <button
                 onClick={() => statusMutation.mutate('approved')}
@@ -194,7 +214,14 @@ export default function ReviewDetailPage() {
         <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Main review content */}
           <div className="lg:col-span-2 space-y-5">
-            {/* Review card */}
+            {/* Review card — display or edit */}
+            {editing ? (
+              <EditReviewCard
+                review={review}
+                onCancel={() => setEditing(false)}
+                onSaved={() => setEditing(false)}
+              />
+            ) : (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -214,7 +241,7 @@ export default function ReviewDetailPage() {
                     <h2 className="text-base font-semibold" style={{ color: 'var(--ur-text)' }}>
                       {authorName}
                     </h2>
-                    {review.verified_purchase && (
+                    {(review.is_verified_purchase ?? review.verified_purchase) && (
                       <span
                         className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
                         style={{
@@ -242,7 +269,7 @@ export default function ReviewDetailPage() {
                     ? [{ icon: Calendar, label: format(createdAtSafe, "d 'de' MMM, yyyy", { locale: ptBR }) }]
                     : []),
                   ...(review.source ? [{ icon: Globe, label: review.source }] : []),
-                  ...(review.product_name ? [{ icon: ShoppingBag, label: review.product_name }] : []),
+                  ...((review.product?.title || review.product_name) ? [{ icon: ShoppingBag, label: (review.product?.title || review.product_name)! }] : []),
                 ].map(({ icon: Icon, label }) => (
                   <div key={label} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--ur-text-soft)' }}>
                     <Icon className="w-3.5 h-3.5" style={{ color: 'var(--ur-text-muted)' }} />
@@ -292,6 +319,7 @@ export default function ReviewDetailPage() {
                 </div>
               )}
             </motion.div>
+            )}
 
             {/* Reply section */}
             <motion.div
@@ -366,7 +394,7 @@ export default function ReviewDetailPage() {
                       >
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-xs font-medium" style={{ color: 'var(--ur-text)' }}>
-                            {reply.author}
+                            {reply.author_name ?? reply.author ?? 'Equipe'}
                           </span>
                           {reply.ai_generated && (
                             <span
@@ -599,5 +627,268 @@ export default function ReviewDetailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// ─── Edit card ───────────────────────────────────────────────────────────────
+// Full inline edit of ANY review (including already-published ones): stars,
+// title, body, author name, gender, avatar photo, and status. Persists via
+// api.reviews.update; the avatar reuses the AI author-photo upload endpoint.
+
+const AVATAR_PALETTE = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444', '#14b8a6']
+function avatarColorFor(name: string): string {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length]
+}
+
+function EditReviewCard({
+  review,
+  onCancel,
+  onSaved,
+}: {
+  review: Review
+  onCancel: () => void
+  onSaved: () => void
+}) {
+  const { getToken } = useAuth()
+  const queryClient = useQueryClient()
+  const [rating, setRating] = useState(review.rating ?? 5)
+  const [hoverStar, setHoverStar] = useState(0)
+  const [title, setTitle] = useState(review.title ?? '')
+  const [body, setBody] = useState(review.body ?? '')
+  const [name, setName] = useState(review.author_name ?? '')
+  const [gender, setGender] = useState<string | null>(review.author_gender ?? null)
+  const [avatar, setAvatar] = useState<string | null>(review.author_avatar_url ?? null)
+  const [status, setStatus] = useState<ReviewStatus>(review.status)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.reviews.update(
+        review.id,
+        {
+          rating,
+          title,
+          body,
+          author_name: name,
+          author_gender: gender ?? undefined,
+          author_avatar_url: avatar,
+          status,
+        },
+        getToken(),
+      ),
+    onSuccess: () => {
+      toast.success('Avaliação atualizada')
+      queryClient.invalidateQueries({ queryKey: ['review', review.id] })
+      queryClient.invalidateQueries({ queryKey: ['reviews'] })
+      onSaved()
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'Falha ao salvar'),
+  })
+
+  async function pickPhoto(file: File | null) {
+    if (!file) return
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+      toast.error('Use JPG, PNG ou WEBP.')
+      return
+    }
+    setUploading(true)
+    try {
+      const r = await api.ai.uploadAuthorPhoto(file, getToken())
+      setAvatar(r.url)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Falha no upload')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const initials = (() => {
+    const n = (name || 'Cliente').trim().split(/\s+/)
+    return (n[0]?.[0] ?? 'C').toUpperCase() + (n[1]?.[0]?.toUpperCase() ?? '')
+  })()
+
+  const labelCls = 'block text-[11px] font-semibold uppercase tracking-wider mb-1'
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--ur-bg)',
+    border: '1px solid var(--ur-border)',
+    color: 'var(--ur-text)',
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl p-6 space-y-4"
+      style={{ background: 'var(--ur-surface)', border: '1px solid var(--ur-accent-soft-3)' }}
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--ur-text)' }}>
+          Editar avaliação
+        </h3>
+        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--ur-accent)' }}>
+          Modo edição
+        </span>
+      </div>
+
+      {/* Identity: avatar + name + gender */}
+      <div className="flex items-start gap-3">
+        <div className="flex flex-col items-center gap-1.5 shrink-0">
+          <div className="relative">
+            {avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatar} alt="" className="w-12 h-12 rounded-full object-cover" style={{ border: '1px solid var(--ur-border-strong)' }} />
+            ) : (
+              <span
+                className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold"
+                style={{ background: avatarColorFor(name || 'Cliente'), color: '#fff' }}
+                aria-hidden
+              >
+                {initials}
+              </span>
+            )}
+            {avatar && (
+              <button
+                type="button"
+                onClick={() => setAvatar(null)}
+                aria-label="Remover foto"
+                className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center cursor-pointer"
+                style={{ background: 'var(--ur-danger)', color: '#fff' }}
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider cursor-pointer"
+            style={{ color: 'var(--ur-accent)' }}
+          >
+            {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+            Foto
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              pickPhoto(e.target.files?.[0] ?? null)
+              if (e.target) e.target.value = ''
+            }}
+          />
+        </div>
+
+        <div className="flex-1 min-w-0 space-y-3">
+          <div>
+            <label className={labelCls} style={{ color: 'var(--ur-text-muted)' }}>Nome</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full text-sm rounded-lg px-3 py-2 outline-none" style={inputStyle} />
+          </div>
+          <div>
+            <label className={labelCls} style={{ color: 'var(--ur-text-muted)' }}>Sexo</label>
+            <div className="inline-flex p-0.5 rounded-lg" style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)' }}>
+              {([['female', 'Feminino'], ['male', 'Masculino']] as const).map(([g, lbl]) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setGender(g)}
+                  aria-pressed={gender === g}
+                  className="px-3 py-1.5 text-xs font-medium rounded-md cursor-pointer transition-colors"
+                  style={{
+                    background: gender === g ? 'var(--ur-accent-soft)' : 'transparent',
+                    color: gender === g ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
+                  }}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stars */}
+      <div>
+        <label className={labelCls} style={{ color: 'var(--ur-text-muted)' }}>Estrelas</label>
+        <div className="flex items-center gap-1" onMouseLeave={() => setHoverStar(0)}>
+          {[1, 2, 3, 4, 5].map((n) => {
+            const on = n <= (hoverStar || rating)
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setRating(n)}
+                onMouseEnter={() => setHoverStar(n)}
+                aria-label={`${n} estrela${n > 1 ? 's' : ''}`}
+                className="p-0.5 cursor-pointer transition-transform hover:scale-110"
+              >
+                <Star className="w-6 h-6" style={{ color: on ? 'var(--ur-warn)' : 'var(--ur-text-faint)', fill: on ? 'var(--ur-warn)' : 'none' }} />
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Title */}
+      <div>
+        <label className={labelCls} style={{ color: 'var(--ur-text-muted)' }}>Título (opcional)</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full text-sm rounded-lg px-3 py-2 outline-none" style={inputStyle} />
+      </div>
+
+      {/* Body */}
+      <div>
+        <label className={labelCls} style={{ color: 'var(--ur-text-muted)' }}>Texto da avaliação</label>
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} className="w-full text-sm rounded-lg px-3 py-2 outline-none resize-y leading-relaxed" style={inputStyle} />
+      </div>
+
+      {/* Status */}
+      <div>
+        <label className={labelCls} style={{ color: 'var(--ur-text-muted)' }}>Status</label>
+        <div className="flex gap-2 flex-wrap">
+          {(['approved', 'pending', 'rejected', 'hidden'] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatus(s)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors"
+              style={{
+                background: status === s ? 'var(--ur-accent-soft)' : 'var(--ur-bg)',
+                border: `1px solid ${status === s ? 'var(--ur-accent-soft-3)' : 'var(--ur-border)'}`,
+                color: status === s ? 'var(--ur-accent)' : 'var(--ur-text-soft)',
+              }}
+            >
+              {s === 'approved' ? 'Aprovada' : s === 'pending' ? 'Pendente' : s === 'rejected' ? 'Rejeitada' : 'Oculta'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={save.isPending}
+          className="px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors"
+          style={{ background: 'var(--ur-bg)', border: '1px solid var(--ur-border)', color: 'var(--ur-text-soft)' }}
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={() => save.mutate()}
+          disabled={save.isPending || !body.trim()}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: 'var(--ur-accent)', color: 'var(--ur-text-on-accent)' }}
+        >
+          {save.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Salvar
+        </button>
+      </div>
+    </motion.div>
   )
 }

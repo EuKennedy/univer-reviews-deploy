@@ -1,6 +1,6 @@
 // ─── Review ───────────────────────────────────────────────────────────────────
 
-export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'hidden' | 'spam'
+export type ReviewStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'hidden' | 'spam'
 export type ReviewSource = 'widget' | 'woocommerce' | 'api' | 'import' | 'ai_generated'
 export type BulkAction = 'approve' | 'reject' | 'delete' | 'hide' | 'mark_spam'
 
@@ -14,9 +14,11 @@ export interface ReviewMedia {
 export interface ReviewReply {
   id: string
   body: string
-  author: string
+  // Serializer returns `author_name`; `author` kept for back-compat.
+  author_name?: string | null
+  author?: string
   created_at: string
-  ai_generated: boolean
+  ai_generated?: boolean
 }
 
 export interface AiAnalysis {
@@ -40,20 +42,27 @@ export interface Review {
   author_name: string
   author_email: string | null
   author_avatar_url: string | null
+  // "female" | "male" | null — drives the gender toggle in the editors.
+  author_gender: string | null
+  author_country: string | null
   rating: number
   title: string | null
   body: string
   status: ReviewStatus
   source: ReviewSource
   verified_purchase: boolean
+  // Actual serializer field name (the API returns is_verified_purchase).
+  is_verified_purchase: boolean
   helpful_count: number
   media: ReviewMedia[]
   replies: ReviewReply[]
   ai_analysis: AiAnalysis | null
   reward_id: string | null
+  product?: { id: string; title: string | null; handle: string | null; image_url: string | null } | null
   created_at: string
   updated_at: string
   published_at: string | null
+  approved_at: string | null
 }
 
 export interface ReviewListParams {

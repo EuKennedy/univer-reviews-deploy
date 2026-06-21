@@ -156,7 +156,10 @@ class ApiClient {
         token
       ),
     get: (id: string, token: string) =>
-      this.request<Review>(`/reviews/${id}`, {}, token),
+      // show renders `{ data: serialize_review(..., full: true) }` — unwrap so
+      // callers get the Review directly (the detail page crashed on the
+      // `{ data }` wrapper: review.id was undefined → `.slice` on undefined).
+      this.request<{ data: Review }>(`/reviews/${id}`, {}, token).then((r) => r.data),
     create: (data: CreateReviewInput, token: string) =>
       this.request<Review>(
         '/reviews',

@@ -4,6 +4,12 @@ const config: Record<
   ReviewStatus,
   { label: string; bg: string; color: string; dot: string }
 > = {
+  draft: {
+    label: 'Rascunho',
+    bg: 'var(--ur-surface-soft)',
+    color: 'var(--ur-text-muted)',
+    dot: 'var(--ur-text-muted)',
+  },
   pending: {
     label: 'Pendente',
     bg: 'var(--ur-warn-bg)',
