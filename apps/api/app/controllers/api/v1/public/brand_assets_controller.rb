@@ -25,8 +25,11 @@ module Api
       class BrandAssetsController < ApplicationController
         # Object keys we are willing to stream. Locks the proxy to brand
         # assets + AI-draft author photos and blocks path traversal /
-        # arbitrary-object reads.
-        KEY_RE = %r{\Apublic/workspaces/\d+/(brand|authors)/[A-Za-z0-9._\-]+\z}
+        # arbitrary-object reads. The workspace segment is a UUID (hex +
+        # hyphens) — `[\w-]+` matches it and, crucially, excludes `/` so no
+        # path traversal is possible. (An earlier `\d+` here rejected every
+        # real key, since workspace IDs are UUIDs, not integers → 400.)
+        KEY_RE = %r{\Apublic/workspaces/[\w-]+/(brand|authors)/[A-Za-z0-9._\-]+\z}
 
         def rating_icon
           key = self.class.decode_token(params[:token])

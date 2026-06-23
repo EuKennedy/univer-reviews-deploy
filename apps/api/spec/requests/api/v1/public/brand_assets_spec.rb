@@ -7,7 +7,9 @@ require "rails_helper"
 #
 # StorageService is stubbed end-to-end so the spec never touches MinIO/S3.
 RSpec.describe "Api::V1::Public::BrandAssets", type: :request do
-  let(:key)   { "public/workspaces/42/brand/rating-icon-deadbeef.svg" }
+  # Workspace IDs are UUIDs — the key MUST use that shape (a numeric stub here
+  # previously masked a KEY_RE bug that rejected every real icon with 400).
+  let(:key)   { "public/workspaces/4ab0b6f8-f0b5-4299-b830-d5e30bfe4ce7/brand/rating-icon-deadbeef.svg" }
   let(:token) { Api::V1::Public::BrandAssetsController.encode_token(key) }
   let(:svg)   { '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 1"/></svg>' }
 
