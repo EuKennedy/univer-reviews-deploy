@@ -1,28 +1,16 @@
-import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
-import { auth } from '@/lib/auth'
-
 /**
- * Server-side guard for the (auth) route group.
+ * Layout for the (auth) route group (/login, /invite).
  *
- * Reverse-protect: if the visitor is ALREADY signed in and hits
- * /login or /invite, send them straight to the root resolver which
- * lands them on their dashboard (or the onboarding wizard for fresh
- * accounts). Showing a logged-in user the login form is a UX bug — they
- * stare at it confused, click around, sometimes accidentally sign in
- * with a different email and create a duplicate account.
+ * IMPORTANT: do NOT reverse-redirect signed-in users to `/` here. Several
+ * flows legitimately send a *signed-in* user back to /login with an error
+ * context (root → ?error=no_workspace, workspace layout →
+ * ?error=account_pending_deletion). A blanket `redirect('/')` in this layout
+ * ping-ponged with those redirects → infinite loop, locking users out.
  *
- * Side bonus: cleans up the "back-button after logout shows login but
- * session still alive" footgun on stale tabs.
+ * The "signed-in user shouldn't sit on a bare /login" UX is handled in the
+ * login page itself (client-side), which CAN read the query string and only
+ * bounces to the dashboard when there's no error to show.
  */
-export default async function AuthGroupLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (session?.user) {
-    redirect('/')
-  }
+export default function AuthGroupLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }

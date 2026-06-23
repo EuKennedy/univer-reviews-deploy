@@ -72,6 +72,23 @@ function LoginContent() {
     }
   }, [searchParams])
 
+  // Reverse-guard (replaces the old (auth)-layout redirect that caused an
+  // infinite loop): if a signed-in user lands on a *bare* /login (no error
+  // context), bounce them to their destination. When there IS an error
+  // (?error=no_workspace / account_pending_deletion) we stay so the message
+  // can render — never ping-pong back to the root resolver.
+  useEffect(() => {
+    if (searchParams?.get('error')) return
+    let active = true
+    authClient.getSession().then((res) => {
+      if (active && res?.data?.session) router.replace(next)
+    })
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const onPasswordSubmit = async (values: PasswordValues) => {
     setLoading(true)
     const { data, error } = await authClient.signIn.email({
